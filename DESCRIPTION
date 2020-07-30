@@ -1,0 +1,13 @@
+Package: miloR
+Type: Package
+Title: Differential neighbourhood abundance testing on a tree
+Version: 0.1.0
+Author: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
+Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: GPL-3
+Encoding: UTF-8
+Depends: igraph, SingleCellExperiment, edgeR
+Imports: BiocNeighbours, cydar
+Suggests: ggplot2
