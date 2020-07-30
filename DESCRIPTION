@@ -9,5 +9,6 @@ Description: More about what it does (maybe more than one line)
 License: GPL-3
 Encoding: UTF-8
 Depends: igraph, SingleCellExperiment, edgeR
-Imports: BiocNeighbours, cydar
+Imports: BiocNeighbors, cydar
 Suggests: ggplot2
+RoxygenNote: 7.1.1
