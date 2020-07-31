@@ -9,6 +9,9 @@ Description: More about what it does (maybe more than one line)
 License: GPL-3
 Encoding: UTF-8
 Depends: igraph, edgeR
-Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors, methods
+Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
+        methods
 Suggests: ggplot2
 RoxygenNote: 7.1.1
+NeedsCompilation: no
+Packaged: 2020-07-31 14:15:28 UTC; morgan02

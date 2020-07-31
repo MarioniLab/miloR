@@ -1,38 +1,69 @@
-# library(methods)
-# library(SingleCellExperiment)
-
-## allow matrices to be dense or sparse on instantiation
-## cast matrices to be sparse where possible
-
+#' The Milo class
+#'
+#' The Milo class extends the SingleCellExperiment class and is designed to
+#' work with neighbourhoods of cells. Therefore, it inherits from the
+#' \linkS4class{SingleCellExperiment} class and follows the same usage
+#' conventions. There is additional support for cell-to-cell distances
+#' via \code{\link{distance}}, and the KNN-graph used to define the
+#' neighbourhoods.
+#'
+#' @param ... Arguments passed to the \code{\link{Milo}} constructor to fill
+#' the slots of the base class.
+#' @param graph An igraph object or list of adjacent vertices that represents
+#' the KNN-graph
+#' @param adjacency A sparse matrix representation of the adjacency list
+#' @param distance A sparse matrix of cell-to-cell distances for cells in the
+#' same neighbourhoods
+#'
+#' @details
+#' In this class the underlying structure is the gene/feature X cell expression
+#' data. The additional slots provide a link between these single cells and
+#' the neighbourhood representation. This can be further extended by the use
+#' of an abstracted graph for visualisation that preserves the structure of the
+#' single-cell KNN-graph
+#'
+#' A Milo object can also be constructed by inputting a feature X cell gene
+#' expression matrix. In this case it simply constructs a SingleCellExperiment
+#' and fills the relevant slots, such as reducedDims.
+#'
+#' @return a Milo object
+#'
+#' @author Mike Morgan
+#'
+#' @examples
+#'
+#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'   reducedDims=SimpleList(PCA=pca$x))
+#'
+#' milo <- Milo(sce)
+#' milo
+#'
+#' @docType class
 #' @export
-#' @importClassesFrom Matrix dgCMatrix dsCMatrix
-setClassUnion("matrixORdgCMatrixORdsCMatrix", c("matrix", "dgCMatrix", "dsCMatrix"))
-setClassUnion("characterORNULL", c("character", "NULL"))
+#'
 #' @importFrom SingleCellExperiment SingleCellExperiment
 
-setClass("Milo",
-         contains = "SingleCellExperiment",
-         slots=c(
-             graph = "ANY", # this should be NA or an igraph object
-             adjacency = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
-             distance = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
-             neighbourhoodCounts = "matrixORdgCMatrixORdsCMatrix" # this should be NA or a matrix
-             ),
-         prototype = list(
-             graph = NA_real_,
-             adjacency = Matrix::Matrix(0L, sparse=TRUE),
-             distance = Matrix::Matrix(0L, sparse=TRUE),
-             neighbourhoodCounts = Matrix::Matrix(0L, sparse=TRUE)
-         )
-)
 
-
-## class helper
-Milo <- function(graph=NA_real_,
+Milo <- function(...,
+                 graph=NA_real_,
                  adjacency=Matrix::Matrix(0L, sparse=TRUE),
                  distance=Matrix::Matrix(0L, sparse=TRUE),
                  neighbourhoodCounts=Matrix::Matrix(0L, sparse=TRUE)){
-    new("Milo", graph=graph, adjacency=adjacency, distance=distance, neighbourhoodCounts=neighbourhoodCounts)
+    old <- S4Vectors:::disableValidity()
+    if (!isTRUE(old)) {
+        S4Vectors:::disableValidity(TRUE)
+        on.exit(S4Vectors:::disableValidity(old))
+    }
+
+    if(class(unlist(...)) == "SingleCellExperiment"){
+        milo <- .fromSCE(unlist(...))
+    }
+
+    milo
 }
 
 ## class validator
@@ -49,91 +80,3 @@ setValidity("Milo", function(object){
         TRUE
     }
 })
-
-
-
-
-
-######## Methods ########
-
-### graph slot
-setGeneric("graph", function(x) standardGeneric("graph"))
-setGeneric("graph<-", function(x, value) standardGeneric("graph<-"))
-
-setMethod("graph", "Milo", function(x) x@graph)
-setMethod("graph<-", "Milo", function(x, value){
-    x@graph <- value
-    validObject(x)
-    x
-    })
-
-### adjacency matrix slot
-setGeneric("adjacency", function(x) standardGeneric("adjacency"))
-setGeneric("adjacency<-", function(x, value) standardGeneric("adjacency<-"))
-
-setMethod("adjacency", "Milo", function(x) x@adjacency)
-setMethod("adjacency<-", "Milo", function(x, value){
-    x@adjacency <- value
-    validObject(x)
-    x
-})
-
-### distance matrix slot
-setGeneric("distance", function(x) standardGeneric("distance"))
-setGeneric("distance<-", function(x, value) standardGeneric("distance<-"))
-
-setMethod("distance", "Milo", function(x) x@distance)
-setMethod("distance<-", "Milo", function(x, value){
-    x@adjacency <- value
-    validObject(x)
-    x
-})
-
-
-### neighbourhoodCounts matrix slot
-setGeneric("neighbourhoodCounts", function(x) standardGeneric("neighbourhoodCounts"))
-setGeneric("neighbourhoodCounts<-", function(x, value) standardGeneric("neighbourhoodCounts<-"))
-
-setMethod("neighbourhoodCounts", "Milo", function(x) x@neighbourhoodCounts)
-setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
-    x@neighbourhoodCounts <- value
-    validObject(x)
-    x
-})
-
-
-#' @importFrom S4Vectors coolcat
-#' @importFrom methods callNextMethod
-#'
-.milo_show <- function(object) {
-    methods::callNextMethod()
-    S4Vectors::coolcat("neighbourhoodCounts names(%d): %s\n", names(object@neighbourhoodCounts))
-    S4Vectors::coolcat("distance names(%d): %s\n", names(object@distance))
-    S4Vectors::coolcat("adjacency names(%d): %s\n", names(object@adjacency))
-    S4Vectors::coolcat("graph names(%d): %s\n", names(object@graph))
-
-}
-
-setMethod("show", "Milo", .milo_show)
-
-
-
-
-
-
-#
-# ### tests ###
-# mylo <- Milo(neighbourhoodCounts=matrix(0L))
-#
-# graph(mylo) <- 341
-# graph(mylo)
-# neighbourhoodCounts(mylo)
-# distance(mylo)
-# adjacency(mylo)
-#
-# # # create an invalid object
-# # wrong <- Milo(graph="blah")
-#
-#
-
-
