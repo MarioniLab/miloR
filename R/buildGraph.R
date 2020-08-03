@@ -82,7 +82,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
-#' importFrom Matrix
+#' @importFrom Matrix Matrix
 .buildGraph <- function(x, k=10, d=50, transposed=transposed,
                         subset.row=subset.row,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
@@ -99,7 +99,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
     message(paste0("Constructing kNN graph with k:", k))
-    zee.graph <- neighborsToKNNGraph(nn.out$index, directed=FALSE)
+    zee.graph <- .neighborsToKNNGraph(nn.out$index, directed=FALSE)
     graph(x) <- zee.graph
 
     # adding distances
@@ -129,12 +129,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-#' @export
-#' @rdname buildGraph
+
 #' @import BiocNeighbors
 #' @import igraph
 #' @importFrom reshape2 melt
-neighborsToKNNGraph <- function(nn, directed=FALSE) {
+.neighborsToKNNGraph <- function(nn, directed=FALSE) {
     start <- as.vector(row(nn))
     end <- as.vector(nn)
     interleaved <- as.vector(rbind(start, end))
