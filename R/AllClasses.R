@@ -1,3 +1,4 @@
+
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix
 setClassUnion("matrixORdgCMatrixORdsCMatrix", c("matrix", "dgCMatrix", "dsCMatrix"))
 setClassUnion("characterORNULL", c("character", "NULL"))
