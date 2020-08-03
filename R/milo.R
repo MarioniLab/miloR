@@ -1,19 +1,22 @@
-#' The Milo class
+#' @title The Milo class
 #'
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the
 #' \linkS4class{SingleCellExperiment} class and follows the same usage
 #' conventions. There is additional support for cell-to-cell distances
-#' via \code{\link{distance}}, and the KNN-graph used to define the
-#' neighbourhoods.
+#' via distance, and the KNN-graph used to define the neighbourhoods.
 #'
-#' @param ... Arguments passed to the \code{\link{Milo}} constructor to fill
-#' the slots of the base class.
+#' @param ... Arguments passed to the Milo constructor to fill the slots of the
+#' base class. This should be either a \linkS4class{SingleCellExperiment} or
+#' matrix of features X cells
 #' @param graph An igraph object or list of adjacent vertices that represents
 #' the KNN-graph
-#' @param adjacency A sparse matrix representation of the adjacency list
-#' @param distance A sparse matrix of cell-to-cell distances for cells in the
-#' same neighbourhoods
+#' @param neighbourhoods A list of graph vertices, each containing the indices
+#' of the constiuent graph vertices in the respective neighbourhood
+#' @param neighbourDistances A sparse matrix of cell-to-cell distances for
+#' cells in the same neighbourhoods
+#' @param neighbourhoodCounts A matrix of neighbourhood X sample counts of the
+#' number of cells in each neighbourhood derived from the respective samples
 #'
 #' @details
 #' In this class the underlying structure is the gene/feature X cell expression
@@ -32,6 +35,7 @@
 #'
 #' @examples
 #'
+#' library(SingleCellExperiment)
 #' ux <- matrix(rpois(12000, 5), ncol=200)
 #' vx <- log2(ux + 1)
 #' pca <- prcomp(t(vx))
@@ -46,13 +50,13 @@
 #' @export
 #'
 #' @importFrom SingleCellExperiment SingleCellExperiment
-
+#' @importFrom Matrix Matrix
 
 Milo <- function(...,
-                 graph=NA_real_,
-                 adjacency=Matrix::Matrix(0L, sparse=TRUE),
-                 distance=Matrix::Matrix(0L, sparse=TRUE),
-                 neighbourhoodCounts=Matrix::Matrix(0L, sparse=TRUE)){
+                 graph=list(),
+                 neighbourDistances=Matrix(0L, sparse=TRUE),
+                 neighbourhoods=list(),
+                 neighbourhoodCounts=Matrix(0L, sparse=TRUE)){
     old <- S4Vectors:::disableValidity()
     if (!isTRUE(old)) {
         S4Vectors:::disableValidity(TRUE)
@@ -66,7 +70,33 @@ Milo <- function(...,
     milo
 }
 
+
+#' @importFrom S4Vectors SimpleList
+#' @importFrom Matrix Matrix
+#' @import SingleCellExperiment
+.fromSCE <- function(sce, assayName="logcounts"){
+    # keep the logcounts and reducedDims slots
+    SCE <- SingleCellExperiment(assays=SimpleList(expression=
+                                                      assay(sce, assayName)),
+                                colData=colData(sce),
+                                reducedDims=reducedDims(sce))
+
+    # make the distance and adjacency matrices the correct size
+    out <- new("Milo", SCE,
+               graph=list(),
+               neighbourhoods=list(),
+               neighbourDistances=Matrix(0L, sparse=TRUE),
+               neighbourhoodCounts=Matrix(0L, sparse=TRUE))
+
+    reducedDims(out) <- reducedDims(SCE)
+    altExps(out) <- list()
+
+    out
+}
+
+
 ## class validator
+#' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
     if (class(object@neighbourhoodCounts) != "matrixORdgCMatrixORdsCMatrix"){
         "@neighbourhoodCounts must be a matrix format"
@@ -74,9 +104,18 @@ setValidity("Milo", function(object){
         TRUE
     }
 
-    if (class(object@graph) != "numeric"){
-        "@graph must be of type numeric"
+    if(class(object@neighbourDistances) != "matrixORdgCMatrixORdsCMatrix"){
+        "@neighbourDistances must be a matrix format"
     } else{
         TRUE
+    }
+
+    # can be a list or igraph object
+    if (!is_igraph(object@graph)){
+        if(typeof(object@graph) != "list"){
+            "@graph must be of type list or igraph"
+        }
+        } else{
+            TRUE
     }
 })

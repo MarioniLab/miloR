@@ -1,54 +1,49 @@
-library(methods)
-library(SingleCellExperiment)
-
-## allow matrices to be dense or sparse on instantiation
-## cast matrices to be sparse where possible
-
-
-
-
-
 ######## Methods ########
+#' @export
+#' @describeIn Milo get graph
+setMethod("graph", "Milo", function(x) x@graph[[1]])
 
-### graph slot
-setGeneric("graph", function(x) standardGeneric("graph"))
-setGeneric("graph<-", function(x, value) standardGeneric("graph<-"))
-
-setMethod("graph", "Milo", function(x) x@graph)
+#' @export
+#' @describeIn Milo set graph
 setMethod("graph<-", "Milo", function(x, value){
-    x@graph <- value
+    x@graph <- list("graph"=value)
     validObject(x)
     x
     })
 
-### adjacency matrix slot
-setGeneric("adjacency", function(x) standardGeneric("adjacency"))
-setGeneric("adjacency<-", function(x, value) standardGeneric("adjacency<-"))
 
-setMethod("adjacency", "Milo", function(x) x@adjacency)
-setMethod("adjacency<-", "Milo", function(x, value){
-    x@adjacency <- value
-    validObject(x)
-    x
-})
+#' @export
+#' @describeIn Milo get neighbourDistances
+setMethod("neighbourDistances", "Milo", function(x) x@neighbourDistances)
 
-### distance matrix slot
-setGeneric("distance", function(x) standardGeneric("distance"))
-setGeneric("distance<-", function(x, value) standardGeneric("distance<-"))
-
-setMethod("distance", "Milo", function(x) x@distance)
-setMethod("distance<-", "Milo", function(x, value){
-    x@adjacency <- value
+#' @export
+#' @describeIn Milo set neighbourDistances
+setMethod("neighbourDistances<-", "Milo", function(x, value){
+    x@neighbourDistances <- value
     validObject(x)
     x
 })
 
 
-### neighbourhoodCounts matrix slot
-setGeneric("neighbourhoodCounts", function(x) standardGeneric("neighbourhoodCounts"))
-setGeneric("neighbourhoodCounts<-", function(x, value) standardGeneric("neighbourhoodCounts<-"))
+#' @export
+#' @describeIn Milo get neighbourhoods
+setMethod("neighbourhoods", "Milo", function(x) x@neighbourhoods)
 
+#' @export
+#' @describeIn Milo set neighbourhoods
+setMethod("neighbourhoods<-", "Milo", function(x, value){
+    x@neighbourhoods <- value
+    validObject(x)
+    x
+})
+
+
+#' @export
+#' @describeIn Milo get neighbourhoodCounts
 setMethod("neighbourhoodCounts", "Milo", function(x) x@neighbourhoodCounts)
+
+#' @export
+#' @describeIn Milo set neighbourhoodCounts
 setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
     x@neighbourhoodCounts <- value
     validObject(x)
@@ -58,14 +53,15 @@ setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
 
 #' @importFrom S4Vectors coolcat
 #' @importFrom methods callNextMethod
-#'
 .milo_show <- function(object) {
-    methods::callNextMethod()
-    S4Vectors::coolcat("neighbourhoodCounts names(%d): %s\n", names(object@neighbourhoodCounts))
-    S4Vectors::coolcat("distance names(%d): %s\n", names(object@distance))
-    S4Vectors::coolcat("adjacency names(%d): %s\n", names(object@adjacency))
-    S4Vectors::coolcat("graph names(%d): %s\n", names(object@graph))
-
+    callNextMethod()
+    coolcat("neighbourhoods dimensions(%d): %s\n", length(object@neighbourhoods))
+    coolcat("neighbourhoodCounts dimensions(%d): %s\n", dim(object@neighbourhoodCounts))
+    coolcat("neighbourDistances dimensions(%d): %s\n", dim(object@neighbourDistances))
+    coolcat("graph names(%d): %s\n", names(object@graph))
 }
 
+#' @export
+#' @describeIn Milo show method
+#' @import methods
 setMethod("show", "Milo", .milo_show)
