@@ -8,9 +8,9 @@ Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
 License: GPL-3
 Encoding: UTF-8
-Depends: igraph, edgeR
+Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
-        methods
+        methods, igraph, irlba
 Suggests: ggplot2
 RoxygenNote: 7.1.1
 NeedsCompilation: no
