@@ -59,6 +59,10 @@ setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
     coolcat("neighbourhoodCounts dimensions(%d): %s\n", dim(object@neighbourhoodCounts))
     coolcat("neighbourDistances dimensions(%d): %s\n", dim(object@neighbourDistances))
     coolcat("graph names(%d): %s\n", names(object@graph))
+
+    sink(file="/dev/null")
+    gc()
+    sink(file=NULL)
 }
 
 #' @export
