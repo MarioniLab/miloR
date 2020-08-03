@@ -2,7 +2,9 @@ Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a tree
 Version: 0.1.0
-Author: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
+Authors@R:
+    c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
+    person("Emma", "Dann", role=c("aut"), email="ed6@sanger.ac.uk"))
 Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
