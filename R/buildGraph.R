@@ -104,7 +104,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
     # adding distances
     message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    old.dist <- Matrix(0L, ncol=ncol(x), nrow=nrow(x), sparse=TRUE)
+    old.dist <- Matrix(0L, ncol=ncol(x), nrow=ncol(x), sparse=TRUE)
 
     n.idx <- ncol(x)
     for(i in seq_along(1:n.idx)){

@@ -1,4 +1,4 @@
-#' @title The Milo class
+#' The Milo class
 #'
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the
@@ -47,14 +47,15 @@
 #' milo
 #'
 #' @docType class
+#' @name Milo
+NULL
+
 #' @export
-#'
+#' @rdname Milo
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom Matrix Matrix
 
-Milo <- function(...,
-                 graph=list(),
-                 neighbourDistances=Matrix(0L, sparse=TRUE),
+Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
                  neighbourhoods=list(),
                  neighbourhoodCounts=Matrix(0L, sparse=TRUE)){
     old <- S4Vectors:::disableValidity()

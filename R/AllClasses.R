@@ -1,10 +1,11 @@
-
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix
 setClassUnion("matrixORdgCMatrixORdsCMatrix", c("matrix", "dgCMatrix", "dsCMatrix"))
 setClassUnion("characterORNULL", c("character", "NULL"))
 
-#' @export
+
 #' @rdname Milo
+#' @aliases Milo
+#' @export
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors SimpleList
 
