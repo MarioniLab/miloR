@@ -11,6 +11,8 @@
 #' @param prop A double scalar that defines what proportion of graph vertices
 #' to randomly sample. Must be 0 < prop < 1.
 #' @param k An integer scalar - the same k used to construct the input graph.
+#' @param d The number of dimensions to use if the input is a matrix of cells
+#' X reduced dimensions. 
 #' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the 
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a 
 #' matrix of vertices X reduced dimensions.
@@ -41,7 +43,7 @@
 #' milo <- makeNeighbourhoods(milo, prop=0.1)
 #' milo
 #' @name makeNeighbourhoods
-makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced_dims="PCA") {
+makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")
         # check that a graph has been built
@@ -51,7 +53,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
         graph <- miloR::graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
-            warning(paste("Warning: specified n_components is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using", ncol(X_reduced_dims),"components\n"))
+            warning(paste("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using", ncol(X_reduced_dims),"dimensions\n"))
             d <- ncol(X_reduced_dims)
         }
         X_reduced_dims  <- X_reduced_dims[,1:d]
