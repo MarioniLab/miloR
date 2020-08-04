@@ -101,19 +101,13 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
 }
 
 #' @import igraph
-.sample_vertices <- function(graph, prop, return.vertices=FALSE, seed=42){
+.sample_vertices <- function(graph, prop, seed=42){
     set.seed(seed)
     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
-
-    if(isTRUE(return.vertices)){
-        return(random.vertices)
-    } else{
-        message("Finding neighbours of sampled vertices")
-        vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
-        return(vertex.list)
-    }
+    return(random.vertices)
 }
+
 
 #' @export
 #' @rdname makeNeighbourhoods
