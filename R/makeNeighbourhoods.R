@@ -172,7 +172,7 @@ refine_vertex <- function(vertex.knn, v.ix, X_pca){
 #' milo <- makeNeighbourhoodsFast(milo, prop=0.1)
 #' milo
 #' @name makeNeighbourhoodsFast
-makeNeighbourhoodsFast <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced_dims="PCA", k2=100) {
+makeNeighbourhoodsFast <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")
         # check that a graph has been built
@@ -229,7 +229,7 @@ makeNeighbourhoodsFast <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, red
         # nh_reduced_dims points among X_reduced_dims points). Suggestions are welcome
         all_reduced_dims <- rbind(nh_reduced_dims, X_reduced_dims)
         nn_mat <- BiocNeighbors::findKNN(all_reduced_dims,
-                                         k = k2,
+                                         k = nrow(nh_reduced_dims) + 1,
                                          subset = rownames(nh_reduced_dims))[["index"]]
         nn_mat_names <- apply(nn_mat, c(1,2), function(x) rownames(all_reduced_dims)[x])
         i = 1
@@ -238,9 +238,9 @@ makeNeighbourhoodsFast <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, red
             update_ix <- grep(sampled_vertices, pattern="nh_")
             sampled_vertices[update_ix] <- nn_mat_names[update_ix, i]
             i <- i + 1
-            if (i > k2) {
-                stop("Average profiles are closer to each other than to real cells. Try increasing k2.")
-            }
+            # if (i > k2) {
+            #     stop("Average profiles are closer to each other than to real cells. Try increasing k2.")
+            # }
         }
         sampled_vertices <- match( sampled_vertices, rownames(X_reduced_dims))
     } 
