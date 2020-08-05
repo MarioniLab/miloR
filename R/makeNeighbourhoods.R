@@ -46,46 +46,19 @@
 #' @export
 #' @rdname makeNeighbourhoods
 #' @importFrom BiocNeighbors findKNN
-<<<<<<< HEAD
 #' @importFrom igraph neighbors
 makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
-=======
-#'
-makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced_dims=NULL){
-
->>>>>>> cb2882cf25c3e78a4a08038c991ccf0fc69553c2
     if(class(x) == "Milo"){
         message("Checking valid object")
         # check that a graph has been built
         if(!.valid_graph(graph(x))){ 
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
-<<<<<<< HEAD
         graph <- graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
             warning(paste("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using", ncol(X_reduced_dims),"dimensions\n"))
             d <- ncol(X_reduced_dims)
-=======
-
-        if(isFALSE(refined)){
-            message("No sampling refinement - returning randomly selected vertices")
-            v.list <- .sample_vertices(graph(x), prop=prop, seed=seed, return.vertices=FALSE)
-            neighbourhoodIndex(x) <- as(v.list[[1]], "list")
-            neighbourhoods(x) <- v.list[[2]]
-
-            return(x)
-        } else if(isTRUE(refined)){
-            message("Using refined sampling")
-            random.vertices <- .sample_vertices(graph(x), prop=prop, seed=seed, return.vertices=TRUE)
-            vertex.knn <- findKNN(X=reducedDim(x, "PCA"), k=k, subset=as.vector(random.vertices))
-            refined.vertices <- unique(V(graph(x))[sapply(1:nrow(vertex.knn$index), function(i) refine_vertex(vertex.knn, i, reducedDim(x, "PCA")))])
-
-            neighbourhoodIndex(x) <- as(refined.vertices, "list")
-            neighbourhoods(x) <- sapply(1:length(refined.vertices), FUN=function(X) neighbors(graph(x), v=refined.vertices[X]))
-
-            return(x)
->>>>>>> cb2882cf25c3e78a4a08038c991ccf0fc69553c2
         }
         X_reduced_dims  <- X_reduced_dims[,1:d]
     } else if(class(x) == "igraph"){
@@ -97,7 +70,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
     } else{
         stop(paste0("Data format: ", class(x), " not recognised. Should be Milo or igraph"))
     }
-    random_vertices <- .sample_vertices(graph, prop, seed)
+    random_vertices <- .sample_vertices(graph, prop, seed, return.vertices = TRUE)
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
     } else if (isTRUE(refined)) {
@@ -112,7 +85,8 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
                 neighbors(graph, v = sampled_vertices[X])
         )
     nh_list <- setNames(nh_list, sampled_vertices)
-    if(class(x) == "Milo"){ 
+    if(class(x) == "Milo"){
+        neighbourhoodIndex(x) <- as(sampled_vertices, "list")
         neighbourhoods(x) <- nh_list 
         return(x)
     } else {
@@ -165,15 +139,6 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
         FALSE
     }
 }
-
-#' #' @import igraph
-#' .sample_vertices <- function(graph, prop, seed=42){
-#'     set.seed(seed)
-#'     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
-#'     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
-#'     return(random.vertices)
-#' }
-
 
 #' @import igraph
 .sample_vertices <- function(graph, prop, return.vertices=FALSE, seed=42){
