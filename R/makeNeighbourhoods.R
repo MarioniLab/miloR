@@ -78,20 +78,23 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
                 get.index = TRUE,
                 get.distance = FALSE
             )
-        knn_mat <-
-            matrix(0, nrow = length(as.vector(random_vertices)), ncol = ncol(x))
-        knn_mat <- as(knn_mat, "sparseMatrix")
-        for (ix in 1:nrow(knn_mat)) {
-            knn_mat[ix, vertex.knn$index[ix, ]] <- 1
-        }
-        ## Calculate avg profile of nearest neighbors
-        nh_reduced_dims <- knn_mat %*% X_reduced_dims
-        nh_reduced_dims <- t(apply(
-            nh_reduced_dims,
-            1,
-            FUN = function(x)
-                x / k
-        ))
+        # knn_mat <-
+        #     Matrix(0, nrow = length(as.vector(random_vertices)), ncol = ncol(milo), sparse=TRUE)
+        # # knn_mat <- as(knn_mat, "sparseMatrix")
+        # for (ix in 1:nrow(knn_mat)) {
+        #     knn_mat[ix, vertex.knn$index[ix, ]] <- 1
+        # }
+        # ## Calculate avg profile of nearest neighbors
+        # nh_reduced_dims <- knn_mat %*% X_reduced_dims
+        # nh_reduced_dims <- t(apply(
+        #     nh_reduced_dims,
+        #     1,
+        #     FUN = function(x)
+        #         x / k
+        # ))
+       
+        nh_reduced_dims <- t(apply(vertex.knn$index, 1, function(x) colMedians(X_reduced_dims[x,])))
+        colnames(nh_reduced_dims) <- colnames(X_reduced_dims)
         rownames(nh_reduced_dims) <- paste0('nh_', 1:nrow(nh_reduced_dims))
         
         ## Search nearest cell to average profile
@@ -148,6 +151,30 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
     return(random.vertices)
 }
 
+### PLotting utility function ###
 
+plotNeighborhoodSizeHist <- function(milo, bins=50){
+    if (! isTRUE(.valid_neighbourhood(milo))){
+        stop("Not a valid Milo object - neighbourhoods are missing. Please run makeNeighbourhoods() first.")
+    }
+    df <- data.frame(nh_size=sapply(milo@neighbourhoods, function(x) length(x))) 
+    ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
+        xlab("Neighbourhood size") +
+        theme_classic(base_size = 16)
+}
+
+
+#' @importFrom igraph is_igraph
+.valid_neighbourhood <- function(milo){
+    # check for a valid neighbourhood slot
+    n_neigh <- length(milo@neighbourhoods)
+    is_not_empty <- n_neigh > 0
+    is_igraph_vx <- class(milo@neighbourhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
+    if (isTRUE(is_igraph_vx & is_not_empty)){
+        TRUE
+    } else {
+        FALSE
+    }
+}
 
 
