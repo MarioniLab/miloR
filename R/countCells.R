@@ -85,7 +85,6 @@ countCells <- function(x, samples, data=NULL){
             } else{
                 j.s.vertices <- intersect(v.i, which(data[, samples] == j.s))
             }
-
             count.matrix[i, j] <- length(j.s.vertices)
         }
     }

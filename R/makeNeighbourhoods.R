@@ -25,7 +25,7 @@
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
-#' neighbourhoods slot. If the input is a \code{igraph} object then the output
+#' isIndex slot. If the input is a \code{igraph} object then the output
 #' is a list of vertices and the indices of vertices that constitute the
 #' neighbourhoods.
 #'
@@ -46,6 +46,7 @@ NULL
 #' @export
 #' @rdname makeNeighbourhoods
 #' @importFrom BiocNeighbors findKNN
+#'
 makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced_dims=NULL){
 
     if(class(x) == "Milo"){
@@ -57,13 +58,18 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
 
         if(isFALSE(refined)){
             message("No sampling refinement - returning randomly selected vertices")
-            neighbourhoods(x) <- .sample_vertices(graph(x), prop=prop, seed=seed, return.vertices=FALSE)
+            v.list <- .sample_vertices(graph(x), prop=prop, seed=seed, return.vertices=FALSE)
+            neighbourhoodIndex(x) <- as(v.list[[1]], "list")
+            neighbourhoods(x) <- v.list[[2]]
+
             return(x)
         } else if(isTRUE(refined)){
             message("Using refined sampling")
             random.vertices <- .sample_vertices(graph(x), prop=prop, seed=seed, return.vertices=TRUE)
             vertex.knn <- findKNN(X=reducedDim(x, "PCA"), k=k, subset=as.vector(random.vertices))
             refined.vertices <- unique(V(graph(x))[sapply(1:nrow(vertex.knn$index), function(i) refine_vertex(vertex.knn, i, reducedDim(x, "PCA")))])
+
+            neighbourhoodIndex(x) <- as(refined.vertices, "list")
             neighbourhoods(x) <- sapply(1:length(refined.vertices), FUN=function(X) neighbors(graph(x), v=refined.vertices[X]))
 
             return(x)
@@ -111,7 +117,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, refined=TRUE, seed=42, reduced
     } else{
         message("Finding neighbours of sampled vertices")
         vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
-        return(vertex.list)
+        return(list(random.vertices, vertex.list))
     }
 }
 
