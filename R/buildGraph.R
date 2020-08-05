@@ -89,8 +89,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         x <- Milo(x)
     }
 
-    .buildGraph(x, k=k, d=d, transposed=transposed,
-                subset.row=NULL,
+    .buildGraph(x, k=k, d=d,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
@@ -99,13 +98,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-.buildGraph <- function(x, k=10, d=50, transposed=transposed,
-                        subset.row=subset.row,
+.buildGraph <- function(x, k=10, d=50,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
-    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), subset.row=subset.row,
-                              d=d, transposed=transposed,
+    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
     sink(file="/dev/null")
@@ -144,12 +141,12 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, k,
+.setup_knn_data <- function(x, k, d,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
+    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
 }
 
 
