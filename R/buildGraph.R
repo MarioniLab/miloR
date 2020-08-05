@@ -86,7 +86,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-#' @importFrom Matrix Matrix
+#' @importFrom Matrix Matrix sparseMatrix
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
@@ -111,7 +111,10 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
     # adding distances
     message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    old.dist <- Matrix(0L, ncol=ncol(x), nrow=ncol(x), sparse=TRUE)
+    # set this up as a dense matrix first, then coerce to a sparse matrix
+    # starting with a sparse matrix requires a coercion at each iteration
+    # which uses up lots of memory and unncessary CPU time
+    old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
 
     n.idx <- ncol(x)
     for(i in seq_along(1:n.idx)){
@@ -120,7 +123,12 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         old.dist[i, i.knn] <- i.dists
         old.dist[i.knn, i] <- i.dists
     }
+    old.dist <- as(old.dist, "dgCMatrix")
     neighbourDistances(x) <- old.dist
+
+    sink(file="/dev/null")
+    gc()
+    sink(file=NULL)
 
     x
 }
