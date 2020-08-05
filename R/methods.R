@@ -51,6 +51,19 @@ setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
 })
 
 
+#' @export
+#' @describeIn Milo get neighbourhoodIndex
+setMethod("neighbourhoodIndex", "Milo", function(x) x@neighbourhoodIndex)
+
+#' @export
+#' @describeIn Milo set neighbourhoodIndex
+setMethod("neighbourhoodIndex<-", "Milo", function(x, value){
+    x@neighbourhoodIndex <- value
+    validObject(x)
+    x
+})
+
+
 #' @importFrom S4Vectors coolcat
 #' @importFrom methods callNextMethod
 .milo_show <- function(object) {
@@ -59,6 +72,7 @@ setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
     coolcat("neighbourhoodCounts dimensions(%d): %s\n", dim(object@neighbourhoodCounts))
     coolcat("neighbourDistances dimensions(%d): %s\n", dim(object@neighbourDistances))
     coolcat("graph names(%d): %s\n", names(object@graph))
+    coolcat("neighbourhoodIndex names(%d): %s\n", length(object@neighbourhoodIndex))
 
     sink(file="/dev/null")
     gc()

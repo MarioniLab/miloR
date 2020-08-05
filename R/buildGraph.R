@@ -43,6 +43,9 @@ NULL
 #' @export
 #' @rdname buildGraph
 #' @importFrom irlba prcomp_irlba
+#' @importFrom BiocSingular bsparam
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocNeighbors KmknnParam
 buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
                        BSPARAM=bsparam(), BPPARAM=SerialParam()){
 
@@ -82,7 +85,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
+
 #' @importFrom Matrix Matrix
+#' @importFrom BiocSingular bsparam
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocNeighbors KmknnParam
 .buildGraph <- function(x, k=10, d=50, transposed=transposed,
                         subset.row=subset.row,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
@@ -104,7 +111,10 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
     # adding distances
     message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    old.dist <- Matrix(0L, ncol=ncol(x), nrow=ncol(x), sparse=TRUE)
+    # set this up as a dense matrix first, then coerce to a sparse matrix
+    # starting with a sparse matrix requires a coercion at each iteration
+    # which uses up lots of memory and unncessary CPU time
+    old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
 
     n.idx <- ncol(x)
     for(i in seq_along(1:n.idx)){
@@ -113,7 +123,12 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         old.dist[i, i.knn] <- i.dists
         old.dist[i.knn, i] <- i.dists
     }
+    old.dist <- as(old.dist, "dgCMatrix")
     neighbourDistances(x) <- old.dist
+
+    sink(file="/dev/null")
+    gc()
+    sink(file=NULL)
 
     x
 }
@@ -129,10 +144,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-
-#' @import BiocNeighbors
-#' @import igraph
-#' @importFrom reshape2 melt
+#' @importFrom igraph make_graph simplify
 .neighborsToKNNGraph <- function(nn, directed=FALSE) {
     start <- as.vector(row(nn))
     end <- as.vector(nn)
