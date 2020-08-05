@@ -13,6 +13,9 @@
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
 #' @param transposed Logical if the input x is transposed with rows as cells.
+#' @param BNPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param BSPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param BPPARAM refer to \link[scran]{buildKNNgraph} for details.
 #'
 #' @details
 #' This function computes a k-nearest neighbour graph. Each graph vertex is a
@@ -26,8 +29,7 @@
 #' construct this separately and add to the relevant slot in the
 #' \code{\link{Milo}} object.
 #'
-#' @return A \code{\linkS4class{Milo}} object with the graph, adjacency and
-#' distance slots populated.
+#' @return A \code{\linkS4class{Milo}} object with the graph and distance slots populated.
 #'
 #' @author
 #' Mike Morgan, with KNN code written by Aaron Lun & Jonathan Griffiths.
@@ -62,10 +64,17 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
             x_pca <- prcomp_irlba(logcounts(x))
             reducedDim(x, "PCA") <- x_pca$x
         }
-    } else if (class(x) == "matrix"){
-        # assume input are PCs
-
-
+    } else if(class(x) == "matrix" & isTRUE(transposed)){
+        # assume input are PCs - the expression data is non-sensical here
+        SCE <- SingleCellExperiment(assays=list(counts=Matrix(0L, nrow=1, ncol=nrow(x))),
+                                    reducedDims=SimpleList("PCA"=x))
+        x <- Milo(SCE)
+    } else if(class(x) == "matrix" & isFALSE(transposed)){
+        # this should be a gene expression matrix
+        SCE <- SingleCellExperiment(assays=list(logcounts=x))
+        x_pca <- prcomp_irlba(logcounts(SCE))
+        reducedDim(SCE, "PCA") <- x_pca$x
+        x <- Milo(SCE)
     } else if (class(x) == "SingleCellExperiment"){
         # test for reducedDims, if not then compute them
         # give me a Milo object
@@ -135,7 +144,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, subset.row, d, transposed, k,
+.setup_knn_data <- function(x, k,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances

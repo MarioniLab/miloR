@@ -4,7 +4,7 @@ Title: Differential neighbourhood abundance testing on a tree
 Version: 0.1.0
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
-    person("Emma", "Dann", role=c("aut"), email="ed6@sanger.ac.uk"))
+    person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
 Description: More about what it does (maybe more than one line)
     Use four spaces when indenting paragraphs within the Description.
@@ -12,7 +12,7 @@ License: GPL-3
 Encoding: UTF-8
 Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
-        methods, igraph, irlba
+        methods, igraph, irlba, BiocParallel, BiocSingular, limma
 Suggests: ggplot2
 RoxygenNote: 7.1.1
 NeedsCompilation: no

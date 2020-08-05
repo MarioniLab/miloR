@@ -42,6 +42,8 @@ NULL
 #' @export
 #' @importFrom stats model.matrix
 #' @importFrom Matrix colSums
+#' @importFrom stats dist median
+#' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNeighbourhoods <- function(x, design, data,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex"),
@@ -65,7 +67,7 @@ testNeighbourhoods <- function(x, design, data,
     fit <- glmQLFit(dge, model, robust=TRUE)
     if(!is.null(model.contrasts)){
         mod.constrast <- makeContrasts(model.contrasts, levels=model)
-        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=sim2.contrast),
+        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=model.contrasts),
                                      sort.by='none', n=Inf))
     } else{
         n.coef <- ncol(model)
