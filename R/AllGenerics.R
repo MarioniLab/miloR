@@ -5,11 +5,13 @@ setGeneric("graph", function(x) standardGeneric("graph"))
 #' @export
 setGeneric("graph<-", function(x, value) standardGeneric("graph<-"))
 
+
 #' @export
 setGeneric("neighbourDistances", function(x) standardGeneric("neighbourDistances"))
 
 #' @export
 setGeneric("neighbourDistances<-", function(x, value) standardGeneric("neighbourDistances<-"))
+
 
 #' @export
 setGeneric("neighbourhoods", function(x) standardGeneric("neighbourhoods"))
@@ -23,3 +25,10 @@ setGeneric("neighbourhoodCounts", function(x) standardGeneric("neighbourhoodCoun
 
 #' @export
 setGeneric("neighbourhoodCounts<-", function(x, value) standardGeneric("neighbourhoodCounts<-"))
+
+
+#' @export
+setGeneric("neighbourhoodIndex", function(x) standardGeneric("neighbourhoodIndex"))
+
+#' @export
+setGeneric("neighbourhoodIndex<-", function(x, value) standardGeneric("neighbourhoodIndex<-"))
