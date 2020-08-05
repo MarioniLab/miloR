@@ -27,7 +27,7 @@
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
-#' neighbourhoods slot. If the input is a \code{igraph} object then the output
+#' isIndex slot. If the input is a \code{igraph} object then the output
 #' is a list of vertices and the indices of vertices that constitute the
 #' neighbourhoods.
 #'
@@ -43,6 +43,9 @@
 #' milo <- makeNeighbourhoods(milo, prop=0.1)
 #' milo
 #' @name makeNeighbourhoods
+#' @export
+#' @rdname makeNeighbourhoods
+#' @importFrom BiocNeighbors findKNN
 makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")
@@ -150,6 +153,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
     return(random.vertices)
 }
+
 
 ### PLotting utility function ###
 

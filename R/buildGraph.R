@@ -43,6 +43,9 @@ NULL
 #' @export
 #' @rdname buildGraph
 #' @importFrom irlba prcomp_irlba
+#' @importFrom BiocSingular bsparam
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocNeighbors KmknnParam
 buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
                        BSPARAM=bsparam(), BPPARAM=SerialParam()){
 
@@ -82,7 +85,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
+
 #' @importFrom Matrix Matrix
+#' @importFrom BiocSingular bsparam
+#' @importFrom BiocParallel SerialParam
+#' @importFrom BiocNeighbors KmknnParam
 .buildGraph <- function(x, k=10, d=50, transposed=transposed,
                         subset.row=subset.row,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
@@ -129,10 +136,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-
-#' @import BiocNeighbors
-#' @import igraph
-#' @importFrom reshape2 melt
+#' @importFrom igraph make_graph simplify
 .neighborsToKNNGraph <- function(nn, directed=FALSE) {
     start <- as.vector(row(nn))
     end <- as.vector(nn)
