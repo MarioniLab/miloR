@@ -151,6 +151,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
         message("Finding neighbours of sampled vertices")
         vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
+
     }
 }
 
