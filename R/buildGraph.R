@@ -86,7 +86,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-#' @importFrom Matrix Matrix sparseMatrix
+#' @importFrom Matrix Matrix
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam

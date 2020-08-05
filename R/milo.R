@@ -78,20 +78,20 @@ Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
 #' @import SingleCellExperiment
 .fromSCE <- function(sce, assayName="logcounts"){
     # keep the logcounts and reducedDims slots
-    SCE <- SingleCellExperiment(assays=SimpleList(expression=
-                                                      assay(sce, assayName)),
-                                colData=colData(sce),
-                                reducedDims=reducedDims(sce))
+    # SCE <- SingleCellExperiment(assays=SimpleList(expression=
+    #                                                   assay(sce, assayName)),
+    #                             colData=colData(sce),
+    #                             reducedDims=reducedDims(sce))
 
     # make the distance and adjacency matrices the correct size
-    out <- new("Milo", SCE,
+    out <- new("Milo", sce,
                graph=list(),
                neighbourhoods=list(),
                neighbourDistances=Matrix(0L, sparse=TRUE),
                neighbourhoodCounts=Matrix(0L, sparse=TRUE),
                neighbourhoodIndex=list())
 
-    reducedDims(out) <- reducedDims(SCE)
+    reducedDims(out) <- reducedDims(sce)
     altExps(out) <- list()
 
     out
