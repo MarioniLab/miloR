@@ -94,6 +94,8 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
   }
   colnames(rdim_df) <- c('X','Y')
   rdim_df[,"nhIndex"] <- 1:nrow(rdim_df)
+  nhIndex <- unlist(neighbourhoodIndex(x))
+  milo_results[,"nhIndex"] <- nhIndex
   viz2_df  <- left_join(rdim_df, milo_results, by="nhIndex") 
   
   ## Filter significant DA neighbourhoods 
