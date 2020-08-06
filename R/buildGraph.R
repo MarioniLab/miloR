@@ -36,7 +36,7 @@
 #'
 #' @examples
 #' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- buildGraph(m, d=10)
+#' milo <- buildGraph(m, d=10, transposed=TRUE)
 #'
 #' milo
 #' @name buildGraph

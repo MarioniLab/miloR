@@ -24,7 +24,7 @@
 #'
 #' @examples
 #'
-#' requires(igraph)
+#' library(igraph)
 #' m <- matrix(rnorm(10000), ncol=10)
 #' milo <- buildGraph(m, d=10)
 #' milo <- makeNeighbourhoods(milo, prop=0.3)

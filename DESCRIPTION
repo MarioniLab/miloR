@@ -12,7 +12,8 @@ License: GPL-3
 Encoding: UTF-8
 Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
-        methods, igraph, irlba, BiocParallel, BiocSingular, limma
+        methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
+        matrixStats
 Suggests: ggplot2
 RoxygenNote: 7.1.1
 NeedsCompilation: no
