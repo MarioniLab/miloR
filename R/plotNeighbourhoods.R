@@ -69,6 +69,8 @@ plotNeighborhoodSizeHist <- function(milo, bins=50){
 #' \code{\linkS4class{Milo}} object to use as (default: 'UMAP').
 #' @param filter_alpha the spatialFDR cutoff used as a significance threshold. If not \code{NULL} the logFC will be plotted only for 
 #' significantly DA neighbourhoods (default: NULL)
+#' @param split_by A character indicating the \code{colData} column in \code{x} to use for faceting 
+#' e.g. useful to visualize results by cell type
 #' @param pt_size size of scatterplot points (default: 1.5)
 #' @param components vector of reduced dimensions components to plot (default: c(1,2))
 #' 
@@ -83,7 +85,7 @@ plotNeighborhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotMiloReducedDim
 #' @import ggplot2
 #' @importFrom dplyr left_join mutate arrange
-plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alpha=NULL, 
+plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
                                pt_size=1.5, components=c(1,2)
 ){
   ## Join test results and dimensionality reductions
@@ -97,6 +99,12 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
   nhIndex <- unlist(neighbourhoodIndex(x))
   milo_results[,"nhIndex"] <- nhIndex
   viz2_df  <- left_join(rdim_df, milo_results, by="nhIndex") 
+  
+  if (!is.null(split_by)){
+    split_df <- data.frame(split_by=colData(milo)[,split_by])
+    split_df[,"nhIndex"] <- 1:nrow(split_df)
+    viz2_df  <- left_join(viz2_df, split_df, by="nhIndex") 
+  }
   
   ## Filter significant DA neighbourhoods 
   if (!is.null(filter_alpha)) {
@@ -125,9 +133,12 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
     xlab(paste(reduced_dims, components[1], sep="_")) +
     ylab(paste(reduced_dims, components[2], sep="_"))
   
+  if (!is.null(split_by)) {
+    pl <- pl + facet_wrap(split_by~.)
+  }
   if (!is.null(filter_alpha)) {
     pl <- pl +
-      scale_color_manual(values = 'grey', label = paste("SpatialFDR <", round(filter_alpha, 2))) +
+      scale_color_manual(values = 'grey', label = paste("SpatialFDR >", round(filter_alpha, 2))) +
       guides(colour = guide_legend(
         '',
         override.aes = list(
