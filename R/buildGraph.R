@@ -16,6 +16,7 @@
 #' @param BNPARAM refer to \link[scran]{buildKNNgraph} for details.
 #' @param BSPARAM refer to \link[scran]{buildKNNgraph} for details.
 #' @param BPPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param seed Seed number used for pseudorandom number generators.
 #'
 #' @details
 #' This function computes a k-nearest neighbour graph. Each graph vertex is a
@@ -49,8 +50,8 @@ NULL
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
-                       BSPARAM=bsparam(), BPPARAM=SerialParam()){
-
+                       BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
+    set.seed(seed)
     # check class of x to determine which function to call
     # in all cases it must return a Milo object with the graph slot populated
     # what is a better design principle here? make a Milo object here and just
@@ -61,7 +62,8 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         # check for reducedDims
         if(is.null(reducedDim(x, "PCA"))){
             # assume logcounts is present?
-            x_pca <- prcomp_irlba(logcounts(x))
+            x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
+                                  scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         }
     } else if(class(x) == "matrix" & isTRUE(transposed)){
@@ -72,7 +74,8 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
     } else if(class(x) == "matrix" & isFALSE(transposed)){
         # this should be a gene expression matrix
         SCE <- SingleCellExperiment(assays=list(logcounts=x))
-        x_pca <- prcomp_irlba(logcounts(SCE))
+        x_pca <- prcomp_irlba(t(logcounts(SCE)), n=min(d+1, ncol(x)-1),
+                              scale.=TRUE, center=TRUE)
         reducedDim(SCE, "PCA") <- x_pca$x
         x <- Milo(SCE)
     } else if (class(x) == "SingleCellExperiment"){
@@ -82,8 +85,9 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
             # assume logcounts is present - how dangerous is this?
             # better to check first, or have the user input the assay
             # to use?
-            x_pca <- prcomp_irlba(logcounts(x))
-            reducedDim(x, "PCA") <- x_pca$x
+            x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
+                                  scale.=TRUE, center=TRUE)
+            reducedDims(x, "PCA") <- x_pca$x
         }
 
         x <- Milo(x)
@@ -141,7 +145,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, k, d,
+.setup_knn_data <- function(x, k, d=50,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances
