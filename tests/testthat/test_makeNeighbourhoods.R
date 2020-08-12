@@ -8,7 +8,6 @@ library(scater)
 library(irlba)
 library(MASS)
 library(mvtnorm)
-library(miloR)
 
 set.seed(42)
 r.n <- 1000

@@ -39,5 +39,3 @@ setGeneric("neighbourhoodExpression", function(x) standardGeneric("neighbourhood
 
 #' @export
 setGeneric("neighbourhoodExpression<-", function(x, value) standardGeneric("neighbourhoodExpression<-"))
-
-
