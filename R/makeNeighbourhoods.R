@@ -47,6 +47,7 @@
 #' @rdname makeNeighbourhoods
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors
+#' @importFrom stats setNames
 makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")

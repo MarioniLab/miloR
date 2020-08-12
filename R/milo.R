@@ -18,6 +18,7 @@
 #' @param neighbourhoodCounts A matrix of neighbourhood X sample counts of the
 #' number of cells in each neighbourhood derived from the respective samples
 #' @param neighbourhoodIndex A list of cells that are the neighborhood index cells.
+#' @param neighbourhoodExpression A matrix of gene X neighbourhood expression.
 #'
 #' @details
 #' In this class the underlying structure is the gene/feature X cell expression
@@ -58,7 +59,8 @@ NULL
 Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
                  neighbourhoods=list(),
                  neighbourhoodCounts=Matrix(0L, sparse=TRUE),
-                 neighbourhoodIndex=list()){
+                 neighbourhoodIndex=list(),
+                 neighbourhoodExpression=Matrix(0L, sparse=TRUE)){
     old <- S4Vectors:::disableValidity()
     if (!isTRUE(old)) {
         S4Vectors:::disableValidity(TRUE)
@@ -83,7 +85,8 @@ Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
                neighbourhoods=list(),
                neighbourDistances=Matrix(0L, sparse=TRUE),
                neighbourhoodCounts=Matrix(0L, sparse=TRUE),
-               neighbourhoodIndex=list())
+               neighbourhoodIndex=list(),
+               neighbourhoodExpression=Matrix(0L, sparse=TRUE))
 
     reducedDims(out) <- reducedDims(sce)
     altExps(out) <- list()

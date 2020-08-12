@@ -16,13 +16,15 @@ setClass("Milo",
              neighbourhoods = "list", # this should be a list
              neighbourDistances = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
              neighbourhoodCounts = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
-             neighbourhoodIndex = "list" # used to store neighbourhood indices
+             neighbourhoodIndex = "list", # used to store neighbourhood indices
+             neighbourhoodExpression = "matrixORdgCMatrixORdsCMatrix" # this should be NA or a matrix
          ),
          prototype = list(
              graph = list(),
              neighbourhoods = list(),
              neighbourDistances = Matrix::Matrix(0L, sparse=TRUE),
              neighbourhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
-             neighbourhoodIndex = list()
+             neighbourhoodIndex = list(),
+             neighbourhoodExpression = Matrix::Matrix(0L, sparse=TRUE)
          )
 )

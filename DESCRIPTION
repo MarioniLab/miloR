@@ -15,7 +15,6 @@ Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
         matrixStats
 Suggests: 
-    ggplot2,
     testthat
 RoxygenNote: 7.1.1
 NeedsCompilation: no
