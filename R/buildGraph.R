@@ -36,8 +36,8 @@
 #' Mike Morgan, with KNN code written by Aaron Lun & Jonathan Griffiths.
 #'
 #' @examples
-#' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- buildGraph(m, d=10, transposed=TRUE)
+#' m <- matrix(rnorm(50000), ncol=50)
+#' milo <- buildGraph(m, d=30, transposed=TRUE)
 #'
 #' milo
 #' @name buildGraph
@@ -87,7 +87,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
             # to use?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
-            reducedDims(x, "PCA") <- x_pca$x
+            reducedDim(x, "PCA") <- x_pca$x
         }
 
         x <- Milo(x)
