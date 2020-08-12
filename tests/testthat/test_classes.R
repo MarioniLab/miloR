@@ -96,7 +96,7 @@ test_that("Milo getters working as expected", {
                                     reduced_dims="PCA")
     expect_type(neighbourhoods(sim1.mylo), "list")
 
-    sim1.mylo <- countCells(sim1.mylo, samples="Sample", data=meta.df)
+    sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_s4_class(neighbourhoodCounts(sim1.mylo), "Matrix")
 
     # check concordant dimensions for neighbourhoods

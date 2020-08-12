@@ -17,6 +17,7 @@
 #' DA testing.
 #' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from edge,
 #' vertex, neighbour-distance or k-distance (default).
+#' @param seed Seed number used for pseudorandom number generators.
 #'
 #'
 #' @details
@@ -41,19 +42,22 @@ NULL
 
 #' @export
 #' @importFrom stats model.matrix
-#' @importFrom Matrix colSums
+#' @importFrom Matrix colSums rowMeans
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNeighbourhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex"),
-                               min.mean=0, model.contrasts=NULL){
-
+                               min.mean=0, model.contrasts=NULL, seed=42){
+    set.seed(seed)
     if(class(design) == "formula"){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
     } else if(class(design) == "matrix"){
         model <- design
+        if(any(rownames(model) != rownames(design.df))){
+            warning("Design matrix and design matrix dimnames are not the same")
+        }
     }
 
     if(class(x) != "Milo"){
@@ -62,23 +66,28 @@ testNeighbourhoods <- function(x, design, design.df,
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
-    # need to assume rownames of model are already set?
-    # could check and warn at least if they aren't equal
-    if(rownames(model) != rownames(design.df)){
-        warning("Design matrix and design.df matrix dimnanes are not the same")
+    if(ncol(neighbourhoodCounts(x)) != nrow(model)){
+        stop(paste0("Design matrix (", nrow(model), ") and neighbourhood counts (",
+                    ncol(neighbourhoodCounts(x)), ") are not the same dimension"))
     }
 
     # assume neighbourhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
-    dge <- DGEList(counts=neighbourhoodCounts(x),
+    if(min.mean > 0){
+        keep.nh <- rowMeans(neighbourhoodCounts(x)) >= min.mean
+    } else{
+        keep.nh <- rep(TRUE, nrow(neighbourhoodCounts(x)))
+    }
+
+    dge <- DGEList(counts=neighbourhoodCounts(x)[keep.nh, ],
                    lib.size=log(colSums(neighbourhoodCounts(x))))
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=TRUE)
     if(!is.null(model.contrasts)){
-        mod.constrast <- makeContrasts(model.contrasts, levels=model)
-        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=model.contrasts),
+        mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
+        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
                                      sort.by='none', n=Inf))
     } else{
         n.coef <- ncol(model)
@@ -86,13 +95,14 @@ testNeighbourhoods <- function(x, design, design.df,
     }
 
     res$Neighbourhood <- as.numeric(rownames(res))
-    message("Performing spatial FDR correction")
+    message(paste0("Performing spatial FDR correction with", fdr.weighting, " weighting"))
     mod.spatialfdr <- graphSpatialFDR(nhoods=neighbourhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
                                       pvalues=res[order(res$Neighbourhood), ]$PValue,
                                       indices=neighbourhoodIndex(x),
-                                      distances=neighbourDistances(x))
+                                      distances=neighbourDistances(x),
+                                      reduced.dimensions=reducedDim(x, "PCA"))
 
     res$SpatialFDR[order(res$Neighbourhood)] <- mod.spatialfdr
     res

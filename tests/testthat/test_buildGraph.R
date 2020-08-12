@@ -91,7 +91,7 @@ test_that("buildGraph can take different inputs", {
     # withouth input reduced dimensions
     sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex))
     sim1.mylo <- Milo(sim1.sce)
-    expect_true(igraph::identical_graphs(graph(buildGraph(sim1.mylo, k=21)), sim1.graph))
+    expect_true(igraph::identical_graphs(graph(suppressWarnings(buildGraph(sim1.mylo, k=21))), sim1.graph))
 
     # input are PCs
     expect_true(igraph::identical_graphs(graph(buildGraph(sim1.pca$x, transposed=TRUE, k=21)), sim1.graph))
