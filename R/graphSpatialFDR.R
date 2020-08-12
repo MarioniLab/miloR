@@ -57,6 +57,9 @@ graphSpatialFDR <- function(nhoods, graph, pvalues, weighting='vertex', reduced.
         pvalues <- pvalues[haspval]
     }
 
+    if(weighting[1] == "none"){
+        return(rep(NA_real_, length(pvalues)))
+    }
     # if the weighting vector length > 1 then just take the first element as this is the default
     # is this a bit hacky?
     if(length(weighting) > 1){

@@ -16,7 +16,8 @@
 #' @param model.contrasts A string vector that defines the contrasts used to perform
 #' DA testing.
 #' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from edge,
-#' vertex, neighbour-distance or k-distance (default).
+#' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
+#' spatial FDR correction is performed and returns a vector of NAs.
 #' @param seed Seed number used for pseudorandom number generators.
 #'
 #'
@@ -47,7 +48,7 @@ NULL
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNeighbourhoods <- function(x, design, design.df,
-                               fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex"),
+                               fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
                                min.mean=0, model.contrasts=NULL, seed=42){
     set.seed(seed)
     if(class(design) == "formula"){
