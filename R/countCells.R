@@ -5,7 +5,7 @@
 #' neighbourhood abundance testing.
 #' @param x A \code{\linkS4class{Milo}} object with non-empty \code{graph} and
 #' \code{neighbourhoods} slots.
-#' @param data A cell X variable \code{data.frame}  containing study meta-data
+#' @param meta.data A cell X variable \code{data.frame}  containing study meta-data
 #' including experimental sample IDs. Assumed to be in the same order as the
 #' cells in the input \code{\linkS4class{Milo}} object.
 #' @param samples Either a string specifying which column of \code{data}
@@ -39,7 +39,7 @@
 #'                                   rep("R3", nrow(m)-(2*floor(nrow(m)*0.33))))
 #'
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
-#' milo <- countCells(milo, data=meta.df, sample.column="SampID")
+#' milo <- countCells(milo, meta.data=meta.df, sample.column="SampID")
 #' milo
 #'
 #' @name countCells
@@ -49,11 +49,11 @@ NULL
 #' @rdname countCells
 #' @importFrom Matrix Matrix
 #' @importClassesFrom S4Vectors DataFrame
-countCells <- function(x, samples, data=NULL){
+countCells <- function(x, samples, meta.data=NULL){
 
-    if(length(samples) > 1 & !is.null(data)){
+    if(length(samples) > 1 & !is.null(meta.data)){
         stop("Multiple sample columns provided, please specify a unique column name")
-    } else if(is.null(data) & length(samples) != ncol(x)){
+    } else if(is.null(meta.data) & length(samples) != ncol(x)){
         stop(paste0("Length of vector does not match dimensions of object. Length:",
                     length(samples), " Dimensions: ", ncol(x)))
     }
@@ -63,9 +63,9 @@ countCells <- function(x, samples, data=NULL){
         stop("No neighbourhoods found. Please run makeNeighbourhoods() first.")
     }
 
-    message("Checking data validity")
-    if(!is.null(data)){
-        samp.ids <- unique(data[, samples])
+    message("Checking meta.data validity")
+    if(!is.null(meta.data)){
+        samp.ids <- unique(meta.data[, samples])
     } else{
         samp.ids <- unique(samples)
     }
@@ -81,11 +81,11 @@ countCells <- function(x, samples, data=NULL){
         for(j in seq_along(1:length(samp.ids))){
             j.s <- samp.ids[j]
 
-            if(is.null(data)){
+            if(is.null(meta.data)){
                 # samples is a vector of N cells
                 j.s.vertices <- intersect(v.i, names(samples[samples == j.s]))
             } else{
-                j.s.vertices <- intersect(v.i, which(data[, samples] == j.s))
+                j.s.vertices <- intersect(v.i, which(meta.data[, samples] == j.s))
             }
             count.matrix[i, j] <- length(j.s.vertices)
         }

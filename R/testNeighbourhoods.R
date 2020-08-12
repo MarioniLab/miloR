@@ -9,7 +9,7 @@
 #' of the formula or last column of the model matrix are by default the test
 #' variable. This behaviour can be overridden by setting the \code{model.contrasts}
 #' argument
-#' @param data A \code{data.frame} containing meta-data to which \code{design}
+#' @param design.df A \code{data.frame} containing meta-data to which \code{design}
 #' refers to
 #' @param min.mean A scalar used to threshold neighbourhoods on the minimum
 #' average cell counts across samples.
@@ -45,16 +45,27 @@ NULL
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
-testNeighbourhoods <- function(x, design, data,
+testNeighbourhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex"),
                                min.mean=0, model.contrasts=NULL){
 
     if(class(design) == "formula"){
-        model <- model.matrix(design, data=data)
-        rownames(model) <- rownames(data)
+        model <- model.matrix(design, data=design.df)
+        rownames(model) <- rownames(design.df)
     } else if(class(design) == "matrix"){
-        # need to assume rownames of model are already set?
         model <- design
+    }
+
+    if(class(x) != "Milo"){
+        stop("Unrecognised input type - must be of class Milo")
+    } else if(.is_empty(x, "neighbourhoodCounts")){
+        stop("Neighbourhood counts missing - please run countCells first")
+    }
+
+    # need to assume rownames of model are already set?
+    # could check and warn at least if they aren't equal
+    if(rownames(model) != rownames(design.df)){
+        warning("Design matrix and design.df matrix dimnanes are not the same")
     }
 
     # assume neighbourhoodCounts and model are in the same order
@@ -85,4 +96,20 @@ testNeighbourhoods <- function(x, design, data,
 
     res$SpatialFDR[order(res$Neighbourhood)] <- mod.spatialfdr
     res
+}
+
+
+#' @importFrom methods slot
+#' @importFrom Matrix rowSums
+.is_empty <- function(x, attribute){
+    # check if a Milo object slot is empty or not
+    x.slot <- slot(x, attribute)
+
+    if(class(x.slot) == "list" & names(slot(sim1.mylo, "graph")) == "graph"){
+        return(length(x.slot[[1]]) > 0)
+    } else if(class(x.slot) == "list" & is.null(names(x.slot))){
+        return(length(x.slot))
+    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix"))){
+        return(sum(rowSums(x.slot)) == 0)
+    }
 }
