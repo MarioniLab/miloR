@@ -13,7 +13,7 @@ library(miloR)
 set.seed(42)
 r.n <- 1000
 n.dim <- 50
-block1.cells <- 1200
+block1.cells <- 500
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block1.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block1.eigens <- block1.eigens[order(block1.eigens)]
@@ -22,7 +22,7 @@ block1.sigma <- crossprod(block1.p, block1.p*block1.eigens)
 block1.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block1.cells, mean=2, sd=0.01), sigma=block1.sigma))
 
 
-block2.cells <- 1200
+block2.cells <- 400
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block2.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block2.eigens <- block2.eigens[order(block2.eigens)]
@@ -31,7 +31,7 @@ block2.sigma <- crossprod(block2.p, block2.p*block2.eigens)
 block2.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block2.cells, mean=4, sd=0.01), sigma=block2.sigma))
 
 
-block3.cells <- 1250
+block3.cells <- 200
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block3.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block3.eigens <- block3.eigens[order(block3.eigens)]
@@ -75,16 +75,6 @@ sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
                                  reducedDims=list("PCA"=sim1.pca$x))
 
 sim1.mylo <- Milo(sim1.sce)
-sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
-sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
-                                d=30,
-                                reduced_dims="PCA")
-sim1.mylo <- countCells(sim1.mylo, samples="Sample", data=meta.df)
-
-sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
-                        "Replicate"=rep(c("R1", "R2", "R3"), 2))
-sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
-rownames(sim1.meta) <- sim1.meta$Sample
 
 test_that("Milo inherits from SingleCellExperiment", {
     expect_is(sim1.mylo, "SingleCellExperiment")
@@ -92,9 +82,19 @@ test_that("Milo inherits from SingleCellExperiment", {
 
 
 test_that("Milo getters working as expected", {
+    # graph retrieval with an empty graph should give a warning
+    expect_warning(graph(sim1.mylo), "Graph not set")
+
+    sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
     expect_type(graph(sim1.mylo), "list")
     expect_s4_class(neighbourDistances(sim1.mylo), "Matrix")
+
+    sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
+                                    d=30,
+                                    reduced_dims="PCA")
     expect_type(neighbourhoods(sim1.mylo), "list")
+
+    sim1.mylo <- countCells(sim1.mylo, samples="Sample", data=meta.df)
     expect_s4_class(neighbourhoodCounts(sim1.mylo), "Matrix")
 
     # check concordant dimensions for neighbourhoods

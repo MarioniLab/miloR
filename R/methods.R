@@ -1,7 +1,14 @@
 ######## Methods ########
 #' @export
 #' @describeIn Milo get graph
-setMethod("graph", "Milo", function(x) x@graph[[1]])
+setMethod("graph", "Milo", function(x) {
+    if(length(x@graph)){
+        x@graph[[1]]
+    } else{
+        warning("Graph not set")
+        list()
+        }
+    })
 
 #' @export
 #' @describeIn Milo set graph
