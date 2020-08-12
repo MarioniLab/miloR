@@ -40,6 +40,7 @@ block3.sigma <- crossprod(block3.p, block3.p*block3.eigens)
 block3.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block3.cells, mean=5, sd=0.01), sigma=block3.sigma))
 
 sim1.gex <- do.call(cbind, list("b1"=block1.gex, "b2"=block2.gex, "b3"=block3.gex))
+colnames(sim1.gex) <- paste0("Cell", 1:ncol(sim1.gex))
 sim1.pca <- prcomp_irlba(t(sim1.gex), n=50+1, scale.=TRUE, center=TRUE)
 
 set.seed(42)
