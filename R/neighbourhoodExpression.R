@@ -4,7 +4,7 @@
 #' Milo object stored in the assays slot. Neighbourhood expression data are
 #' stored in a new slot \code{neighbourhoodExpression}.
 #'
-#' @param x A \code{Milo} object with neighbourhoods slot populated, alternatively a list
+#' @param x A \code{Milo} object with \code{neighbourhoods} slot populated, alternatively a list
 #' containing a vector of cell indices; one per neighbourhood.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
@@ -15,7 +15,7 @@
 #' This function computes the mean expression of each gene, subset by \code{subset.rows}
 #' where present, across the cells contained within each neighbourhood.
 #'
-#' @return A \code{\linkS4class{Milo}} object with the neighbourhoodExpression slot populated.
+#' @return A \code{\linkS4class{Milo}} object with the \code{neighbourhoodExpression} slot populated.
 #'
 #' @author
 #' Mike Morgan
@@ -33,7 +33,7 @@
 NULL
 
 #' @export
-#' @rdname buildGraph
+#' @rdname calcNeighbourhoodExpression
 calcNeighbourhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NULL){
 
     if(class(x) == "Milo"){

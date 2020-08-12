@@ -34,9 +34,9 @@
 #' cond.b <- setdiff(1:nrow(m), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond,
-#'                       Replicate=c(rep("R1", floor(nrow(m)*0.33)),
-#'                                   rep("R2", floor(nrow(m)*0.33)),
-#'                                   rep("R3", nrow(m)-(2\*floor(nrow(m)\*0.33))))
+#'                       Replicate=c(rep("R1", floor(nrow(m)*0.33)),/
+#'                                   rep("R2", floor(nrow(m)*0.33)),/
+#'                                   rep("R3", nrow(m)-(2*floor(nrow(m)*0.33))))
 #'
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 #' milo <- countCells(milo, data=meta.df, sample.column="SampID")
@@ -46,6 +46,7 @@
 NULL
 
 #' @export
+#' @rdname countCells
 #' @importFrom Matrix Matrix
 #' @importClassesFrom S4Vectors DataFrame
 countCells <- function(x, samples, data=NULL){
