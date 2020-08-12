@@ -1,4 +1,4 @@
-context("Testing class instantiation and methods")
+context("Testing makeNeighbourhoods function")
 library(miloR)
 
 ### Set up a mock data set using simulated data
@@ -13,7 +13,7 @@ library(miloR)
 set.seed(42)
 r.n <- 1000
 n.dim <- 50
-block1.cells <- 500
+block1.cells <- 1500
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block1.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block1.eigens <- block1.eigens[order(block1.eigens)]
@@ -22,7 +22,7 @@ block1.sigma <- crossprod(block1.p, block1.p*block1.eigens)
 block1.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block1.cells, mean=2, sd=0.01), sigma=block1.sigma))
 
 
-block2.cells <- 400
+block2.cells <- 1400
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block2.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block2.eigens <- block2.eigens[order(block2.eigens)]
@@ -31,7 +31,7 @@ block2.sigma <- crossprod(block2.p, block2.p*block2.eigens)
 block2.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block2.cells, mean=4, sd=0.01), sigma=block2.sigma))
 
 
-block3.cells <- 200
+block3.cells <- 1200
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block3.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block3.eigens <- block3.eigens[order(block3.eigens)]
@@ -41,7 +41,7 @@ block3.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block3.cells, mean=5, sd=0.01), si
 
 sim1.gex <- do.call(cbind, list("b1"=block1.gex, "b2"=block2.gex, "b3"=block3.gex))
 colnames(sim1.gex) <- paste0("Cell", 1:ncol(sim1.gex))
-sim1.pca <- prcomp_irlba(t(sim1.gex), n=50, scale.=TRUE, center=TRUE)
+sim1.pca <- prcomp_irlba(t(sim1.gex), n=50+1, scale.=TRUE, center=TRUE)
 
 set.seed(42)
 block1.cond <- rep("A", block1.cells)
@@ -77,43 +77,46 @@ sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
 
 sim1.mylo <- Milo(sim1.sce)
 
-test_that("Milo inherits from SingleCellExperiment", {
-    expect_is(sim1.mylo, "SingleCellExperiment")
-})
+sim1.graph <- graph(buildGraph(sim1.mylo, k=21, d=30))
 
-
-test_that("Milo getters working as expected", {
-    # graph retrieval with an empty graph should give a warning
-    expect_warning(graph(sim1.mylo), "Graph not set")
-
-    sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
-    expect_type(graph(sim1.mylo), "list")
-    expect_s4_class(neighbourDistances(sim1.mylo), "Matrix")
-
-    sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
-                                    d=30,
-                                    reduced_dims="PCA")
-    expect_type(neighbourhoods(sim1.mylo), "list")
-
-    sim1.mylo <- countCells(sim1.mylo, samples="Sample", data=meta.df)
-    expect_s4_class(neighbourhoodCounts(sim1.mylo), "Matrix")
-
-    # check concordant dimensions for neighbourhoods
-    expect_identical(length(neighbourhoods(sim1.mylo)), nrow(neighbourhoodCounts(sim1.mylo)))
-})
-
-
-test_that("Milo setters working as expected", {
+test_that("Incorrect input gives informative error", {
+    # missing graph
     graph(sim1.mylo) <- list()
-    expect_identical(graph(sim1.mylo), list())
+    expect_error(makeNeighbourhoods(sim1.mylo, d=30), "Not a valid Milo object - graph is missing")
 
-    neighbourDistances(sim1.mylo) <- matrix(0L, ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
-    expect_equal(sum(rowSums(neighbourDistances(sim1.mylo))), 0)
+    # pass a graph but no reduced dimensions
+    expect_error(makeNeighbourhoods(sim1.graph, d=30), "No reduced dimensions matrix provided")
 
-    neighbourhoods(sim1.mylo) <- list()
-    expect_identical(neighbourhoods(sim1.mylo), list())
-
-    neighbourhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(neighbourhoodCounts(sim1.mylo)),
-                                             nrow=nrow(neighbourhoodCounts(sim1.mylo)))
-    expect_equal(sum(rowSums(neighbourhoodCounts(sim1.mylo))), 0)
+    # unexpected input type
+    expect_error(makeNeighbourhoods(list(), d=30), paste0("Data format: ", class(list()), " not recognised."))
 })
+
+
+test_that("Passing d parameter higher than ncols of reducedDims gives warning", {
+    sim1.mylo <- buildGraph(sim1.mylo, k=21)
+    expect_warning(makeNeighbourhoods(sim1.mylo, d=ncol(reducedDim(sim1.mylo, "PCA")) + 1),
+                   "Warning")
+})
+
+
+test_that("Random sampling returns the same vertex list with a set seed", {
+    sim1.mylo <- buildGraph(sim1.mylo, k=21)
+    random.vertices <- neighbourhoods(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101))
+    expect_equal(neighbourhoods(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101)), random.vertices)
+
+    # indices should also be the same
+    random.indx <- neighbourhoodIndex(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101))
+    expect_equal(neighbourhoodIndex(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101)), random.indx)
+})
+
+
+test_that("Refined sampling strictly returns equal to or fewer neighbourhoods than random sampling", {
+    sim1.mylo <- buildGraph(sim1.mylo, k=21)
+    random.vertices <- neighbourhoods(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101))
+    expect_true(length(neighbourhoods(makeNeighbourhoods(sim1.mylo, refined=FALSE, seed=101))) <= length(random.vertices))
+})
+
+
+
+
+
