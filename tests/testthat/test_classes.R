@@ -41,6 +41,7 @@ block3.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block3.cells, mean=5, sd=0.01), si
 
 sim1.gex <- do.call(cbind, list("b1"=block1.gex, "b2"=block2.gex, "b3"=block3.gex))
 colnames(sim1.gex) <- paste0("Cell", 1:ncol(sim1.gex))
+rownames(sim1.gex) <- paste0("Gene", 1:nrow(sim1.gex))
 sim1.pca <- prcomp_irlba(t(sim1.gex), n=50, scale.=TRUE, center=TRUE)
 
 set.seed(42)
@@ -100,6 +101,10 @@ test_that("Milo getters working as expected", {
 
     # check concordant dimensions for neighbourhoods
     expect_identical(length(neighbourhoods(sim1.mylo)), nrow(neighbourhoodCounts(sim1.mylo)))
+
+    sim1.mylo <- calcNeighbourhoodExpression(sim1.mylo)
+    expect_identical(ncol(neighbourhoodExpression(sim1.mylo)), nrow(neighbourhoodCounts(sim1.mylo)))
+    expect_identical(nrow(neighbourhoodExpression(sim1.mylo)), nrow(sim1.mylo))
 })
 
 
@@ -116,4 +121,8 @@ test_that("Milo setters working as expected", {
     neighbourhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(neighbourhoodCounts(sim1.mylo)),
                                              nrow=nrow(neighbourhoodCounts(sim1.mylo)))
     expect_equal(sum(rowSums(neighbourhoodCounts(sim1.mylo))), 0)
+
+    neighbourhoodExpression(sim1.mylo) <- matrix(0L, ncol=length(neighbourhoodIndex(sim1.mylo)),
+                                                 nrow=nrow(sim1.mylo))
+    expect_equal(sum(rowSums(neighbourhoodExpression(sim1.mylo))), 0)
 })
