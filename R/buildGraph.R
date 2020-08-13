@@ -13,6 +13,10 @@
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
 #' @param transposed Logical if the input x is transposed with rows as cells.
+#' @param BNPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param BSPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param BPPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param seed Seed number used for pseudorandom number generators.
 #'
 #' @details
 #' This function computes a k-nearest neighbour graph. Each graph vertex is a
@@ -26,15 +30,14 @@
 #' construct this separately and add to the relevant slot in the
 #' \code{\link{Milo}} object.
 #'
-#' @return A \code{\linkS4class{Milo}} object with the graph, adjacency and
-#' distance slots populated.
+#' @return A \code{\linkS4class{Milo}} object with the graph and distance slots populated.
 #'
 #' @author
 #' Mike Morgan, with KNN code written by Aaron Lun & Jonathan Griffiths.
 #'
 #' @examples
-#' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- buildGraph(m, d=10)
+#' m <- matrix(rnorm(50000), ncol=50)
+#' milo <- buildGraph(m, d=30, transposed=TRUE)
 #'
 #' milo
 #' @name buildGraph
@@ -47,8 +50,8 @@ NULL
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
-                       BSPARAM=bsparam(), BPPARAM=SerialParam()){
-
+                       BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
+    set.seed(seed)
     # check class of x to determine which function to call
     # in all cases it must return a Milo object with the graph slot populated
     # what is a better design principle here? make a Milo object here and just
@@ -57,15 +60,29 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
     if(class(x) == "Milo"){
         # check for reducedDims
-        if(is.null(reducedDim(x, "PCA"))){
+        if(is.null(reducedDim(x))){
             # assume logcounts is present?
-            x_pca <- prcomp_irlba(logcounts(x))
+            x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
+                                  scale.=TRUE, center=TRUE)
+            reducedDim(x, "PCA") <- x_pca$x
+        } else if(all(names(reducedDims(x)) %in% c("PCA"))){
+            # assume logcounts is present?
+            x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
+                                  scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         }
-    } else if (class(x) == "matrix"){
-        # assume input are PCs
-
-
+    } else if(class(x) == "matrix" & isTRUE(transposed)){
+        # assume input are PCs - the expression data is non-sensical here
+        SCE <- SingleCellExperiment(assays=list(counts=Matrix(0L, nrow=1, ncol=nrow(x))),
+                                    reducedDims=SimpleList("PCA"=x))
+        x <- Milo(SCE)
+    } else if(class(x) == "matrix" & isFALSE(transposed)){
+        # this should be a gene expression matrix
+        SCE <- SingleCellExperiment(assays=list(logcounts=x))
+        x_pca <- prcomp_irlba(t(logcounts(SCE)), n=min(d+1, ncol(x)-1),
+                              scale.=TRUE, center=TRUE)
+        reducedDim(SCE, "PCA") <- x_pca$x
+        x <- Milo(SCE)
     } else if (class(x) == "SingleCellExperiment"){
         # test for reducedDims, if not then compute them
         # give me a Milo object
@@ -73,15 +90,15 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
             # assume logcounts is present - how dangerous is this?
             # better to check first, or have the user input the assay
             # to use?
-            x_pca <- prcomp_irlba(logcounts(x))
+            x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
+                                  scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         }
 
         x <- Milo(x)
     }
 
-    .buildGraph(x, k=k, d=d, transposed=transposed,
-                subset.row=NULL,
+    .buildGraph(x, k=k, d=d,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
@@ -90,13 +107,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-.buildGraph <- function(x, k=10, d=50, transposed=transposed,
-                        subset.row=subset.row,
+.buildGraph <- function(x, k=10, d=50,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
-    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), subset.row=subset.row,
-                              d=d, transposed=transposed,
+    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
     sink(file="/dev/null")
@@ -135,12 +150,12 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, subset.row, d, transposed, k,
+.setup_knn_data <- function(x, k, d=50,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x, k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
+    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
 }
 
 

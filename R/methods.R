@@ -1,7 +1,14 @@
 ######## Methods ########
 #' @export
 #' @describeIn Milo get graph
-setMethod("graph", "Milo", function(x) x@graph[[1]])
+setMethod("graph", "Milo", function(x) {
+    if(length(x@graph)){
+        x@graph[[1]]
+    } else{
+        warning("Graph not set")
+        list()
+        }
+    })
 
 #' @export
 #' @describeIn Milo set graph
@@ -64,6 +71,19 @@ setMethod("neighbourhoodIndex<-", "Milo", function(x, value){
 })
 
 
+#' @export
+#' @describeIn Milo get neighbourhoodExpression
+setMethod("neighbourhoodExpression", "Milo", function(x) x@neighbourhoodExpression)
+
+#' @export
+#' @describeIn Milo set neighbourhoodExpression
+setMethod("neighbourhoodExpression<-", "Milo", function(x, value){
+    x@neighbourhoodExpression <- value
+    validObject(x)
+    x
+})
+
+
 #' @importFrom S4Vectors coolcat
 #' @importFrom methods callNextMethod
 .milo_show <- function(object) {
@@ -73,6 +93,7 @@ setMethod("neighbourhoodIndex<-", "Milo", function(x, value){
     coolcat("neighbourDistances dimensions(%d): %s\n", dim(object@neighbourDistances))
     coolcat("graph names(%d): %s\n", names(object@graph))
     coolcat("neighbourhoodIndex names(%d): %s\n", length(object@neighbourhoodIndex))
+    coolcat("neighbourhoodExpression dimension(%d): %s\n", dim(object@neighbourhoodExpression))
 
     sink(file="/dev/null")
     gc()

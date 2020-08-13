@@ -9,14 +9,16 @@
 #' of the formula or last column of the model matrix are by default the test
 #' variable. This behaviour can be overridden by setting the \code{model.contrasts}
 #' argument
-#' @param data A \code{data.frame} containing meta-data to which \code{design}
+#' @param design.df A \code{data.frame} containing meta-data to which \code{design}
 #' refers to
 #' @param min.mean A scalar used to threshold neighbourhoods on the minimum
 #' average cell counts across samples.
 #' @param model.contrasts A string vector that defines the contrasts used to perform
 #' DA testing.
 #' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from edge,
-#' vertex, neighbour-distance or k-distance (default).
+#' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
+#' spatial FDR correction is performed and returns a vector of NAs.
+#' @param seed Seed number used for pseudorandom number generators.
 #'
 #'
 #' @details
@@ -41,31 +43,52 @@ NULL
 
 #' @export
 #' @importFrom stats model.matrix
-#' @importFrom Matrix colSums
+#' @importFrom Matrix colSums rowMeans
+#' @importFrom stats dist median
+#' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
-testNeighbourhoods <- function(x, design, data,
-                               fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex"),
-                               min.mean=0, model.contrasts=NULL){
-
+testNeighbourhoods <- function(x, design, design.df,
+                               fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
+                               min.mean=0, model.contrasts=NULL, seed=42){
+    set.seed(seed)
     if(class(design) == "formula"){
-        model <- model.matrix(design, data=data)
-        rownames(model) <- rownames(data)
+        model <- model.matrix(design, data=design.df)
+        rownames(model) <- rownames(design.df)
     } else if(class(design) == "matrix"){
-        # need to assume rownames of model are already set?
         model <- design
+        if(any(rownames(model) != rownames(design.df))){
+            warning("Design matrix and design matrix dimnames are not the same")
+        }
+    }
+
+    if(class(x) != "Milo"){
+        stop("Unrecognised input type - must be of class Milo")
+    } else if(.is_empty(x, "neighbourhoodCounts")){
+        stop("Neighbourhood counts missing - please run countCells first")
+    }
+
+    if(ncol(neighbourhoodCounts(x)) != nrow(model)){
+        stop(paste0("Design matrix (", nrow(model), ") and neighbourhood counts (",
+                    ncol(neighbourhoodCounts(x)), ") are not the same dimension"))
     }
 
     # assume neighbourhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
-    dge <- DGEList(counts=neighbourhoodCounts(x),
+    if(min.mean > 0){
+        keep.nh <- rowMeans(neighbourhoodCounts(x)) >= min.mean
+    } else{
+        keep.nh <- rep(TRUE, nrow(neighbourhoodCounts(x)))
+    }
+
+    dge <- DGEList(counts=neighbourhoodCounts(x)[keep.nh, ],
                    lib.size=log(colSums(neighbourhoodCounts(x))))
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=TRUE)
     if(!is.null(model.contrasts)){
-        mod.constrast <- makeContrasts(model.contrasts, levels=model)
-        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=sim2.contrast),
+        mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
+        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
                                      sort.by='none', n=Inf))
     } else{
         n.coef <- ncol(model)
@@ -73,14 +96,31 @@ testNeighbourhoods <- function(x, design, data,
     }
 
     res$Neighbourhood <- as.numeric(rownames(res))
-    message("Performing spatial FDR correction")
+    message(paste0("Performing spatial FDR correction with", fdr.weighting, " weighting"))
     mod.spatialfdr <- graphSpatialFDR(nhoods=neighbourhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
                                       pvalues=res[order(res$Neighbourhood), ]$PValue,
                                       indices=neighbourhoodIndex(x),
-                                      distances=neighbourDistances(x))
+                                      distances=neighbourDistances(x),
+                                      reduced.dimensions=reducedDim(x, "PCA"))
 
     res$SpatialFDR[order(res$Neighbourhood)] <- mod.spatialfdr
     res
+}
+
+
+#' @importFrom methods slot
+#' @importFrom Matrix rowSums
+.is_empty <- function(x, attribute){
+    # check if a Milo object slot is empty or not
+    x.slot <- slot(x, attribute)
+
+    if(class(x.slot) == "list" & names(slot(x, "graph")) == "graph"){
+        return(length(x.slot[[1]]) > 0)
+    } else if(class(x.slot) == "list" & is.null(names(x.slot))){
+        return(length(x.slot))
+    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix"))){
+        return(sum(rowSums(x.slot)) == 0)
+    }
 }

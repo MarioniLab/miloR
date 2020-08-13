@@ -12,9 +12,9 @@
 #' to randomly sample. Must be 0 < prop < 1.
 #' @param k An integer scalar - the same k used to construct the input graph.
 #' @param d The number of dimensions to use if the input is a matrix of cells
-#' X reduced dimensions. 
-#' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the 
-#' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a 
+#' X reduced dimensions.
+#' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
+#' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions.
 #' @param seed An integer scalar seed to initial the pseudorandom number
 #' generator
@@ -42,16 +42,17 @@
 #'
 #' milo <- makeNeighbourhoods(milo, prop=0.1)
 #' milo
-#' 
+#'
 #' @export
 #' @rdname makeNeighbourhoods
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors
+#' @importFrom stats setNames
 makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")
         # check that a graph has been built
-        if(!.valid_graph(graph(x))){ 
+        if(!.valid_graph(graph(x))){
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
         graph <- graph(x)
@@ -71,13 +72,15 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
         stop(paste0("Data format: ", class(x), " not recognised. Should be Milo or igraph"))
     }
     random_vertices <- .sample_vertices(graph, prop, seed, return.vertices = TRUE)
+
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
     } else if (isTRUE(refined)) {
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-        } 
-    
+        }
+
     sampled_vertices <- unique(sampled_vertices)
+
     nh_list <-
         sapply(
             1:length(sampled_vertices),
@@ -87,7 +90,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
     nh_list <- setNames(nh_list, sampled_vertices)
     if(class(x) == "Milo"){
         neighbourhoodIndex(x) <- as(sampled_vertices, "list")
-        neighbourhoods(x) <- nh_list 
+        neighbourhoods(x) <- nh_list
         return(x)
     } else {
         return(nh_list)
@@ -105,14 +108,21 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
             get.index = TRUE,
             get.distance = FALSE
         )
-    
+
     nh_reduced_dims <- t(apply(vertex.knn$index, 1, function(x) colMedians(X_reduced_dims[x,])))
+
+    # this function fails if rownames are not set
+    if(is.null(rownames(X_reduced_dims))){
+        warning("Rownames not set on reducedDims - setting to row indices")
+        rownames(X_reduced_dims) <- as.character(c(1:nrow(X_reduced_dims)))
+    }
+
     colnames(nh_reduced_dims) <- colnames(X_reduced_dims)
     rownames(nh_reduced_dims) <- paste0('nh_', 1:nrow(nh_reduced_dims))
-    
+
     ## Search nearest cell to average profile
-    # I have to do this trick because as far as I know there is no fast function to 
-    # search for NN between 2 distinct sets of points (here I'd like to search NNs of 
+    # I have to do this trick because as far as I know there is no fast function to
+    # search for NN between 2 distinct sets of points (here I'd like to search NNs of
     # nh_reduced_dims points among X_reduced_dims points). Suggestions are welcome
     all_reduced_dims <- rbind(nh_reduced_dims, X_reduced_dims)
     nn_mat <- findKNN(all_reduced_dims,
@@ -126,7 +136,7 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
         sampled_vertices[update_ix] <- nn_mat_names[update_ix, i]
         i <- i + 1
     }
-    sampled_vertices <- match( sampled_vertices, rownames(X_reduced_dims))
+    sampled_vertices <- match(sampled_vertices, rownames(X_reduced_dims))
     return(sampled_vertices)
 }
 

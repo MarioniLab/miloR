@@ -32,3 +32,10 @@ setGeneric("neighbourhoodIndex", function(x) standardGeneric("neighbourhoodIndex
 
 #' @export
 setGeneric("neighbourhoodIndex<-", function(x, value) standardGeneric("neighbourhoodIndex<-"))
+
+
+#' @export
+setGeneric("neighbourhoodExpression", function(x) standardGeneric("neighbourhoodExpression"))
+
+#' @export
+setGeneric("neighbourhoodExpression<-", function(x, value) standardGeneric("neighbourhoodExpression<-"))
