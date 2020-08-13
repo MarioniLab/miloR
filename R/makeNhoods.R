@@ -40,15 +40,15 @@
 #' m <- matrix(rnorm(10000), ncol=10)
 #' milo <- buildGraph(m, d=10)
 #'
-#' milo <- makeNeighbourhoods(milo, prop=0.1)
+#' milo <- makeNhoods(milo, prop=0.1)
 #' milo
 #'
 #' @export
-#' @rdname makeNeighbourhoods
+#' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors
 #' @importFrom stats setNames
-makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
     if(class(x) == "Milo"){
         message("Checking valid object")
         # check that a graph has been built
@@ -89,8 +89,8 @@ makeNeighbourhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, r
         )
     nh_list <- setNames(nh_list, sampled_vertices)
     if(class(x) == "Milo"){
-        neighbourhoodIndex(x) <- as(sampled_vertices, "list")
-        neighbourhoods(x) <- nh_list
+        nhoodIndex(x) <- as(sampled_vertices, "list")
+        nhoods(x) <- nh_list
         return(x)
     } else {
         return(nh_list)

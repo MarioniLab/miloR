@@ -1,4 +1,4 @@
-context("Testing testNeighbourhoods function")
+context("Testing testNhoods function")
 library(miloR)
 
 ### Set up a mock data set using simulated data
@@ -83,7 +83,7 @@ sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 
 # define neighbourhoods - this is slow for large data sets
 # how can this be sped up? There are probably some parallelisable steps
-sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
+sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                 d=30,
                                 reduced_dims="PCA")
 
@@ -94,14 +94,14 @@ rownames(sim1.meta) <- sim1.meta$Sample
 
 test_that("Wrong input gives errors", {
     # missing neighbourhood counts
-    expect_error(testNeighbourhoods(sim1.mylo, design=~Condition,
+    expect_error(testNhoods(sim1.mylo, design=~Condition,
                                     design.df=sim1.meta),
                  "Neighbourhood counts missing - please run countCells first")
 
     # count cells
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
-    expect_error(testNeighbourhoods(neighbourhoodCounts(sim1.mylo), design=~Condition,
-                                    design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]),
+    expect_error(testNhoods(nhoodCounts(sim1.mylo), design=~Condition,
+                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
                  "Unrecognised input type - must be of class Milo")
 
 })
@@ -111,7 +111,7 @@ sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 test_that("Discordant dimension names gives a warning", {
     design.matrix <- model.matrix(~Condition, data=sim1.meta)
     rownames(design.matrix) <- c(1:nrow(design.matrix))
-    expect_warning(testNeighbourhoods(sim1.mylo, design=design.matrix,
+    expect_warning(testNhoods(sim1.mylo, design=design.matrix,
                                       design.df=sim1.meta),
                    "Design matrix and design matrix dimnames are not the same")
 })
@@ -119,58 +119,57 @@ test_that("Discordant dimension names gives a warning", {
 test_that("Discordant dimensions between input and design gives and error", {
     design.matrix <- model.matrix(~Condition, data=sim1.meta)
     design.matrix <- design.matrix[-1, ]
-    expect_error(suppressWarnings(testNeighbourhoods(sim1.mylo, design=design.matrix,
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                      design.df=sim1.meta)),
                  "not the same dimension")
 })
 
 test_that("Concordant dimensions between input and output", {
-    in.rows <- nrow(neighbourhoodCounts(sim1.mylo))
-    out.rows <- nrow(testNeighbourhoods(sim1.mylo, design=~Condition,
-                                        design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]))
+    in.rows <- nrow(nhoodCounts(sim1.mylo))
+    out.rows <- nrow(testNhoods(sim1.mylo, design=~Condition,
+                                        design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
     expect_identical(in.rows, out.rows)
 })
 
 
 test_that("Identical results are produced with identical input", {
     # run for each weighting scheme
-    kd.ref1 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    kd.ref2 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+    kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(kd.ref1, kd.ref2)
 
-    # mean neighbourhood distance
-    nd.ref1 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
-
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    nd.ref2 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+    # mean nhood distance
+    nd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
+                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    nd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
+                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(nd.ref1, nd.ref2)
 
     #edge
-    ec.ref1 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    ec.ref2 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+    ec.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    ec.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(ec.ref1, ec.ref2)
 
     #vertex
-    vc.ref1 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    vc.ref2 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+    vc.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    vc.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     expect_identical(vc.ref1, vc.ref2)
 })
 
-test_that("testNeighbourhoods produces reproducible results with equivalent input", {
+test_that("testNhoods produces reproducible results with equivalent input", {
     # same input, but different format should give the same results
-    design.matrix <- model.matrix(~Condition, data=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    mod.ref <- suppressWarnings(testNeighbourhoods(sim1.mylo, design=design.matrix,
-                                                   design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]))
-    form.ref <- suppressWarnings(testNeighbourhoods(sim1.mylo, design=~Condition,
-                                                    design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]))
+    design.matrix <- model.matrix(~Condition, data=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    mod.ref <- suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
+                                                   design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+    form.ref <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
     # test for each column of output
     expect_equal(mod.ref$Pvalue, form.ref$Pvalue)
     expect_equal(mod.ref$SpatialFDR, form.ref$SpatialFDR)
@@ -179,30 +178,30 @@ test_that("testNeighbourhoods produces reproducible results with equivalent inpu
     expect_equal(mod.ref$FDR, form.ref$FDR)
 })
 
-test_that("Filtering neighbourhoods provides reproducible results", {
+test_that("Filtering nhoods provides reproducible results", {
     require(Matrix)
-    exp.nh <- sum(Matrix::rowMeans(neighbourhoodCounts(sim1.mylo)) >= 5)
-    out.da <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+    exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)) >= 5)
+    out.da <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                  min.mean=5,
-                                 design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(nrow(out.da), exp.nh)
 
-    kd.ref1 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+    kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                   min.mean=5,
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    kd.ref2 <- testNeighbourhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                   min.mean=5,
-                                  design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(kd.ref1, kd.ref2)
 })
 
 test_that("Model contrasts provide expected results", {
-    design.matrix <- model.matrix(~0 + Condition, data=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ])
-    cont.ref <- suppressWarnings(testNeighbourhoods(sim1.mylo, design=design.matrix,
+    design.matrix <- model.matrix(~0 + Condition, data=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    cont.ref <- suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                     model.contrasts=c("ConditionB-ConditionA"),
-                                                    design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]))
-    form.ref <- suppressWarnings(testNeighbourhoods(sim1.mylo, design=~Condition,
-                                                    design.df=sim1.meta[colnames(neighbourhoodCounts(sim1.mylo)), ]))
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+    form.ref <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
 
     # test for each column of output
     expect_equal(cont.ref$Pvalue, form.ref$Pvalue)

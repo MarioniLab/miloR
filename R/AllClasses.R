@@ -13,18 +13,18 @@ setClass("Milo",
          contains = "SingleCellExperiment",
          slots=c(
              graph = "list", # this should be a list or an igraph object
-             neighbourhoods = "list", # this should be a list
-             neighbourDistances = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
-             neighbourhoodCounts = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
-             neighbourhoodIndex = "list", # used to store neighbourhood indices
-             neighbourhoodExpression = "matrixORdgCMatrixORdsCMatrix" # this should be NA or a matrix
+             nhoods = "list", # this should be a list
+             nhoodDistances = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
+             nhoodCounts = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
+             nhoodIndex = "list", # used to store nhood indices
+             nhoodExpression = "matrixORdgCMatrixORdsCMatrix" # this should be NA or a matrix
          ),
          prototype = list(
              graph = list(),
-             neighbourhoods = list(),
-             neighbourDistances = Matrix::Matrix(0L, sparse=TRUE),
-             neighbourhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
-             neighbourhoodIndex = list(),
-             neighbourhoodExpression = Matrix::Matrix(0L, sparse=TRUE)
+             nhoods = list(),
+             nhoodDistances = Matrix::Matrix(0L, sparse=TRUE),
+             nhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
+             nhoodIndex = list(),
+             nhoodExpression = Matrix::Matrix(0L, sparse=TRUE)
          )
 )

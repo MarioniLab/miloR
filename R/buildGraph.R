@@ -139,7 +139,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         old.dist[i.knn, i] <- i.dists
     }
     old.dist <- as(old.dist, "dgCMatrix")
-    neighbourDistances(x) <- old.dist
+    nhoodDistances(x) <- old.dist
 
     sink(file="/dev/null")
     gc()

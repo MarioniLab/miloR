@@ -5,7 +5,7 @@
 #' In the instance of graph neighbourhoods this weighting scheme can use graph
 #' connectivity or incorpate different within-neighbourhood distances for the
 #' weighted FDR calculation.
-#' @param nhoods A list of vertices and the constituent vertices of their
+#' @param x.nhoods A list of vertices and the constituent vertices of their
 #' neighbourhood
 #' @param graph The kNN graph used to define the neighbourhoods
 #' @param pvalues A vector of p-values calculated from a GLM or other appropriate
@@ -14,10 +14,10 @@
 #' Choices are: vertex, edge, k-distance, neighbour-distance.
 #' @param reduced.dimensions (optional) A \code{matrix} of cells X reduced dimensions used
 #' to calculate the kNN graph. Only necessary if this function is being used
-#' outside of \code{testNeighbourhoods} where the \code{\linkS4class{Milo}}
+#' outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available
 #' @param distances (optional) A \code{matrix} of cell-to-cell distances. Only necessary if
-#' this function is being used outside of \code{testNeighbourhoods} where the \code{\linkS4class{Milo}}
+#' this function is being used outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available.
 #' @param indices (optional) A list of neighbourhood index vertices in the same order as the input neighbourhoods.
 #' Only used for the k-distance weighting.
@@ -41,14 +41,7 @@ NULL
 
 #' @export
 #' @import igraph
-graphSpatialFDR <- function(nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
-    # input a set of neighborhoods as a list of graph vertices
-    # the input graph and the unadjusted GLM p-values
-    # neighborhoods: list of vertices and their respective neighborhoods
-    # graph: input kNN graph
-    # pvalues: a vector of pvalues in the same order as the neighborhood indices
-    # connectivity: character - edge or vertex to calculate neighborhood connectivity or distance to use average Euclidean distance
-    # pca: matrix of PCs to calculate Euclidean distances, only required when connectivity == distance
+graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
     # Discarding NA pvalues.
     haspval <- !is.na(pvalues)
@@ -70,8 +63,8 @@ graphSpatialFDR <- function(nhoods, graph, pvalues, weighting='vertex', reduced.
         # define the subgraph for each neighborhood then calculate the connectivity for each
         # this latter computation is quite slow - can it be sped up?
         # then loop over these sub-graphs to calculate the connectivity
-        subgraphs <- lapply(1:length(nhoods[haspval]),
-                            FUN=function(X) induced_subgraph(graph, nhoods[haspval][[X]]))
+        subgraphs <- lapply(1:length(x.nhoods[haspval]),
+                            FUN=function(X) induced_subgraph(graph, x.nhoods[haspval][[X]]))
         if(weighting == "vertex"){
             t.connect <- lapply(subgraphs, FUN=function(EG) vertex_connectivity(EG))
         } else{
@@ -79,9 +72,9 @@ graphSpatialFDR <- function(nhoods, graph, pvalues, weighting='vertex', reduced.
         }
     } else if(weighting == "neighbour-distance"){
         if(!is.null(reduced.dimensions)){
-            t.connect <- lapply(1:length(nhoods[haspval]),
+            t.connect <- lapply(1:length(x.nhoods[haspval]),
                                 FUN=function(PG) {
-                                    x.pcs <- reduced.dimensions[nhoods[haspval][[PG]], ]
+                                    x.pcs <- reduced.dimensions[x.nhoods[haspval][[PG]], ]
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})
