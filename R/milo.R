@@ -11,14 +11,14 @@
 #' matrix of features X cells
 #' @param graph An igraph object or list of adjacent vertices that represents
 #' the KNN-graph
-#' @param neighbourhoods A list of graph vertices, each containing the indices
+#' @param nhoods A list of graph vertices, each containing the indices
 #' of the constiuent graph vertices in the respective neighbourhood
-#' @param neighbourDistances A sparse matrix of cell-to-cell distances for
+#' @param nhoodDistances A sparse matrix of cell-to-cell distances for
 #' cells in the same neighbourhoods
-#' @param neighbourhoodCounts A matrix of neighbourhood X sample counts of the
+#' @param nhoodCounts A matrix of neighbourhood X sample counts of the
 #' number of cells in each neighbourhood derived from the respective samples
-#' @param neighbourhoodIndex A list of cells that are the neighborhood index cells.
-#' @param neighbourhoodExpression A matrix of gene X neighbourhood expression.
+#' @param nhoodIndex A list of cells that are the neighborhood index cells.
+#' @param nhoodExpression A matrix of gene X neighbourhood expression.
 #'
 #' @details
 #' In this class the underlying structure is the gene/feature X cell expression
@@ -56,11 +56,11 @@ NULL
 #' @rdname Milo
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom Matrix Matrix
-Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
-                 neighbourhoods=list(),
-                 neighbourhoodCounts=Matrix(0L, sparse=TRUE),
-                 neighbourhoodIndex=list(),
-                 neighbourhoodExpression=Matrix(0L, sparse=TRUE)){
+Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
+                 nhoods=list(),
+                 nhoodCounts=Matrix(0L, sparse=TRUE),
+                 nhoodIndex=list(),
+                 nhoodExpression=Matrix(0L, sparse=TRUE)){
     old <- S4Vectors:::disableValidity()
     if (!isTRUE(old)) {
         S4Vectors:::disableValidity(TRUE)
@@ -82,11 +82,11 @@ Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
     # make the distance and adjacency matrices the correct size
     out <- new("Milo", sce,
                graph=list(),
-               neighbourhoods=list(),
-               neighbourDistances=Matrix(0L, sparse=TRUE),
-               neighbourhoodCounts=Matrix(0L, sparse=TRUE),
-               neighbourhoodIndex=list(),
-               neighbourhoodExpression=Matrix(0L, sparse=TRUE))
+               nhoods=list(),
+               nhoodDistances=Matrix(0L, sparse=TRUE),
+               nhoodCounts=Matrix(0L, sparse=TRUE),
+               nhoodIndex=list(),
+               nhoodExpression=Matrix(0L, sparse=TRUE))
 
     reducedDims(out) <- reducedDims(sce)
     altExps(out) <- list()
@@ -98,14 +98,14 @@ Milo <- function(..., graph=list(), neighbourDistances=Matrix(0L, sparse=TRUE),
 ## class validator
 #' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
-    if (class(object@neighbourhoodCounts) != "matrixORdgCMatrixORdsCMatrix"){
-        "@neighbourhoodCounts must be a matrix format"
+    if (class(object@nhoodCounts) != "matrixORdgCMatrixORdsCMatrix"){
+        "@nhoodCounts must be a matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@neighbourDistances) != "matrixORdgCMatrixORdsCMatrix"){
-        "@neighbourDistances must be a matrix format"
+    if(class(object@nhoodDistances) != "matrixORdgCMatrixORdsCMatrix"){
+        "@nhoodDistances must be a matrix format"
     } else{
         TRUE
     }

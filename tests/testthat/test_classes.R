@@ -89,22 +89,22 @@ test_that("Milo getters working as expected", {
 
     sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
     expect_type(graph(sim1.mylo), "list")
-    expect_s4_class(neighbourDistances(sim1.mylo), "Matrix")
+    expect_s4_class(nhoodDistances(sim1.mylo), "Matrix")
 
-    sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
+    sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                     d=30,
                                     reduced_dims="PCA")
-    expect_type(neighbourhoods(sim1.mylo), "list")
+    expect_type(nhoods(sim1.mylo), "list")
 
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
-    expect_s4_class(neighbourhoodCounts(sim1.mylo), "Matrix")
+    expect_s4_class(nhoodCounts(sim1.mylo), "Matrix")
 
-    # check concordant dimensions for neighbourhoods
-    expect_identical(length(neighbourhoods(sim1.mylo)), nrow(neighbourhoodCounts(sim1.mylo)))
+    # check concordant dimensions for nhoods
+    expect_identical(length(nhoods(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
 
-    sim1.mylo <- calcNeighbourhoodExpression(sim1.mylo)
-    expect_identical(ncol(neighbourhoodExpression(sim1.mylo)), nrow(neighbourhoodCounts(sim1.mylo)))
-    expect_identical(nrow(neighbourhoodExpression(sim1.mylo)), nrow(sim1.mylo))
+    sim1.mylo <- calcNhoodExpression(sim1.mylo)
+    expect_identical(ncol(nhoodExpression(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
+    expect_identical(nrow(nhoodExpression(sim1.mylo)), nrow(sim1.mylo))
 })
 
 
@@ -112,17 +112,17 @@ test_that("Milo setters working as expected", {
     graph(sim1.mylo) <- list()
     expect_identical(graph(sim1.mylo), list())
 
-    neighbourDistances(sim1.mylo) <- matrix(0L, ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
-    expect_equal(sum(rowSums(neighbourDistances(sim1.mylo))), 0)
+    nhoodDistances(sim1.mylo) <- matrix(0L, ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
+    expect_equal(sum(rowSums(nhoodDistances(sim1.mylo))), 0)
 
-    neighbourhoods(sim1.mylo) <- list()
-    expect_identical(neighbourhoods(sim1.mylo), list())
+    nhoods(sim1.mylo) <- list()
+    expect_identical(nhoods(sim1.mylo), list())
 
-    neighbourhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(neighbourhoodCounts(sim1.mylo)),
-                                             nrow=nrow(neighbourhoodCounts(sim1.mylo)))
-    expect_equal(sum(rowSums(neighbourhoodCounts(sim1.mylo))), 0)
+    nhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(nhoodCounts(sim1.mylo)),
+                                     nrow=nrow(nhoodCounts(sim1.mylo)))
+    expect_equal(sum(rowSums(nhoodCounts(sim1.mylo))), 0)
 
-    neighbourhoodExpression(sim1.mylo) <- matrix(0L, ncol=length(neighbourhoodIndex(sim1.mylo)),
-                                                 nrow=nrow(sim1.mylo))
-    expect_equal(sum(rowSums(neighbourhoodExpression(sim1.mylo))), 0)
+    nhoodExpression(sim1.mylo) <- matrix(0L, ncol=length(nhoodIndex(sim1.mylo)),
+                                         nrow=nrow(sim1.mylo))
+    expect_equal(sum(rowSums(nhoodExpression(sim1.mylo))), 0)
 })

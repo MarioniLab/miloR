@@ -3,7 +3,7 @@
 #' This will perform differential neighbourhood abundance testing after cell
 #' counting.
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty
-#' \code{neighbourhoodCounts} slot.
+#' \code{nhoodCounts} slot.
 #' @param design A \code{formula} or \code{model.matrix} object describing the
 #' experimental design for differential abundance testing. The last component
 #' of the formula or last column of the model matrix are by default the test
@@ -37,7 +37,7 @@
 #' @examples
 #' NULL
 #'
-#' @name testNeighbourhoods
+#' @name testNhoods
 NULL
 
 
@@ -47,7 +47,7 @@ NULL
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
-testNeighbourhoods <- function(x, design, design.df,
+testNhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
                                min.mean=0, model.contrasts=NULL, seed=42){
     set.seed(seed)
@@ -63,26 +63,26 @@ testNeighbourhoods <- function(x, design, design.df,
 
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
-    } else if(.is_empty(x, "neighbourhoodCounts")){
+    } else if(.is_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
-    if(ncol(neighbourhoodCounts(x)) != nrow(model)){
-        stop(paste0("Design matrix (", nrow(model), ") and neighbourhood counts (",
-                    ncol(neighbourhoodCounts(x)), ") are not the same dimension"))
+    if(ncol(nhoodCounts(x)) != nrow(model)){
+        stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
+                    ncol(nhoodCounts(x)), ") are not the same dimension"))
     }
 
-    # assume neighbourhoodCounts and model are in the same order
+    # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
     if(min.mean > 0){
-        keep.nh <- rowMeans(neighbourhoodCounts(x)) >= min.mean
+        keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
     } else{
-        keep.nh <- rep(TRUE, nrow(neighbourhoodCounts(x)))
+        keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
     }
 
-    dge <- DGEList(counts=neighbourhoodCounts(x)[keep.nh, ],
-                   lib.size=log(colSums(neighbourhoodCounts(x))))
+    dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
+                   lib.size=log(colSums(nhoodCounts(x))))
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=TRUE)
@@ -95,17 +95,17 @@ testNeighbourhoods <- function(x, design, design.df,
         res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
     }
 
-    res$Neighbourhood <- as.numeric(rownames(res))
+    res$Nhood <- as.numeric(rownames(res))
     message(paste0("Performing spatial FDR correction with", fdr.weighting, " weighting"))
-    mod.spatialfdr <- graphSpatialFDR(nhoods=neighbourhoods(x),
+    mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
-                                      pvalues=res[order(res$Neighbourhood), ]$PValue,
-                                      indices=neighbourhoodIndex(x),
-                                      distances=neighbourDistances(x),
+                                      pvalues=res[order(res$Nhood), ]$PValue,
+                                      indices=nhoodIndex(x),
+                                      distances=nhoodDistances(x),
                                       reduced.dimensions=reducedDim(x, "PCA"))
 
-    res$SpatialFDR[order(res$Neighbourhood)] <- mod.spatialfdr
+    res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
     res
 }
 

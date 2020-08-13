@@ -83,7 +83,7 @@ test_that("Failure modes produce expected messages", {
     expect_error(countCells(sim1.mylo, samples="Sample", meta.data=meta.df),
                  "No neighbourhoods found")
 
-    sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, d=30, prop=0.1, refined=TRUE)
+    sim1.mylo <- makeNhoods(sim1.mylo, k=21, d=30, prop=0.1, refined=TRUE)
     # wrong number of sample IDs given the input
     expect_error(countCells(sim1.mylo, samples=unique(meta.df$Sample), meta.data=meta.df),
                  "Multiple sample columns provided, please specify a unique column name")
@@ -93,19 +93,19 @@ test_that("Failure modes produce expected messages", {
                         length("Sample"), " Dimensions: ", ncol(sim1.mylo)))
 })
 
-sim1.mylo <- makeNeighbourhoods(sim1.mylo, k=21, d=30, prop=0.1, refined=TRUE)
+sim1.mylo <- makeNhoods(sim1.mylo, k=21, d=30, prop=0.1, refined=TRUE)
 
 test_that("countCells returns the expected object size and contents", {
     # the number of neighbourhoods and samples should be correct
-    expect_identical(ncol(neighbourhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))),
+    expect_identical(ncol(nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))),
                      length(unique(meta.df$Sample)))
 
-    expect_identical(nrow(neighbourhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))),
-                     length(neighbourhoodIndex(sim1.mylo)))
+    expect_identical(nrow(nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))),
+                     length(nhoodIndex(sim1.mylo)))
 
     # check that no Inf or NA have been introduced
-    expect_false(any(is.na(neighbourhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df)))))
+    expect_false(any(is.na(nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df)))))
 
-    expect_false(any(apply(neighbourhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df)),
+    expect_false(any(apply(nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df)),
                            1, is.infinite)))
 })
