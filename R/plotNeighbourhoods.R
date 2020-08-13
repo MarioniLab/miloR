@@ -47,9 +47,13 @@ plotNeighborhoodSizeHist <- function(milo, bins=50){
   # check for a valid neighbourhood slot
   n_neigh <- length(neighbourhoods(milo))
   is_not_empty <- n_neigh > 0
-  is_igraph_vx <- class(milo@neighbourhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
-  if (isTRUE(is_igraph_vx & is_not_empty)){
-    TRUE
+  if (is_not_empty) {
+    is_igraph_vx <- class(milo@neighbourhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
+    if (isTRUE(is_igraph_vx)){
+      TRUE
+    } else {
+        FALSE
+      }
   } else {
     FALSE
   }
