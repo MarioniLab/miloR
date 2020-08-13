@@ -36,10 +36,7 @@
 #' milo
 #'
 #' @export
-#' @rdname makeNeighbourhoods
-#' @importFrom BiocNeighbors findKNN
-#' @importFrom igraph neighbors
-#' @importFrom stats setNames
+#' @rdname projectNeighbourhoodExpression
 projectNeighbourhoodExpression <- function(x, d = 30, reduced_dims = "PCA"){
   if (class(x) != "Milo") {
     stop("Unrecognised input type - must be of class Milo")
