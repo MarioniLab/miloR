@@ -116,7 +116,7 @@ testNeighbourhoods <- function(x, design, design.df,
     # check if a Milo object slot is empty or not
     x.slot <- slot(x, attribute)
 
-    if(class(x.slot) == "list" & names(slot(sim1.mylo, "graph")) == "graph"){
+    if(class(x.slot) == "list" & names(slot(x, "graph")) == "graph"){
         return(length(x.slot[[1]]) > 0)
     } else if(class(x.slot) == "list" & is.null(names(x.slot))){
         return(length(x.slot))
