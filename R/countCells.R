@@ -4,7 +4,7 @@
 #' to an input experimental design. This forms the basis for the differential
 #' neighbourhood abundance testing.
 #' @param x A \code{\linkS4class{Milo}} object with non-empty \code{graph} and
-#' \code{neighbourhoods} slots.
+#' \code{nhoods} slots.
 #' @param meta.data A cell X variable \code{data.frame}  containing study meta-data
 #' including experimental sample IDs. Assumed to be in the same order as the
 #' cells in the input \code{\linkS4class{Milo}} object.
@@ -12,13 +12,13 @@
 #' should be used to identify the experimental samples for counting, or a
 #' named vector of sample ids mapping each single cell to it's respective sample.
 #' @details
-#' This function generates a counts matrix of \code{neighbourhoods} X samples,
-#' and populates the \code{neighbourhoodCounts} slot of the input
+#' This function generates a counts matrix of \code{nhoods} X samples,
+#' and populates the \code{nhoodCounts} slot of the input
 #' \code{\linkS4class{Milo}} object. This matrix is used down-stream for
 #' differential abundance testing.
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a counts matrix in the
-#' \code{neighbourhoodCounts} slot.
+#' \code{nhoodCounts} slot.
 #'
 #' @author Mike Morgan
 #'
@@ -27,7 +27,7 @@
 #' library(igraph)
 #' m <- matrix(rnorm(10000), ncol=10)
 #' milo <- buildGraph(m, d=10)
-#' milo <- makeNeighbourhoods(milo, prop=0.3)
+#' milo <- makeNhoods(milo, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
 #' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
@@ -58,9 +58,9 @@ countCells <- function(x, samples, meta.data=NULL){
                     length(samples), " Dimensions: ", ncol(x)))
     }
 
-    # check the neighbourhoods slot is populated
-    if(length(neighbourhoods(x)) == 0){
-        stop("No neighbourhoods found. Please run makeNeighbourhoods() first.")
+    # check the nhoods slot is populated
+    if(length(nhoods(x)) == 0){
+        stop("No neighbourhoods found. Please run makeNhoods() first.")
     }
 
     message("Checking meta.data validity")
@@ -70,14 +70,14 @@ countCells <- function(x, samples, meta.data=NULL){
         samp.ids <- unique(samples)
     }
 
-    n.hoods <- length(neighbourhoods(x))
+    n.hoods <- length(nhoods(x))
     message(paste0("Setting up matrix with ", n.hoods, " neighbourhoods"))
     count.matrix <- Matrix(0L, ncol=length(samp.ids), nrow=n.hoods, sparse=TRUE)
     colnames(count.matrix) <- samp.ids
 
     message("Counting cells in neighbourhoods")
     for(i in seq_along(1:n.hoods)){
-        v.i <- neighbourhoods(x)[[i]]
+        v.i <- nhoods(x)[[i]]
         for(j in seq_along(1:length(samp.ids))){
             j.s <- samp.ids[j]
 
@@ -93,6 +93,6 @@ countCells <- function(x, samples, meta.data=NULL){
 
     # add to the object
     rownames(count.matrix) <- c(1:n.hoods)
-    neighbourhoodCounts(x) <- count.matrix
+    nhoodCounts(x) <- count.matrix
     return(x)
 }

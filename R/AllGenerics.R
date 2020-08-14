@@ -7,35 +7,35 @@ setGeneric("graph<-", function(x, value) standardGeneric("graph<-"))
 
 
 #' @export
-setGeneric("neighbourDistances", function(x) standardGeneric("neighbourDistances"))
+setGeneric("nhoodDistances", function(x) standardGeneric("nhoodDistances"))
 
 #' @export
-setGeneric("neighbourDistances<-", function(x, value) standardGeneric("neighbourDistances<-"))
-
-
-#' @export
-setGeneric("neighbourhoods", function(x) standardGeneric("neighbourhoods"))
-
-#' @export
-setGeneric("neighbourhoods<-", function(x, value) standardGeneric("neighbourhoods<-"))
+setGeneric("nhoodDistances<-", function(x, value) standardGeneric("nhoodDistances<-"))
 
 
 #' @export
-setGeneric("neighbourhoodCounts", function(x) standardGeneric("neighbourhoodCounts"))
+setGeneric("nhoods", function(x) standardGeneric("nhoods"))
 
 #' @export
-setGeneric("neighbourhoodCounts<-", function(x, value) standardGeneric("neighbourhoodCounts<-"))
-
-
-#' @export
-setGeneric("neighbourhoodIndex", function(x) standardGeneric("neighbourhoodIndex"))
-
-#' @export
-setGeneric("neighbourhoodIndex<-", function(x, value) standardGeneric("neighbourhoodIndex<-"))
+setGeneric("nhoods<-", function(x, value) standardGeneric("nhoods<-"))
 
 
 #' @export
-setGeneric("neighbourhoodExpression", function(x) standardGeneric("neighbourhoodExpression"))
+setGeneric("nhoodCounts", function(x) standardGeneric("nhoodCounts"))
 
 #' @export
-setGeneric("neighbourhoodExpression<-", function(x, value) standardGeneric("neighbourhoodExpression<-"))
+setGeneric("nhoodCounts<-", function(x, value) standardGeneric("nhoodCounts<-"))
+
+
+#' @export
+setGeneric("nhoodIndex", function(x) standardGeneric("nhoodIndex"))
+
+#' @export
+setGeneric("nhoodIndex<-", function(x, value) standardGeneric("nhoodIndex<-"))
+
+
+#' @export
+setGeneric("nhoodExpression", function(x) standardGeneric("nhoodExpression"))
+
+#' @export
+setGeneric("nhoodExpression<-", function(x, value) standardGeneric("nhoodExpression<-"))

@@ -20,65 +20,65 @@ setMethod("graph<-", "Milo", function(x, value){
 
 
 #' @export
-#' @describeIn Milo get neighbourDistances
-setMethod("neighbourDistances", "Milo", function(x) x@neighbourDistances)
+#' @describeIn Milo get nhoodDistances
+setMethod("nhoodDistances", "Milo", function(x) x@nhoodDistances)
 
 #' @export
-#' @describeIn Milo set neighbourDistances
-setMethod("neighbourDistances<-", "Milo", function(x, value){
-    x@neighbourDistances <- value
+#' @describeIn Milo set nhoodDistances
+setMethod("nhoodDistances<-", "Milo", function(x, value){
+    x@nhoodDistances <- value
     validObject(x)
     x
 })
 
 
 #' @export
-#' @describeIn Milo get neighbourhoods
-setMethod("neighbourhoods", "Milo", function(x) x@neighbourhoods)
+#' @describeIn Milo get nhoods
+setMethod("nhoods", "Milo", function(x) x@nhoods)
 
 #' @export
-#' @describeIn Milo set neighbourhoods
-setMethod("neighbourhoods<-", "Milo", function(x, value){
-    x@neighbourhoods <- value
+#' @describeIn Milo set nhoods
+setMethod("nhoods<-", "Milo", function(x, value){
+    x@nhoods <- value
     validObject(x)
     x
 })
 
 
 #' @export
-#' @describeIn Milo get neighbourhoodCounts
-setMethod("neighbourhoodCounts", "Milo", function(x) x@neighbourhoodCounts)
+#' @describeIn Milo get nhoodCounts
+setMethod("nhoodCounts", "Milo", function(x) x@nhoodCounts)
 
 #' @export
-#' @describeIn Milo set neighbourhoodCounts
-setMethod("neighbourhoodCounts<-", "Milo", function(x, value){
-    x@neighbourhoodCounts <- value
+#' @describeIn Milo set nhoodCounts
+setMethod("nhoodCounts<-", "Milo", function(x, value){
+    x@nhoodCounts <- value
     validObject(x)
     x
 })
 
 
 #' @export
-#' @describeIn Milo get neighbourhoodIndex
-setMethod("neighbourhoodIndex", "Milo", function(x) x@neighbourhoodIndex)
+#' @describeIn Milo get nhoodIndex
+setMethod("nhoodIndex", "Milo", function(x) x@nhoodIndex)
 
 #' @export
-#' @describeIn Milo set neighbourhoodIndex
-setMethod("neighbourhoodIndex<-", "Milo", function(x, value){
-    x@neighbourhoodIndex <- value
+#' @describeIn Milo set nhoodIndex
+setMethod("nhoodIndex<-", "Milo", function(x, value){
+    x@nhoodIndex <- value
     validObject(x)
     x
 })
 
 
 #' @export
-#' @describeIn Milo get neighbourhoodExpression
-setMethod("neighbourhoodExpression", "Milo", function(x) x@neighbourhoodExpression)
+#' @describeIn Milo get nhoodExpression
+setMethod("nhoodExpression", "Milo", function(x) x@nhoodExpression)
 
 #' @export
-#' @describeIn Milo set neighbourhoodExpression
-setMethod("neighbourhoodExpression<-", "Milo", function(x, value){
-    x@neighbourhoodExpression <- value
+#' @describeIn Milo set nhoodExpression
+setMethod("nhoodExpression<-", "Milo", function(x, value){
+    x@nhoodExpression <- value
     validObject(x)
     x
 })
@@ -88,12 +88,12 @@ setMethod("neighbourhoodExpression<-", "Milo", function(x, value){
 #' @importFrom methods callNextMethod
 .milo_show <- function(object) {
     callNextMethod()
-    coolcat("neighbourhoods dimensions(%d): %s\n", length(object@neighbourhoods))
-    coolcat("neighbourhoodCounts dimensions(%d): %s\n", dim(object@neighbourhoodCounts))
-    coolcat("neighbourDistances dimensions(%d): %s\n", dim(object@neighbourDistances))
+    coolcat("nhoods dimensions(%d): %s\n", length(object@nhoods))
+    coolcat("nhoodCounts dimensions(%d): %s\n", dim(object@nhoodCounts))
+    coolcat("nhoodDistances dimensions(%d): %s\n", dim(object@nhoodDistances))
     coolcat("graph names(%d): %s\n", names(object@graph))
-    coolcat("neighbourhoodIndex names(%d): %s\n", length(object@neighbourhoodIndex))
-    coolcat("neighbourhoodExpression dimension(%d): %s\n", dim(object@neighbourhoodExpression))
+    coolcat("nhoodIndex names(%d): %s\n", length(object@nhoodIndex))
+    coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
 
     sink(file="/dev/null")
     gc()

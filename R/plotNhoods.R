@@ -2,18 +2,17 @@
 ### MILO PLOTTING UTILS ###
 ###########################
 
-### Plotting nhoods stats ###
 
-#' Plot histogram of nhood sizes
-#' 
-#' This function plots the histogram of the number of cells belonging to 
-#' each nhood 
-#' 
+#' Plot histogram of neighbourhood sizes
+#'
+#' This function plots the histogram of the number of cells belonging to
+#' each neighbourhood
+#'
 #' @param milo A \code{\linkS4class{Milo}} object with a non-empty \code{nhoods}
-#' slot. 
+#' slot.
 #' @param bins number of bins for \code{geom_histogram}
 #'
-#' @return A \code{\linkS4class{ggplot}} object 
+#' @return A \code{\linkS4class{ggplot}} object
 #'
 #' @author
 #' Emma Dann
@@ -26,7 +25,8 @@
 #'
 #' milo <- makeNhoods(milo, prop=0.1)
 #' plotNhoodSizeHist(milo)
-#' 
+#'
+
 #' @export
 #' @rdname plotNhoodSizeHist
 #' @importFrom ggplot2 ggplot geom_histogram xlab theme_classic
@@ -36,6 +36,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
     stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
   }
   df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x))) 
+
   ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
     xlab("Nhood size") +
     theme_classic(base_size = 16)
