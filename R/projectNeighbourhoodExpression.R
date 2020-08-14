@@ -69,7 +69,7 @@ projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE){
   }
   
   ## Calculate mean profile of cells in a nhood
-  if (is.null(nhoodExpression(sim_milo))) {
+  if (is.null(nhoodExpression(x))) {
     x <- calcNhoodExpression(x, assay = "logcounts")
   }
   

@@ -38,7 +38,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
   df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x))) 
 
   ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
-    xlab("Nhood size") +
+    xlab("Neighbourhood size") +
     theme_classic(base_size = 16)
 }
 
