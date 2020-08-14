@@ -2,14 +2,14 @@
 ### MILO PLOTTING UTILS ###
 ###########################
 
-### Plotting neighbourhoods stats ###
+### Plotting nhoods stats ###
 
-#' Plot histogram of neighbourhood sizes
+#' Plot histogram of nhood sizes
 #' 
 #' This function plots the histogram of the number of cells belonging to 
-#' each neighbourhood 
+#' each nhood 
 #' 
-#' @param milo A \code{\linkS4class{Milo}} object with a non-empty \code{neighbourhoods}
+#' @param milo A \code{\linkS4class{Milo}} object with a non-empty \code{nhoods}
 #' slot. 
 #' @param bins number of bins for \code{geom_histogram}
 #'
@@ -24,31 +24,31 @@
 #' m <- matrix(rnorm(10000), ncol=10)
 #' milo <- buildGraph(m, d=10)
 #'
-#' milo <- makeNeighbourhoods(milo, prop=0.1)
-#' plotNeighborhoodSizeHist(milo)
+#' milo <- makeNhoods(milo, prop=0.1)
+#' plotNhoodSizeHist(milo)
 #' 
 #' @export
-#' @rdname plotNeighborhoodSizeHist
+#' @rdname plotNhoodSizeHist
 #' @importFrom ggplot2 ggplot geom_histogram xlab theme_classic
 #' @importFrom igraph neighbors
-plotNeighborhoodSizeHist <- function(milo, bins=50){
-  if (! isTRUE(.valid_neighbourhood(milo))){
-    stop("Not a valid Milo object - neighbourhoods are missing. Please run makeNeighbourhoods() first.")
+plotNhoodSizeHist <- function(milo, bins=50){
+  if (! isTRUE(.valid_nhood(milo))){
+    stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
   }
-  df <- data.frame(nh_size=sapply(neighbourhoods(milo), function(x) length(x))) 
+  df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x))) 
   ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
-    xlab("Neighbourhood size") +
+    xlab("Nhood size") +
     theme_classic(base_size = 16)
 }
 
 
 #' @importFrom igraph is_igraph
-.valid_neighbourhood <- function(milo){
-  # check for a valid neighbourhood slot
-  n_neigh <- length(neighbourhoods(milo))
+.valid_nhood <- function(milo){
+  # check for a valid nhood slot
+  n_neigh <- length(nhoods(milo))
   is_not_empty <- n_neigh > 0
   if (is_not_empty) {
-    is_igraph_vx <- class(milo@neighbourhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
+    is_igraph_vx <- class(milo@nhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
     if (isTRUE(is_igraph_vx)){
       TRUE
     } else {
@@ -63,16 +63,16 @@ plotNeighborhoodSizeHist <- function(milo, bins=50){
 
 #' Plot Milo test results on reduced dimensiona
 #' 
-#' Visualize log-FC estimated with differential neighbourhood abundance testing
+#' Visualize log-FC estimated with differential nhood abundance testing
 #' on embedding of original single-cell dataset. 
 #'
 #' @param x A \code{\linkS4class{Milo}} object 
-#' @param milo_results A `data.frame` containing the results of differential neighbourhood abundance testing (output of \code{testNeighborhoods})
-#' --> this will need to be changed/removed when output of testNeighbourhoods changes
+#' @param milo_results A `data.frame` containing the results of differential nhood abundance testing (output of \code{testNhoods})
+#' --> this will need to be changed/removed when output of testNhoods changes
 #' @param reduced_dims a character indicating the name of the \code{reducedDim} slot in the 
 #' \code{\linkS4class{Milo}} object to use as (default: 'UMAP').
 #' @param filter_alpha the spatialFDR cutoff used as a significance threshold. If not \code{NULL} the logFC will be plotted only for 
-#' significantly DA neighbourhoods (default: NULL)
+#' significantly DA nhoods (default: NULL)
 #' @param split_by A character indicating the \code{colData} column in \code{x} to use for faceting 
 #' e.g. useful to visualize results by cell type
 #' @param pt_size size of scatterplot points (default: 1.5)
@@ -100,7 +100,7 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
   }
   colnames(rdim_df) <- c('X','Y')
   rdim_df[,"nhIndex"] <- 1:nrow(rdim_df)
-  nhIndex <- unlist(neighbourhoodIndex(x))
+  nhIndex <- unlist(nhoodIndex(x))
   milo_results[,"nhIndex"] <- nhIndex
   viz2_df  <- left_join(rdim_df, milo_results, by="nhIndex") 
   
@@ -110,7 +110,7 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
     viz2_df  <- left_join(viz2_df, split_df, by="nhIndex") 
   }
   
-  ## Filter significant DA neighbourhoods 
+  ## Filter significant DA nhoods 
   if (!is.null(filter_alpha)) {
     viz2_df <- mutate(viz2_df, logFC = ifelse(SpatialFDR > filter_alpha, NA, logFC)) 
   }
