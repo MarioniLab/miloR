@@ -90,35 +90,42 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotMiloReducedDim
 #' @import ggplot2
 #' @importFrom dplyr left_join mutate arrange
-plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
+plotMiloReducedDim <- function(x, milo_results, nhood_reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
                                pt_size=1.5, components=c(1,2)
 ){
+  ## Check for valid nhoodReducedDim object
+  # Should have nrows = no. of nhoods + no. of cells
+  if (!nhood_reduced_dims %in% names(nhoodReducedDim(x))){
+    stop(paste(nhood_reduced_dims, "is not the name of an embedding in nhoodReducedDims(x). Available reductions are:", paste((nhoodReducedDim(x)), collapse = ", ")))
+  } else if (nrow(nhoodReducedDim(x)[[nhood_reduced_dims]]) != ncol(x) + length(nhoods(x))) {
+    stop(paste(nhood_reduced_dims, "is not a valid nhoodReducedDims(x) object. The number of rows should match the sum of the number of cells and the number of neighbourhoods"))
+    }
+  
   ## Join test results and dimensionality reductions
-  if (reduced_dims %in% reducedDimNames(x)){
-    rdim_df <- data.frame(reducedDim(x, reduced_dims))[,components]
-  } else {
-    stop(paste(reduced_dims, "is not the name of a dimensionality reduction result in x. Available reductions are:", paste(reducedDimNames(x), collapse = ", ")))
-  }
+  rdim_df <- data.frame(nhoodReducedDim(x)[[nhood_reduced_dims]])[,components]
   colnames(rdim_df) <- c('X','Y')
-  rdim_df[,"nhIndex"] <- 1:nrow(rdim_df)
-  nhIndex <- unlist(nhoodIndex(x))
-  milo_results[,"nhIndex"] <- nhIndex
-  viz2_df  <- left_join(rdim_df, milo_results, by="nhIndex") 
+  
+  n_nhoods <- length(nhoods(x))
+  rdim_df[,"Nhood"] <- ifelse(1:nrow(rdim_df) %in% c(1:n_nhoods), c(1:n_nhoods), NA)
+  viz_df  <- left_join(rdim_df, milo_results, by="Nhood") 
+  viz_df[is.na(viz_df["nhIndex"]),'nhIndex'] <- 1:ncol(x) # Add index also to single-cells
   
   if (!is.null(split_by)){
-    split_df <- data.frame(split_by=colData(milo)[,split_by])
+    split_df <- data.frame(split_by=colData(x)[,split_by])
     split_df[,"nhIndex"] <- 1:nrow(split_df)
-    viz2_df  <- left_join(viz2_df, split_df, by="nhIndex") 
+    viz_df  <- left_join(viz_df, split_df, by="nhIndex") 
   }
   
   ## Filter significant DA nhoods 
   if (!is.null(filter_alpha)) {
-    viz2_df <- mutate(viz2_df, logFC = ifelse(SpatialFDR > filter_alpha, NA, logFC)) 
+    if (filter_alpha > 0) {
+      viz_df <- mutate(viz_df, logFC = ifelse(SpatialFDR > filter_alpha, NA, logFC)) 
+    }
   }
   
   ## Plot 
   pl <-
-    ggplot(data = arrange(viz2_df, abs(logFC)),
+    ggplot(data = arrange(viz_df, abs(logFC)),
            aes(X, Y)) +
     geom_point(aes(color = ''), size = pt_size / 3, alpha = 0.5) +
     geom_point(
@@ -135,8 +142,8 @@ plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alph
       low = "blue",
       name = "log-FC"
     ) +
-    xlab(paste(reduced_dims, components[1], sep="_")) +
-    ylab(paste(reduced_dims, components[2], sep="_"))
+    xlab(paste(nhood_reduced_dims, components[1], sep="_")) +
+    ylab(paste(nhood_reduced_dims, components[2], sep="_"))
   
   if (!is.null(split_by)) {
     pl <- pl + facet_wrap(split_by~.)

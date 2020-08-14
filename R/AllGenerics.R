@@ -39,3 +39,9 @@ setGeneric("nhoodExpression", function(x) standardGeneric("nhoodExpression"))
 
 #' @export
 setGeneric("nhoodExpression<-", function(x, value) standardGeneric("nhoodExpression<-"))
+
+#' @export
+setGeneric("nhoodReducedDim", function(x) standardGeneric("nhoodReducedDim"))
+
+#' @export
+setGeneric("nhoodReducedDim<-", function(x, value) standardGeneric("nhoodReducedDim<-"))

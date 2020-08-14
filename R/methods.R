@@ -84,6 +84,19 @@ setMethod("nhoodExpression<-", "Milo", function(x, value){
 })
 
 
+#' @export
+#' @describeIn Milo get nhoodReducedDim
+setMethod("nhoodReducedDim", "Milo", function(x) x@nhoodReducedDim)
+
+#' @export
+#' @describeIn Milo set nhoodReducedDim
+setMethod("nhoodReducedDim<-", "Milo", function(x, value){
+    x@nhoodReducedDim <- value
+    validObject(x)
+    x
+})
+
+
 #' @importFrom S4Vectors coolcat
 #' @importFrom methods callNextMethod
 .milo_show <- function(object) {
@@ -94,6 +107,7 @@ setMethod("nhoodExpression<-", "Milo", function(x, value){
     coolcat("graph names(%d): %s\n", names(object@graph))
     coolcat("nhoodIndex names(%d): %s\n", length(object@nhoodIndex))
     coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
+    coolcat("nhoodReducedDim names(%d): %s\n", names(object@nhoodReducedDim))
 
     sink(file="/dev/null")
     gc()
