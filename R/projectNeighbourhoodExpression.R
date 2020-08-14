@@ -9,6 +9,12 @@
 #'  \code{\linkS4class{Milo}} object to use  for projection (default: 'PCA'). \code{reducedDim(x,reduced_dim)}
 #'  needs to have the attribute \code{rotation} storing the gene X dimensions loading matrix to use for projection.
 #'  See details for more info.
+#' @param scale logical indicating whether neighbourhoods expression profiles should be scaled before projection. 
+#' Data should be scaled if the embedding was performed on scaled single-cell data. 
+#' (Default: TRUE)
+#' @param center logical indicating whether neighbourhoods expression profiles should be centered before projection
+#' Data should be centered if the embedding was performed on scaled single-cell data.
+#' (Default: TRUE)
 #'
 #' @details
 #' This function projects neighbourhoods in the same reduced dimensions used for the full single-cell dataset.
@@ -26,18 +32,16 @@
 #'
 #' @examples
 #' 
-#' requires("irlba")
-#'
-#' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- Milo(m)
+#' require(SingleCellExperiment)
+#' m <- matrix(rnorm(100000), ncol=100)
+#' milo <- Milo(SingleCellExperiment(assays(logcounts=m)))
+#' milo <- buildGraph(m, d=30, transposed=TRUE)
+#' milo <- makeNeighbourhoods(milo)
+#' milo <- projectNeighbourhoodExpression(milo)
 #' 
-#'
-#' milo <- makeNeighbourhoods(milo, prop=0.1)
-#' milo
-#'
 #' @export
 #' @rdname projectNeighbourhoodExpression
-projectNeighbourhoodExpression <- function(x, d = 30, reduced_dims = "PCA"){
+projectNeighbourhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE){
   if (class(x) != "Milo") {
     stop("Unrecognised input type - must be of class Milo")
   } else if (!isTRUE(.valid_neighbourhood(x))) {
@@ -64,15 +68,20 @@ projectNeighbourhoodExpression <- function(x, d = 30, reduced_dims = "PCA"){
     )
   }
   
+  ## Calculate mean profile of cells in a neighbourhood
+  if (is.null(neighbourhoodExpression(sim_milo))) {
+    x <- calcNeighbourhoodExpression(x, assay = "logcounts")
+  }
   
-  ## Calculate median profile of cells in a neighbourhood
-  sim_milo <-
-    calcNeighbourhoodExpression(sim_milo, assay = "logcounts")
+  ## Scale the neighbourhoods profile (if PCs were calculated on scaled data)
+  if (isTRUE(scale) | isTRUE(center)) {
+    neighbourhoodExpression(x) <- t(scale(t(neighbourhoodExpression(x)), scale=TRUE, center=TRUE))
+  }
   
   ## Project profiles to same PCA space of the single-cells
   X_reduced_dims <- reducedDim(x, reduced_dims)
   loadings <- attr(X_reduced_dims, "rotation")
-  n.reducedDim <- t(neighbourhoodExpression(sim_milo)) %*% loadings
+  n.reducedDim <- t(neighbourhoodExpression(x)) %*% loadings
   
   ## Make one PC matrix including single-cells and neighbourhoods
   rownames(n.reducedDim) <-
@@ -80,4 +89,22 @@ projectNeighbourhoodExpression <- function(x, d = 30, reduced_dims = "PCA"){
   X_reduced_dims_merged <- rbind(n.reducedDim, X_reduced_dims)
   ## --> this will need to be added as a slot in the Milo object
   return(X_reduced_dims_merged)  
+}
+
+#' Calculates the l2-norm of a vector
+#'
+#' Adapted from PMA package
+#' @references Witten, Tibshirani, and Hastie, Biostatistics 2009
+#' @references \url{https://github.com/cran/PMA/blob/master/R/PMD.R}
+#'
+#' @param vec numeric vector
+#'
+#' @return returns the l2-norm.
+#'
+.l2norm <- function(vec) {
+  a <- sqrt(x = sum(vec ^ 2))
+  if (a == 0) {
+    a <- .05
+  }
+  return(a)
 }
