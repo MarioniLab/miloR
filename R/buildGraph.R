@@ -103,6 +103,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
+#' @export
 #' @importFrom Matrix Matrix
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
@@ -133,6 +134,10 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 
     n.idx <- ncol(x)
     for(i in seq_along(1:n.idx)){
+        sink(file="/dev/null")
+        gc()
+        sink(file=NULL)
+
         i.knn <- nn.out$index[i, ]
         i.dists <- nn.out$distance[i, ]
         old.dist[i, i.knn] <- i.dists
@@ -140,10 +145,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
     }
     old.dist <- as(old.dist, "dgCMatrix")
     nhoodDistances(x) <- old.dist
-
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 
     x
 }
