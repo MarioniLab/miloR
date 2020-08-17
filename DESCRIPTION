@@ -13,7 +13,7 @@ Encoding: UTF-8
 Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
-        matrixStats
+        matrixStats, dplyr
 Suggests: 
     testthat
 RoxygenNote: 7.1.1
