@@ -1,4 +1,7 @@
-### Plotting utils for neighbourhoods
+###########################
+### MILO PLOTTING UTILS ###
+###########################
+
 
 #' Plot histogram of neighbourhood sizes
 #'
@@ -23,17 +26,19 @@
 #' milo <- makeNhoods(milo, prop=0.1)
 #' plotNhoodSizeHist(milo)
 #'
+
 #' @export
 #' @rdname plotNhoodSizeHist
 #' @importFrom ggplot2 ggplot geom_histogram xlab theme_classic
 #' @importFrom igraph neighbors
 plotNhoodSizeHist <- function(milo, bins=50){
   if (! isTRUE(.valid_nhood(milo))){
-    stop("Not a valid Milo object - neighbourhoods are missing. Please run makeNhoods() first.")
+    stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
   }
-  df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x)))
+  df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x))) 
+
   ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
-    xlab("Neighbourhood size") +
+    xlab("Nhood size") +
     theme_classic(base_size = 16)
 }
 
@@ -43,10 +48,126 @@ plotNhoodSizeHist <- function(milo, bins=50){
   # check for a valid nhood slot
   n_neigh <- length(nhoods(milo))
   is_not_empty <- n_neigh > 0
-  is_igraph_vx <- class(milo@nhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs"
-  if (isTRUE(is_igraph_vx & is_not_empty)){
-    TRUE
+  if (is_not_empty) {
+    is_igraph_vx <- class(milo@nhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs" 
+    if (isTRUE(is_igraph_vx)){
+      TRUE
+    } else {
+        FALSE
+      }
   } else {
     FALSE
   }
 }
+
+### Plotting DA test results ###
+
+#' Plot Milo test results on reduced dimensiona
+#' 
+#' Visualize log-FC estimated with differential nhood abundance testing
+#' on embedding of original single-cell dataset. 
+#'
+#' @param x A \code{\linkS4class{Milo}} object 
+#' @param milo_results A `data.frame` containing the results of differential nhood abundance testing (output of \code{testNhoods})
+#' --> this will need to be changed/removed when output of testNhoods changes
+#' @param reduced_dims a character indicating the name of the \code{reducedDim} slot in the 
+#' \code{\linkS4class{Milo}} object to use as (default: 'UMAP').
+#' @param filter_alpha the spatialFDR cutoff used as a significance threshold. If not \code{NULL} the logFC will be plotted only for 
+#' significantly DA nhoods (default: NULL)
+#' @param split_by A character indicating the \code{colData} column in \code{x} to use for faceting 
+#' e.g. useful to visualize results by cell type
+#' @param pt_size size of scatterplot points (default: 1.5)
+#' @param components vector of reduced dimensions components to plot (default: c(1,2))
+#' 
+#' @return a \code{\linkS4class{ggplot}} object
+#' 
+#' @author Emma Dann
+#' 
+#' @examples 
+#' NULL
+#' 
+#' @export
+#' @rdname plotMiloReducedDim
+#' @import ggplot2
+#' @importFrom dplyr left_join mutate arrange
+plotMiloReducedDim <- function(x, milo_results, reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
+                               pt_size=1.5, components=c(1,2)
+){
+  ## Join test results and dimensionality reductions
+  if (reduced_dims %in% reducedDimNames(x)){
+    rdim_df <- data.frame(reducedDim(x, reduced_dims))[,components]
+  } else {
+    stop(paste(reduced_dims, "is not the name of a dimensionality reduction result in x. Available reductions are:", paste(reducedDimNames(x), collapse = ", ")))
+  }
+  colnames(rdim_df) <- c('X','Y')
+  rdim_df[,"nhIndex"] <- 1:nrow(rdim_df)
+  nhIndex <- unlist(nhoodIndex(x))
+  milo_results[,"nhIndex"] <- nhIndex
+  viz2_df  <- left_join(rdim_df, milo_results, by="nhIndex") 
+  
+  if (!is.null(split_by)){
+    split_df <- data.frame(split_by=colData(milo)[,split_by])
+    split_df[,"nhIndex"] <- 1:nrow(split_df)
+    viz2_df  <- left_join(viz2_df, split_df, by="nhIndex") 
+  }
+  
+  ## Filter significant DA nhoods 
+  if (!is.null(filter_alpha)) {
+    viz2_df <- mutate(viz2_df, logFC = ifelse(SpatialFDR > filter_alpha, NA, logFC)) 
+  }
+  
+  ## Plot 
+  pl <-
+    ggplot(data = arrange(viz2_df, abs(logFC)),
+           aes(X, Y)) +
+    geom_point(aes(color = ''), size = pt_size / 3, alpha = 0.5) +
+    geom_point(
+      data = . %>% filter(!is.na(SpatialFDR)),
+      aes(fill = logFC),
+      size = pt_size,
+      stroke = 0.1,
+      # colour="black",
+      shape = 21
+    ) +
+    scale_fill_gradient2(
+      midpoint = 0,
+      high = "red",
+      low = "blue",
+      name = "log-FC"
+    ) +
+    xlab(paste(reduced_dims, components[1], sep="_")) +
+    ylab(paste(reduced_dims, components[2], sep="_"))
+  
+  if (!is.null(split_by)) {
+    pl <- pl + facet_wrap(split_by~.)
+  }
+  if (!is.null(filter_alpha)) {
+    pl <- pl +
+      scale_color_manual(values = 'grey', label = paste("SpatialFDR >", round(filter_alpha, 2))) +
+      guides(colour = guide_legend(
+        '',
+        override.aes = list(
+          shape = 21,
+          colour = "black",
+          fill = "grey50",
+          size = pt_size,
+          alpha = 1,
+          stroke = 0.1
+        )
+      ))
+  } else {
+    pl <- pl + 
+      scale_color_manual(values = 'grey') +
+      guides(color="none")
+  }
+  
+  pl <- pl +
+    theme_classic(base_size = 16) +
+    theme(
+      axis.ticks = element_blank(),
+      axis.text = element_blank(),
+      plot.title = element_text(hjust = 0.5)
+    )
+  return(pl)
+}
+
