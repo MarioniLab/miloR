@@ -17,7 +17,8 @@ setClass("Milo",
              nhoodDistances = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
              nhoodCounts = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
              nhoodIndex = "list", # used to store nhood indices
-             nhoodExpression = "matrixORdgCMatrixORdsCMatrix" # this should be NA or a matrix
+             nhoodExpression = "matrixORdgCMatrixORdsCMatrix", # this should be NA or a matrix
+             nhoodReducedDim = "list" # this should be a list
          ),
          prototype = list(
              graph = list(),
@@ -25,6 +26,7 @@ setClass("Milo",
              nhoodDistances = Matrix::Matrix(0L, sparse=TRUE),
              nhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
              nhoodIndex = list(),
-             nhoodExpression = Matrix::Matrix(0L, sparse=TRUE)
+             nhoodExpression = Matrix::Matrix(0L, sparse=TRUE),
+             nhoodReducedDim = list()
          )
 )

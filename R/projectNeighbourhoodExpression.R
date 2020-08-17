@@ -24,7 +24,7 @@
 #' package \code{irlba} as in examples. The output of this function is used for visualization of test results.
 #'
 #' @return A \code{\linkS4class{matrix}} object of samples X reduced dimensions where samples are both
-#' the single-cells and the nhoods.
+#' the nhoods and the single-cells.
 #' (This will need to become a slot in Milo object)
 #' 
 #' @author
@@ -69,7 +69,7 @@ projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE){
   }
   
   ## Calculate mean profile of cells in a nhood
-  if (is.null(nhoodExpression(sim_milo))) {
+  if (is.null(nhoodExpression(x))) {
     x <- calcNhoodExpression(x, assay = "logcounts")
   }
   
@@ -87,25 +87,11 @@ projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE){
   rownames(n.reducedDim) <-
     paste0("nh_", seq(1:nrow(n.reducedDim)))
   X_reduced_dims_merged <- rbind(n.reducedDim, X_reduced_dims)
-  ## --> this will need to be added as a slot in the Milo object
-  return(X_reduced_dims_merged)  
+  
+  ## Add to slot nhoodsReducedDim
+  nhoodReducedDim(x) <- list(X_reduced_dims_merged)
+  names(nhoodReducedDim(x)) <- reduced_dims
+  return(x)  
 }
 
-#' Calculates the l2-norm of a vector
-#'
-#' Adapted from PMA package
-#' @references Witten, Tibshirani, and Hastie, Biostatistics 2009
-#' @references \url{https://github.com/cran/PMA/blob/master/R/PMD.R}
-#'
-#' @param vec numeric vector
-#'
-#' @return returns the l2-norm.
-#'
-.l2norm <- function(vec) {
-  a <- sqrt(x = sum(vec ^ 2))
-  if (a == 0) {
-    a <- .05
-  }
-  return(a)
-}
 
