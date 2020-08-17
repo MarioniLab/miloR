@@ -75,6 +75,7 @@ meta.df$Vertex <- c(1:nrow(meta.df))
 
 sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
                                  reducedDims=list("PCA"=sim1.pca$x))
+attr(reducedDim(sim1.sce, "PCA"), "rotation") <- sim1.pca$rotation
 
 sim1.mylo <- Milo(sim1.sce)
 
@@ -105,6 +106,13 @@ test_that("Milo getters working as expected", {
     sim1.mylo <- calcNhoodExpression(sim1.mylo)
     expect_identical(ncol(nhoodExpression(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
     expect_identical(nrow(nhoodExpression(sim1.mylo)), nrow(sim1.mylo))
+
+    # loadings were set on Milo object at instantiation
+    expect_identical(nrow(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
+                     sum(nrow(nhoodCounts(sim1.mylo)), ncol(sim1.mylo)))
+    expect_identical(ncol(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
+                     ncol(reducedDim(sim1.mylo, "PCA")[, 1:30]))
+
 })
 
 
@@ -125,4 +133,8 @@ test_that("Milo setters working as expected", {
     nhoodExpression(sim1.mylo) <- matrix(0L, ncol=length(nhoodIndex(sim1.mylo)),
                                          nrow=nrow(sim1.mylo))
     expect_equal(sum(rowSums(nhoodExpression(sim1.mylo))), 0)
+
+    # loadings were set on Milo object at instantiation
+    nhoodReducedDim(sim1.mylo) <- list()
+    expect_identical(nhoodReducedDim(sim1.mylo), list())
 })
