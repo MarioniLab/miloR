@@ -41,7 +41,7 @@ setGeneric("nhoodExpression", function(x) standardGeneric("nhoodExpression"))
 setGeneric("nhoodExpression<-", function(x, value) standardGeneric("nhoodExpression<-"))
 
 #' @export
-setGeneric("nhoodReducedDim", function(x) standardGeneric("nhoodReducedDim"))
+setGeneric("nhoodReducedDim", function(x, value="PCA") standardGeneric("nhoodReducedDim"))
 
 #' @export
-setGeneric("nhoodReducedDim<-", function(x, value) standardGeneric("nhoodReducedDim<-"))
+setGeneric("nhoodReducedDim<-", function(x, value, rdim="PCA") standardGeneric("nhoodReducedDim<-"))

@@ -86,12 +86,14 @@ setMethod("nhoodExpression<-", "Milo", function(x, value){
 
 #' @export
 #' @describeIn Milo get nhoodReducedDim
-setMethod("nhoodReducedDim", "Milo", function(x) x@nhoodReducedDim)
+setMethod("nhoodReducedDim", "Milo", function(x, value="PCA") {
+    x@nhoodReducedDim[[value]]
+    })
 
 #' @export
 #' @describeIn Milo set nhoodReducedDim
-setMethod("nhoodReducedDim<-", "Milo", function(x, value){
-    x@nhoodReducedDim <- value
+setMethod("nhoodReducedDim<-", "Milo", function(x, value, rdim="PCA"){
+    x@nhoodReducedDim[[rdim]] <- value
     validObject(x)
     x
 })
