@@ -110,6 +110,12 @@ setValidity("Milo", function(object){
         TRUE
     }
 
+    if(class(object@nhoodExpression) != "matrixORdgCMatrixORdsCMatrix"){
+        "@nhoodExpression must be a matrix format"
+    } else{
+        TRUE
+    }
+
     # can be a list or igraph object
     if (!is_igraph(object@graph)){
         if(typeof(object@graph) != "list"){

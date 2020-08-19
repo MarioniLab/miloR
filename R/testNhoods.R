@@ -63,7 +63,7 @@ testNhoods <- function(x, design, design.df,
 
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
-    } else if(.is_empty(x, "nhoodCounts")){
+    } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
@@ -107,20 +107,4 @@ testNhoods <- function(x, design, design.df,
 
     res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
     res
-}
-
-
-#' @importFrom methods slot
-#' @importFrom Matrix rowSums
-.is_empty <- function(x, attribute){
-    # check if a Milo object slot is empty or not
-    x.slot <- slot(x, attribute)
-
-    if(class(x.slot) == "list" & names(slot(x, "graph")) == "graph"){
-        return(length(x.slot[[1]]) > 0)
-    } else if(class(x.slot) == "list" & is.null(names(x.slot))){
-        return(length(x.slot))
-    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix"))){
-        return(sum(rowSums(x.slot)) == 0)
-    }
 }

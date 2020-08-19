@@ -1,4 +1,4 @@
-#' Project mean nhood expression profiles on embedding of single-cells
+#' Project mean neighbourhood expression profiles on embedding of single-cells
 #'
 #' This is for visualization of single-cells and nhoods on the same embedding
 #'
@@ -69,27 +69,27 @@ projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE, 
   }
 
   ## Calculate mean profile of cells in a nhood
-  if (is.null(nhoodExpression(x))) {
-    x <- calcNhoodExpression(x, assay = "logcounts")
+  if (.check_empty(x, "nhoodExpression")) {
+      warning("nhoodExpression slot is empty - populating")
+      x <- calcNhoodExpression(x, assay = "logcounts")
   }
 
   ## Scale the nhoods profile (crucial if PCs were calculated on scaled data)
-  nhoodExpression(x) <- t(scale(t(nhoodExpression(x)), scale=scale, center=center))
+  ## Don't change the data in-situ, this could create unwanted side-effects
+  # nhoodExpression(x) <- t(scale(t(nhoodExpression(x)), scale=scale, center=center))
 
   ## Project profiles to same PCA space of the single-cells
   X_reduced_dims <- reducedDim(x, reduced_dims)
   loadings <- attr(X_reduced_dims, "rotation")
-  n.reducedDim <- t(nhoodExpression(x)) %*% loadings
+  n.reducedDim <- t(scale(nhoodExpression(x), scale=scale, center=center)) %*% loadings
   n.reducedDim <- n.reducedDim[, c(1:d)]
 
   ## Make one PC matrix including single-cells and nhoods
   rownames(n.reducedDim) <-
-    paste0("nh_", seq(1:nrow(n.reducedDim)))
+      paste0("nh_", seq(1:nrow(n.reducedDim)))
   X_reduced_dims_merged <- rbind(n.reducedDim, X_reduced_dims[, c(1:d)])
 
   ## Add to slot nhoodsReducedDim
   nhoodReducedDim(x, reduced_dims) <- X_reduced_dims_merged
   return(x)
 }
-
-
