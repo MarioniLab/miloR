@@ -63,7 +63,7 @@ testNhoods <- function(x, design, design.df,
 
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
-    } else if(.is_empty(x, "nhoodCounts")){
+    } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
