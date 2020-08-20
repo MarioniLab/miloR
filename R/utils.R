@@ -16,7 +16,7 @@
 }
 
 
-.is_binary <- function(x){
+.check_binary <- function(x){
     # check if a matrix is binary or not
     sum.zeros <- sum(x == 0)
     sum.ones <- sum(x == 1)

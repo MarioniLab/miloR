@@ -60,7 +60,7 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
 
     # check if matrix is binary
     if(is.null(is.binary)){
-        is.binary <- .is_binary(x)
+        is.binary <- .check_binary(x)
     }
 
     # check if square
@@ -75,7 +75,7 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
             nn.graph <- graph_from_adjacency_matrix(x, mode="undirected")
         }
     } else{
-        if(is.binary){
+        if(.check_binary){
             stop("Input matrix is binary but not square")
         }
         # assume the #ncols is k and the individual components are the NN indices
@@ -93,6 +93,3 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
 
     return(mylo)
 }
-
-
-
