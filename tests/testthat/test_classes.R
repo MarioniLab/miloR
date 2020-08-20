@@ -83,6 +83,11 @@ test_that("Milo inherits from SingleCellExperiment", {
     expect_is(sim1.mylo, "SingleCellExperiment")
 })
 
+test_that("Milo can instantiate an empty object", {
+    empty.mylo <- Milo()
+    expect_equal(ncol(empty.mylo), 0)
+    expect_equal(nrow(empty.mylo), 0)
+})
 
 test_that("Milo getters working as expected", {
     # graph retrieval with an empty graph should give a warning
