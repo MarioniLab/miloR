@@ -15,3 +15,29 @@
     }
 }
 
+
+.is_binary <- function(x){
+    # check if a matrix is binary or not
+    sum.zeros <- sum(x == 0)
+    sum.ones <- sum(x == 1)
+    n.comps <- nrow(x) * ncol(x)
+
+    return(sum(c(sum.zeros, sum.ones)) == n.comps)
+}
+
+
+#' @importFrom igraph make_graph simplify
+.neighborsToKNNGraph <- function(nn, directed=FALSE) {
+    start <- as.vector(row(nn))
+    end <- as.vector(nn)
+    interleaved <- as.vector(rbind(start, end))
+
+    if (directed) {
+        g <- make_graph(interleaved, directed=TRUE)
+
+    } else {
+        g <- make_graph(interleaved, directed=FALSE)
+        g <- simplify(g, edge.attr.comb = "first")
+    }
+    g
+}

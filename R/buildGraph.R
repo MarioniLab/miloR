@@ -159,18 +159,3 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-#' @importFrom igraph make_graph simplify
-.neighborsToKNNGraph <- function(nn, directed=FALSE) {
-    start <- as.vector(row(nn))
-    end <- as.vector(nn)
-    interleaved <- as.vector(rbind(start, end))
-
-    if (directed) {
-        g <- make_graph(interleaved, directed=TRUE)
-
-    } else {
-        g <- make_graph(interleaved, directed=FALSE)
-        g <- simplify(g, edge.attr.comb = "first")
-    }
-    g
-}
