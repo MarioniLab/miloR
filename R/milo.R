@@ -67,7 +67,9 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
         on.exit(S4Vectors:::disableValidity(old))
     }
 
-    if(class(unlist(...)) == "SingleCellExperiment"){
+    if(length(list(...)) == 0){
+        milo <- .emptyMilo()
+    } else if(class(unlist(...)) == "SingleCellExperiment"){
         milo <- .fromSCE(unlist(...))
     }
 
@@ -89,6 +91,23 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodExpression=Matrix(0L, sparse=TRUE))
 
     reducedDims(out) <- reducedDims(sce)
+    altExps(out) <- list()
+
+    out
+}
+
+#' @importFrom Matrix Matrix
+.emptyMilo <- function(...){
+    # return an empty Milo object
+    out <- new("Milo",
+               graph=list(),
+               nhoods=list(),
+               nhoodDistances=Matrix(0L, sparse=TRUE),
+               nhoodCounts=Matrix(0L, sparse=TRUE),
+               nhoodIndex=list(),
+               nhoodExpression=Matrix(0L, sparse=TRUE))
+
+    reducedDims(out) <- list()
     altExps(out) <- list()
 
     out
