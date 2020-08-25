@@ -26,7 +26,12 @@ setMethod("nhoodDistances", "Milo", function(x) x@nhoodDistances)
 #' @export
 #' @describeIn Milo set nhoodDistances
 setMethod("nhoodDistances<-", "Milo", function(x, value){
-    x@nhoodDistances <- as(value, "dgCMatrix")
+    if(!any(class(value) %in% c("dgCMatrix"))){
+        x@nhoodDistances <- as(value, "dgCMatrix")
+    } else{
+        x@nhoodDistances <- value
+    }
+
     validObject(x)
     x
 })
