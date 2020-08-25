@@ -19,6 +19,9 @@
 #' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
 #' spatial FDR correction is performed and returns a vector of NAs.
 #' @param seed Seed number used for pseudorandom number generators.
+#' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
+#' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
+#' Phipson et al, 2013 for details.
 #'
 #'
 #' @details
@@ -49,7 +52,7 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
-                               min.mean=0, model.contrasts=NULL, seed=42){
+                               min.mean=0, model.contrasts=NULL, seed=42, robust=TRUE){
     set.seed(seed)
     if(class(design) == "formula"){
         model <- model.matrix(design, data=design.df)
@@ -85,7 +88,7 @@ testNhoods <- function(x, design, design.df,
                    lib.size=log(colSums(nhoodCounts(x))))
 
     dge <- estimateDisp(dge, model)
-    fit <- glmQLFit(dge, model, robust=TRUE)
+    fit <- glmQLFit(dge, model, robust=robust)
     if(!is.null(model.contrasts)){
         mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
         res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),

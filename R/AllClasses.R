@@ -1,7 +1,6 @@
 
-#' @importClassesFrom Matrix sparseMatrix
-#setClassUnion("matrixORdgCMatrixORdsCMatrixORdgTMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "dgTMatrix")) # is there a record for how long a virtual class can be?!
-setClassUnion("matrixORsparseMatrix", c("matrix", "sparseMatrix")) # can I generalise this much?
+#' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
+setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 
 
@@ -15,10 +14,10 @@ setClass("Milo",
          slots=c(
              graph = "list", # this should be a list or an igraph object
              nhoods = "list", # this should be a list
-             nhoodDistances = "matrixORsparseMatrix", # this should be NA or a matrix
-             nhoodCounts = "matrixORsparseMatrix", # this should be NA or a matrix
+             nhoodDistances = "matrixORMatrix", # this should be a matrix
+             nhoodCounts = "matrixORMatrix", # this should be a matrix
              nhoodIndex = "list", # used to store nhood indices
-             nhoodExpression = "matrixORsparseMatrix", # this should be NA or a matrix
+             nhoodExpression = "matrixORMatrix", # this should be NA or a matrix
              nhoodReducedDim = "list" # this should be a list
          ),
          prototype = list(

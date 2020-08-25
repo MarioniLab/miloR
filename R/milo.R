@@ -117,19 +117,19 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 ## class validator
 #' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
-    if (class(object@nhoodCounts) != "matrixORsparseMatrix"){
+    if (class(object@nhoodCounts) != "matrixORMatrix"){
         "@nhoodCounts must be a matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodDistances) != "matrixORsparseMatrix"){
+    if(class(object@nhoodDistances) != "matrixORMatrix"){
         "@nhoodDistances must be a matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodExpression) != "matrixORsparseMatrix"){
+    if(class(object@nhoodExpression) != "matrixORMatrix"){
         "@nhoodExpression must be a matrix format"
     } else{
         TRUE

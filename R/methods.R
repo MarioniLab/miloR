@@ -26,7 +26,7 @@ setMethod("nhoodDistances", "Milo", function(x) x@nhoodDistances)
 #' @export
 #' @describeIn Milo set nhoodDistances
 setMethod("nhoodDistances<-", "Milo", function(x, value){
-    x@nhoodDistances <- value
+    x@nhoodDistances <- as(value, "dgCMatrix")
     validObject(x)
     x
 })
