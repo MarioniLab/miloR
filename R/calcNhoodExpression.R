@@ -34,6 +34,7 @@ NULL
 
 #' @export
 #' @rdname calcNhoodExpression
+#' @import SingleCellExperiment
 calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NULL){
 
     if(class(x) == "Milo"){
@@ -64,7 +65,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 }
 
 
-#' @importFrom Matrix colSums
+#' @import Matrix
 .calc_expression <- function(nhoods, data.set, subset.row=NULL){
     neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
 
