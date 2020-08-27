@@ -83,7 +83,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
     if(is.null(subset.row)){
         rownames(neigh.exprs) <- rownames(data.set)
     } else{
-        rownames(neigh.exprs) <- rownames(data.set)[subset.row]
+        rownames(neigh.exprs) <- rownames(data.set[subset.row, ])
     }
 
     return(neigh.exprs)
