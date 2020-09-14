@@ -16,6 +16,7 @@
 #' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions.
+#' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
 #' @param seed An integer scalar seed to initial the pseudorandom number
 #' generator
 #' @details

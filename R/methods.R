@@ -1,5 +1,6 @@
 ######## Methods ########
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get graph
 setMethod("graph", "Milo", function(x) {
     if(length(x@graph)){
@@ -11,6 +12,7 @@ setMethod("graph", "Milo", function(x) {
     })
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set graph
 setMethod("graph<-", "Milo", function(x, value){
     x@graph <- list("graph"=value)
@@ -20,10 +22,12 @@ setMethod("graph<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoodDistances
 setMethod("nhoodDistances", "Milo", function(x) x@nhoodDistances)
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoodDistances
 setMethod("nhoodDistances<-", "Milo", function(x, value){
     if(!any(class(value) %in% c("dgCMatrix"))){
@@ -38,10 +42,12 @@ setMethod("nhoodDistances<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoods
 setMethod("nhoods", "Milo", function(x) x@nhoods)
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoods
 setMethod("nhoods<-", "Milo", function(x, value){
     x@nhoods <- value
@@ -51,10 +57,12 @@ setMethod("nhoods<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoodCounts
 setMethod("nhoodCounts", "Milo", function(x) x@nhoodCounts)
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoodCounts
 setMethod("nhoodCounts<-", "Milo", function(x, value){
     x@nhoodCounts <- value
@@ -64,10 +72,12 @@ setMethod("nhoodCounts<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoodIndex
 setMethod("nhoodIndex", "Milo", function(x) x@nhoodIndex)
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoodIndex
 setMethod("nhoodIndex<-", "Milo", function(x, value){
     x@nhoodIndex <- value
@@ -77,10 +87,12 @@ setMethod("nhoodIndex<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoodExpression
 setMethod("nhoodExpression", "Milo", function(x) x@nhoodExpression)
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoodExpression
 setMethod("nhoodExpression<-", "Milo", function(x, value){
     x@nhoodExpression <- value
@@ -90,12 +102,14 @@ setMethod("nhoodExpression<-", "Milo", function(x, value){
 
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo get nhoodReducedDim
 setMethod("nhoodReducedDim", "Milo", function(x, value="PCA") {
     x@nhoodReducedDim[[value]]
     })
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo set nhoodReducedDim
 setMethod("nhoodReducedDim<-", "Milo", function(x, value, rdim="PCA"){
     x@nhoodReducedDim[[rdim]] <- value
@@ -122,6 +136,7 @@ setMethod("nhoodReducedDim<-", "Milo", function(x, value, rdim="PCA"){
 }
 
 #' @export
+#' @aliases Milo
 #' @describeIn Milo show method
 #' @import methods
 setMethod("show", "Milo", .milo_show)

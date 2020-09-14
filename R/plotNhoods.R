@@ -70,7 +70,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param x A \code{\linkS4class{Milo}} object
 #' @param milo_results A `data.frame` containing the results of differential nhood abundance testing (output of \code{testNhoods})
 #' --> this will need to be changed/removed when output of testNhoods changes
-#' @param reduced_dims a character indicating the name of the \code{reducedDim} slot in the
+#' @param nhood_reduced_dims a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'UMAP').
 #' @param filter_alpha the spatialFDR cutoff used as a significance threshold. If not \code{NULL} the logFC will be plotted only for
 #' significantly DA nhoods (default: NULL)
@@ -90,6 +90,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotMiloReducedDim
 #' @import ggplot2
 #' @importFrom dplyr left_join mutate arrange
+#' @importFrom stats filter
 plotMiloReducedDim <- function(x, milo_results, nhood_reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
                                pt_size=1.5, components=c(1,2)
 ){
