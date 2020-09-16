@@ -7,7 +7,7 @@
 #' via distance, and the KNN-graph used to define the neighbourhoods.
 #'
 #' @param ... Arguments passed to the Milo constructor to fill the slots of the
-#' base class. This should be either a \linkS4class{SingleCellExperiment} or
+#' base class. This should be either a \code{\linkS4class{SingleCellExperiment}} or
 #' matrix of features X cells
 #' @param graph An igraph object or list of adjacent vertices that represents
 #' the KNN-graph

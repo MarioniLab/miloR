@@ -12,7 +12,7 @@
 #' slot.
 #' @param bins number of bins for \code{geom_histogram}
 #'
-#' @return A \code{\linkS4class{ggplot}} object
+#' @return A \code{ggplot-class} object
 #'
 #' @author
 #' Emma Dann
@@ -79,7 +79,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param pt_size size of scatterplot points (default: 1.5)
 #' @param components vector of reduced dimensions components to plot (default: c(1,2))
 #'
-#' @return a \code{\linkS4class{ggplot}} object
+#' @return a \code{ggplot-class} object
 #'
 #' @author Emma Dann
 #'
@@ -92,8 +92,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @importFrom dplyr left_join mutate arrange
 #' @importFrom stats filter
 plotMiloReducedDim <- function(x, milo_results, nhood_reduced_dims="UMAP", filter_alpha=NULL, split_by=NULL,
-                               pt_size=1.5, components=c(1,2)
-){
+                               pt_size=1.5, components=c(1,2)){
   ## Check for valid nhoodReducedDim object
   # Should have nrows = no. of nhoods + no. of cells
   if (!nhood_reduced_dims %in% names(nhoodReducedDim(x))){
