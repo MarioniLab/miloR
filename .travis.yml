@@ -3,6 +3,7 @@ cache: packages
 warnings_are_errors: false
 
 r: bioc-release
+   bioc-devel
 
 r_packages:
     - covr
@@ -10,3 +11,5 @@ r_packages:
 # only report coverage after build is successful
 after_success:
   - Rscript -e 'covr::codecov()'
+
+bioc_check: false
