@@ -19,8 +19,7 @@
 #'
 #' @examples
 #'
-#' requires(igraph)
-#' m <- matrix(rnorm(10000), ncol=10)
+#' m <- matrix(rnorm(100000), ncol=100)
 #' milo <- buildGraph(m, d=10)
 #'
 #' milo <- makeNhoods(milo, prop=0.1)

@@ -34,8 +34,8 @@
 #'
 #' require(SingleCellExperiment)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- Milo(SingleCellExperiment(assays(logcounts=m)))
-#' milo <- buildGraph(m, d=30, transposed=TRUE)
+#' milo <- Milo(SingleCellExperiment(assays=list(logcounts=m)))
+#' milo <- buildGraph(m, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo)
 #' milo <- projectNhoodExpression(milo)
 #'
