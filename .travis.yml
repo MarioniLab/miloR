@@ -2,8 +2,9 @@ language: r
 cache: packages
 warnings_are_errors: false
 
-r: bioc-release
-   bioc-devel
+r: 
+  - bioc-release
+  - bioc-devel
 
 r_packages:
     - covr
