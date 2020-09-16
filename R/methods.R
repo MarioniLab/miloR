@@ -1,4 +1,5 @@
 ######## Methods ########
+
 #' @export
 #' @aliases Milo
 #' @describeIn Milo get graph
@@ -111,9 +112,18 @@ setMethod("nhoodReducedDim", "Milo", function(x, value="PCA") {
 #' @export
 #' @aliases Milo
 #' @describeIn Milo set nhoodReducedDim
-setMethod("nhoodReducedDim<-", "Milo", function(x, value, rdim="PCA"){
+setMethod("nhoodReducedDim<-", "Milo", function(x, value, ...){
+    suppressWarnings({
+    if(length(list(...) == 1)){
+        rdim <- list(...)[[1]]
+    } else if(length(list(...) > 1)){
+        rdim <- list(...)$rdim
+    } else{
+        rdim <- "PCA"
+    }
+
     x@nhoodReducedDim[[rdim]] <- value
-    validObject(x)
+    validObject(x)})
     x
 })
 
