@@ -92,6 +92,6 @@ projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE, 
   X_reduced_dims_merged <- rbind(n.reducedDim, X_reduced_dims[, c(1:d)])
 
   ## Add to slot nhoodsReducedDim
-  nhoodReducedDim(x, rdim=reduced_dims) <- X_reduced_dims_merged
+  nhoodReducedDim(x, reduced_dims) <- X_reduced_dims_merged
   return(x)
 }

@@ -1,4 +1,4 @@
-#' The Milo class
+#' The Milo constuctor
 #'
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the

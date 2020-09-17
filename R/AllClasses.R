@@ -8,13 +8,11 @@
 #' @slot nhoodExpression An GxN matrix of genes X neighbourhoods containing average gene expression levels across cells in each neighbourhood
 #' @slot nhoodReducedDim a list of reduced dimensional representations of neighbourhoods, including projections into lower dimension space
 #'
-#' @docType class
-#' @name Milo-class
+
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
 setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 #' @aliases Milo
-#' @rdname Milo
 #' @export
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors SimpleList

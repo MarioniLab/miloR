@@ -117,7 +117,6 @@ test_that("Milo getters working as expected", {
                      sum(nrow(nhoodCounts(sim1.mylo)), ncol(sim1.mylo)))
     expect_identical(ncol(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
                      ncol(reducedDim(sim1.mylo, "PCA")[, 1:30]))
-
 })
 
 
