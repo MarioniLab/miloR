@@ -13,6 +13,7 @@
 setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 #' @aliases Milo
+#' @rdname Milo
 #' @export
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors SimpleList

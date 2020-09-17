@@ -45,7 +45,7 @@
 #'                             reducedDims=SimpleList(PCA=pca$x))
 #'
 #' milo <- Milo(sce)
-#' milo <- buildGraph(m, d=30, transposed=TRUE)
+#' milo <- buildGraph(milo, d=30, transposed=TRUE)
 #'
 #' milo
 #' @name buildGraph
