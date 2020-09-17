@@ -32,6 +32,5 @@ Collate:
     'methods.R'
     'plotNhoods.R'
     'projectNhoodExpression.R'
-    'testGLMM.R'
     'testNhoods.R'
     'utils.R'
