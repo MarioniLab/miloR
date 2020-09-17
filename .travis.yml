@@ -9,6 +9,11 @@ r:
 r_packages:
     - covr
 
+# safelist
+branches:
+  only:
+  - master
+
 # only report coverage after build is successful
 after_success:
   - Rscript -e 'covr::codecov()'
