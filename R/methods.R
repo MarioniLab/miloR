@@ -112,20 +112,16 @@ setMethod("nhoodReducedDim", "Milo", function(x, value="PCA") {
 #' @export
 #' @aliases Milo
 #' @describeIn Milo set nhoodReducedDim
-setMethod("nhoodReducedDim<-", "Milo", function(x, value, ...){
-    suppressWarnings({
-    if(length(list(...) == 1)){
-        rdim <- list(...)[[1]]
-    } else if(length(list(...) > 1)){
-        rdim <- list(...)$rdim
-    } else{
-        rdim <- "PCA"
-    }
-
-    x@nhoodReducedDim[[rdim]] <- value
-    validObject(x)})
+setMethod("nhoodReducedDim<-", "Milo", function(x, value, rdim="PCA"){
+    x <- .set_reduced_dims(x,
+                           value,
+                           slot.x="nhoodReducedDim",
+                           rdim="PCA")
+    validObject(x)
     x
 })
+
+
 
 
 #' @importFrom S4Vectors coolcat
