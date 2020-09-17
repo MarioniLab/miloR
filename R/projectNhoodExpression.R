@@ -33,9 +33,11 @@
 #' @examples
 #'
 #' require(SingleCellExperiment)
-#' m <- matrix(rnorm(100000), ncol=100)
-#' rotation <- diag(1000)
-#' milo <- Milo(SingleCellExperiment(assays=list(logcounts=m)))
+#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#' rotation <- pca$rotation
+#' milo <- Milo(SingleCellExperiment(assays=list(logcounts=vx), reducedDims=SimpleList(PCA=pca$x)))
 #' milo <- buildGraph(milo, k=10, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, d=10)
 #' attr(reducedDim(milo, "PCA"), "rotation") <- rotation

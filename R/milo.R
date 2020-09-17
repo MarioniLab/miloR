@@ -43,7 +43,7 @@
 #' pca <- prcomp(t(vx))
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
-#'   reducedDims=SimpleList(PCA=pca$x))
+#'                             reducedDims=SimpleList(PCA=pca$x))
 #'
 #' milo <- Milo(sce)
 #' milo

@@ -36,7 +36,15 @@
 #' Mike Morgan, with KNN code written by Aaron Lun & Jonathan Griffiths.
 #'
 #' @examples
-#' m <- matrix(rnorm(50000), ncol=50)
+#' library(SingleCellExperiment)
+#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#'
+#' milo <- Milo(sce)
 #' milo <- buildGraph(m, d=30, transposed=TRUE)
 #'
 #' milo
