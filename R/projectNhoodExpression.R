@@ -34,9 +34,11 @@
 #'
 #' require(SingleCellExperiment)
 #' m <- matrix(rnorm(100000), ncol=100)
+#' rotation <- diag(100)
 #' milo <- Milo(SingleCellExperiment(assays=list(logcounts=m)))
-#' milo <- buildGraph(m, d=10, transposed=TRUE)
+#' milo <- buildGraph(milo, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo)
+#' attr(reducedDim(milo, "PCA"), "rotation") <- rotation
 #' milo <- projectNhoodExpression(milo)
 #'
 #' @export

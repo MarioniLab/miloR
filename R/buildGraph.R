@@ -13,9 +13,9 @@
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
 #' @param transposed Logical if the input x is transposed with rows as cells.
-#' @param BNPARAM refer to \code{\link[scran]{buildKNNgraph}} for details.
-#' @param BSPARAM refer to \code{\link[scran]{buildKNNgraph}} for details.
-#' @param BPPARAM refer to \code{\link[scran]{buildKNNgraph}} for details.
+#' @param BNPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
+#' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
+#' @param BPPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param seed Seed number used for pseudorandom number generators.
 #'
 #' @details
