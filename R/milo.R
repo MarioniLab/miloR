@@ -1,4 +1,4 @@
-#' The Milo constuctor
+#' The Milo class
 #'
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the
@@ -7,7 +7,7 @@
 #' via distance, and the KNN-graph used to define the neighbourhoods.
 #'
 #' @param ... Arguments passed to the Milo constructor to fill the slots of the
-#' base class. This should be either a \code{\linkS4class{SingleCellExperiment}} or
+#' base class. This should be either a \linkS4class{SingleCellExperiment} or
 #' matrix of features X cells
 #' @param graph An igraph object or list of adjacent vertices that represents
 #' the KNN-graph
@@ -43,7 +43,7 @@
 #' pca <- prcomp(t(vx))
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
-#'                             reducedDims=SimpleList(PCA=pca$x))
+#'   reducedDims=SimpleList(PCA=pca$x))
 #'
 #' milo <- Milo(sce)
 #' milo

@@ -41,28 +41,3 @@
     }
     g
 }
-
-# setting internals for replacement methods that require multiple arguments - borrowed from SingleCellExperiment
-#' @importFrom methods slot
-.set_reduced_dims <- function(x, value, slot.x=NULL, rdim=NULL){
-    x <- updateObject(x)
-    content <- slot(x, slot.x)
-
-    if(slot.x == "nhoodReducedDim"){
-
-        if(!is.null(rdim)){
-            content[[rdim]] <- value
-            x@nhoodReducedDim <- content
-        } else{
-            stop("No reduced dimensionality slot provided")
-        }
-    }else{
-        stop(paste0("replacement method not implemented for ", slot))
-    }
-
-    x
-}
-
-
-
-

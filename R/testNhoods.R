@@ -33,7 +33,7 @@
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
 #'
-#' @return A \code{data.frame} of model results.
+#' @return A \code{\linkS4class{Milo}}
 #'
 #' @author Mike Morgan
 #'
