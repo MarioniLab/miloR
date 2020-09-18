@@ -9,18 +9,18 @@ r:
 r_packages:
     - covr
 
+bioc_packages:
+    - BiocCheck
+
 # safelist
 branches:
   only:
   - master
 
+before_install:
+  - pip install --user codecov
+
 # only report coverage after build is successful
 after_success:
   - Rscript -e 'covr::codecov()'
-
-before_install:
-  - pip install --user codecov
-after_success:
-  - codecov --file coverage/lcov.info --disable search
-
-bioc_check: false
+  - R CMD BiocCheck .
