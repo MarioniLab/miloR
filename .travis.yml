@@ -18,4 +18,9 @@ branches:
 after_success:
   - Rscript -e 'covr::codecov()'
 
+before_install:
+  - pip install --user codecov
+after_success:
+  - codecov --file coverage/lcov.info --disable search
+
 bioc_check: false
