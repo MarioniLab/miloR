@@ -34,3 +34,4 @@ Collate:
     'projectNhoodExpression.R'
     'testNhoods.R'
     'utils.R'
+    'buildNhoodGraph.R'
