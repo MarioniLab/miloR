@@ -12,7 +12,7 @@
 #' slot.
 #' @param bins number of bins for \code{geom_histogram}
 #'
-#' @return A \code{\linkS4class{ggplot}} object
+#' @return A \code{ggplot-class} object
 #'
 #' @author
 #' Emma Dann
@@ -195,7 +195,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @param x A \code{\linkS4class{Milo}} object
 #' @param milo_results A `data.frame` containing the results of differential nhood abundance testing (output of \code{testNhoods})
 #' --> this will need to be changed/removed when output of testNhoods changes
-#' @param reduced_dims a character indicating the name of the \code{reducedDim} slot in the
+#' @param nhood_reduced_dims a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'UMAP').
 #' @param filter_alpha the spatialFDR cutoff used as a significance threshold. If not \code{NULL} the logFC will be plotted only for
 #' significantly DA nhoods (default: NULL)
@@ -204,7 +204,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @param pt_size size of scatterplot points (default: 1.5)
 #' @param components vector of reduced dimensions components to plot (default: c(1,2))
 #'
-#' @return a \code{\linkS4class{ggplot}} object
+#' @return a \code{ggplot-class} object
 #'
 #' @author Emma Dann
 #'
@@ -222,12 +222,12 @@ plotMiloReducedDim <- function(x, milo_results, nhood_reduced_dims="UMAP", filte
   # Should have nrows = no. of nhoods + no. of cells
   if (!nhood_reduced_dims %in% names(nhoodReducedDim(x))){
     stop(paste(nhood_reduced_dims, "is not the name of an embedding in nhoodReducedDims(x). Available reductions are:", paste((nhoodReducedDim(x)), collapse = ", ")))
-  } else if (nrow(nhoodReducedDim(x)[[nhood_reduced_dims]]) != ncol(x) + length(nhoods(x))) {
+  } else if (nrow(nhoodReducedDim(x, nhood_reduced_dims)) != ncol(x) + length(nhoods(x))) {
     stop(paste(nhood_reduced_dims, "is not a valid nhoodReducedDims(x) object. The number of rows should match the sum of the number of cells and the number of neighbourhoods"))
     }
 
   ## Join test results and dimensionality reductions
-  rdim_df <- data.frame(nhoodReducedDim(x)[[nhood_reduced_dims]][,components])
+  rdim_df <- data.frame(nhoodReducedDim(x, nhood_reduced_dims)[,components])
   colnames(rdim_df) <- c('X','Y')
 
   n_nhoods <- length(nhoods(x))
