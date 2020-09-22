@@ -24,3 +24,5 @@ before_install:
 after_success:
   - Rscript -e 'covr::codecov()'
   - R CMD BiocCheck .
+
+bioc_check: true
