@@ -160,10 +160,8 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     }
 
     marker.df <- do.call(cbind.data.frame, marker.list)
+    colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
     marker.df$GeneID <- rownames(i.res)
-    # # do a proper adjusted FDR for _all_ tests
-    # marker.df$FDR <- apply(marker.df[, grepl(colnames(marker.df), pattern="Val")], 1,
-    #                        FUN=function(X) p.adjust(X))
 
     return(marker.df)
 }
