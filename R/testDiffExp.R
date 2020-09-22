@@ -100,7 +100,6 @@ NULL
 
 #' @export
 #' @importFrom stats model.matrix
-#' @importFrom limma makeContrasts
 testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrasts=NULL,
                         overlap=1, lfc.threshold=NULL, assay="logcounts",
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
@@ -113,8 +112,9 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     n.da <- sum(da.res$SpatialFDR < da.fdr)
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
-    nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x)[da.res$SpatialFDR < da.fdr],
+    nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
+                                          is.da=da.res$SpatialFDR < da.fdr,
                                           overlap=overlap) # returns a vector group values for each nhood
     # assign this group level information to the consituent cells using the input meta.data
     copy.meta <- meta.data # make a copy assume the order is the same, just check the rownames are the same
@@ -176,9 +176,13 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
             }
 
             if(assay == "logcounts"){
-                i.res <- .perform_lognormal_dge(i.exprs, i.model, model.contrasts, n.coef)
+                i.res <- .perform_lognormal_dge(i.exprs, i.model,
+                                                model.contrasts=model.contrasts,
+                                                gene.offset=gene.offset, n.coef=n.coef)
             } else if(assay == "counts"){
-                i.res <- .perform_counts_dge(i.exprs, i.model, model.contrasts, n.coef)
+                i.res <- .perform_counts_dge(i.exprs, i.model,
+                                             model.contrasts=model.contrasts,
+                                             gene.offset=gene.offset, n.coef=n.coef)
             } else{
                 stop("Assay type not recognised - must be either logcounts or counts")
             }
@@ -200,35 +204,57 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 ########################################
 
 #' @importFrom igraph graph_from_adjacency_matrix components
-.group_nhoods_by_overlap <- function(nhs, da.res, overlap=1){
+.group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
+                                     lfc.threshold=NULL, merge.discord=FALSE){
     ll_names <- expand.grid(names(nhs), names(nhs))
     lintersect <- sapply(1:nrow(ll_names), function(x) length(intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]])))
     ## Count as connected only nhoods with at least n shared cells
     lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
 
     ## check for concordant signs - assume order is the same as nhoods
-    concord.sign <- sapply(1:nrow(ll_names), function(x) sign(da.res[ll_names[x, 1], ]$logFC) != sign(da.res[ll_names[x, 2], ]$logFC))
-    lintersect_filt <- ifelse(concord.sign, 0, lintersect_filt)
+    if(isFALSE(merge.discord)){
+        concord.sign <- sapply(1:nrow(ll_names), function(x) sign(da.res[ll_names[x, 1], ]$logFC) != sign(da.res[ll_names[x, 2], ]$logFC))
+        lintersect_filt <- ifelse(concord.sign, 0, lintersect_filt)
+    }
+
+    if(!is.null(lfc.threshold)){
+        # set adjacency to 0 for nhoods with lfc < threshold
+        lfc.pass <- sapply(1:nrow(ll_names), function(x) (da.res[ll_names[x, 1], ]$logFC >= lfc.threshold) &
+                               (da.res[ll_names[x, 2], ]$logFC >= lfc.threshold))
+        lintersect_filt <- ifelse(lfc.pass, 0, lintersect_filt)
+    }
 
     ## Convert to adjacency matrix (values = no of common cells)
     d <- matrix(lintersect_filt, nrow = length(nhs), byrow = TRUE)
     g <- graph_from_adjacency_matrix(d, mode="undirected", diag=FALSE)
     groups <- components(g)$membership
-    return(groups)
+
+    # only keep the groups that contain >= 1 DA neighbourhoods
+    keep.groups <- intersect(unique(groups[is.da]), unique(groups))
+
+    return(groups[groups %in% keep.groups])
 }
 
 
 #' @importFrom limma makeContrasts lmFit topTreat eBayes
-.perform_lognormal_dge <- function(exprs.data, test.model, model.contrasts=NULL, n.coef=NULL){
+.perform_lognormal_dge <- function(exprs.data, test.model, gene.offset=gene.offset,
+                                   model.contrasts=NULL, n.coef=NULL){
+
+    if(isTRUE(gene.offset)){
+        n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
+        old.col <- colnames(test.model)
+        test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
+        colnames(test.model) <- c(old.col[1], "NGenes", old.col[c(2:length(old.col))])
+    }
 
     i.fit <- lmFit(exprs.data, test.model)
     if(!is.null(model.contrasts)){
         mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=test.model)
         i.fit <- contrasts.fit(i.fit, contrasts=mod.constrast)
-        i.fit <- eBayes(i.fit)
+        i.fit <- eBayes(i.fit, trend=TRUE)
         i.res <- as.data.frame(topTreat(i.fit, number = Inf, sort.by = "p", p.value = 1))
     } else{
-        i.fit <- eBayes(i.fit)
+        i.fit <- eBayes(i.fit, trend=TRUE)
         if(is.null(n.coef)){
             n.coef <- ncol(test.model)
         }
@@ -241,15 +267,18 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
-.perform_counts_dge <- function(exprs.data, test.model, model.contrasts=NULL, gene.offset=gene.offset, n.coef=NULL){
+.perform_counts_dge <- function(exprs.data, test.model, gene.offset=gene.offset,
+                                model.contrasts=NULL, n.coef=NULL){
 
     i.dge <- DGEList(counts=exprs.data,
                      lib.size=log(colSums(exprs.data)))
-    if(gene.offset){
-        n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
-        i.dge$offset <- n.gene
-    }
 
+    if(isTRUE(gene.offset)){
+        n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
+        test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
+        colnames(test.model) <- c(colnames(test.model)[1], "NGenes", colnames(test.model[, c(2:ncol(test.model))]))
+    }
+    print(head(test.model))
     i.fit <- glmQLFit(i.dge, test.model, robust=TRUE)
 
     if(!is.null(model.contrasts)){
@@ -264,4 +293,3 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
     return(i.res)
 }
-

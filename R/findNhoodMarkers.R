@@ -12,9 +12,6 @@
 #' \code{testNhoods}.
 #' @param da.fdr A numeric scalar that determines at what FDR neighbourhoods are declared
 #' DA for the purposes of aggregating across concorantly DA neighbourhoods.
-#' @param meta.data A cell X variable \code{data.frame} containing single-cell meta-data
-#' to which \code{design} refers. The order of rows (cells) must be the same as the
-#' \code{\linkS4class{Milo}} object columns.
 #' @param assay A character scalar determining which \code{assays} slot to extract from the
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
 #' @param overlap A scalar integer that determines the number of cells that must
@@ -30,7 +27,6 @@
 #' @param gene.offset A logical scalar the determines whether a per-cell offset
 #' is provided in the DGE GLM to adjust for the number of detected genes with
 #' expression > 0.
-#' @param mode A character scalar that determines the behaviour of this function.
 #'
 #'
 #' @details
@@ -39,9 +35,9 @@
 #' This behaviour can be modulated by setting \code{overlap} to be more or less stringent.
 #' Additionally, a threshold on the log fold-changes can be set, such that \code{lfc.threshold}
 #' is required to merge adjacent neighbourhoods. Note: adjacent neighbourhoods will never be
-#' merged with opposite signs unless \code{merge.discord=TRUE}.
+#' merged with opposite signs.
 #'
-#' Within each aggregated group of cells differential gene expression testing is performed
+#' Using a one vs. all approach, each aggregated group of cells is compared to all others
 #' using the single-cell log normalized gene expression with a GLM
 #' (for details see \code{\link[limma]{limma-package}}), or the single-cell counts using a
 #' negative binomial GLM (for details see \code{\link[edgeR]{edgeR-package}}). When using
@@ -49,8 +45,8 @@
 #' the model offsets by the number of detected genes in each cell.
 #'
 #'
-#' @return A \code{list} containing a \code{data.frame} of DGE results for each aggregated
-#' group of neighbourhoods.
+#' @return A \code{data.frame} of DGE results containing a log fold change and adjusted
+#' p-value for each aggregated group of neighbourhoods.
 #'
 #' @author Mike Morgan & Emma Dann
 #'
@@ -80,14 +76,101 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- findNhoodMarkers(milo, da.res, design=~Condition, meta.data=meta.df, overlap=3)
+#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=5)
 #' nhood.dge
 #'
 #' @name findNhoodMarkers
 NULL
 
-findNhoodMarkers <- function(){
 
- # do this
+#' @export
+#' @importFrom stats model.matrix
+findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
+                             overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
+                             subset.row=NULL, gene.offset=TRUE){
+    if(class(x) != "Milo"){
+        stop("Unrecognised input type - must be of class Milo")
+    }
 
+    n.da <- sum(da.res$SpatialFDR < da.fdr)
+    message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
+
+    nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
+                                          da.res=da.res,
+                                          is.da=da.res$SpatialFDR < da.fdr,
+                                          overlap=overlap) # returns a vector group values for each nhood
+    nhood.gr <- unique(nhs.da.gr)
+    # perform DGE _within_ each group of cells using the input design matrix
+    message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
+
+    fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
+    rownames(fake.meta) <- fake.meta$CellID
+
+    for(i in seq_along(nhood.gr)){
+        nhood.x <- nhs.da.gr == nhood.gr[i]
+        fake.meta[unlist(nhoods(x)[da.res$SpatialFDR < da.fdr][nhood.x]),]$Nhood.Group <- nhood.gr[i]
+    }
+
+    # only compare against the other DA neighbourhoods
+    x <- x[, !is.na(fake.meta$Nhood.Group)]
+    fake.meta <- fake.meta[!is.na(fake.meta$Nhood.Group), ]
+    exprs <- assay(x, assay)
+
+    marker.list <- list()
+    i.contrast <- c("TestTest - TestRef") # always use contrasts for this
+    for(i in seq_along(nhood.gr)){
+        i.meta <- fake.meta
+        i.meta$Test <- "Ref"
+        i.meta$Test[fake.meta$Nhood.Group == nhood.gr[i]] <- "Test"
+
+        if(ncol(exprs) > 1 & nrow(i.meta) > 1){
+            i.design <- as.formula(" ~ 0 + Test")
+            i.model <- model.matrix(i.design, data=i.meta)
+            rownames(i.model) <- rownames(i.meta)
+
+            if(any(rownames(i.model) != rownames(i.meta))){
+                warning("Design matrix and design matrix dimnames are not the same")
+            }
+        }
+
+        if(!is.null(subset.row)){
+            x <- x[subset.row, ]
+        }
+
+        sink(file="/dev/null")
+        gc()
+        sink(file=NULL)
+
+        if(assay == "logcounts"){
+            i.res <- .perform_lognormal_dge(exprs, i.model, model.contrasts=i.contrast,
+                                            gene.offset=gene.offset)
+        } else if(assay == "counts"){
+            i.res <- .perform_counts_dge(exprs, i.model, model.contrasts=i.contrast,
+                                         gene.offset=gene.offset)
+        } else{
+            stop("Assay type not recognised - must be either logcounts or counts")
+        }
+
+        i.res$adj.P.Val[is.na(i.res$adj.P.Val)] <- 1
+        i.res$logFC[is.infinite(i.res$logFC)] <- 0
+
+        i.res <- i.res[, c("logFC", "adj.P.Val")]
+        colnames(i.res) <- paste(colnames(i.res), nhood.gr[i], sep="_")
+        marker.list[[paste0(nhood.gr[i])]] <- i.res
+    }
+
+    marker.df <- do.call(cbind.data.frame, marker.list)
+    marker.df$GeneID <- rownames(i.res)
+    # # do a proper adjusted FDR for _all_ tests
+    # marker.df$FDR <- apply(marker.df[, grepl(colnames(marker.df), pattern="Val")], 1,
+    #                        FUN=function(X) p.adjust(X))
+
+    return(marker.df)
 }
+
+
+
+
+
+
+
