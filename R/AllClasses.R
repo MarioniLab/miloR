@@ -7,6 +7,7 @@
 #' @slot nhoodIndex A list of the index vertices for each neighbourhood
 #' @slot nhoodExpression An GxN matrix of genes X neighbourhoods containing average gene expression levels across cells in each neighbourhood
 #' @slot nhoodReducedDim a list of reduced dimensional representations of neighbourhoods, including projections into lower dimension space
+#' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
 #'
 
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
@@ -26,7 +27,8 @@ setClass("Milo",
              nhoodCounts = "matrixORMatrix", # this should be a matrix
              nhoodIndex = "list", # used to store nhood indices
              nhoodExpression = "matrixORMatrix", # this should be NA or a matrix
-             nhoodReducedDim = "list" # this should be a list
+             nhoodReducedDim = "list", # this should be a list
+             nhoodGraph = "list" # this should be an igraph object (I'm copying from the graph slot)
          ),
          prototype = list(
              graph = list(),
@@ -35,6 +37,7 @@ setClass("Milo",
              nhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
              nhoodIndex = list(),
              nhoodExpression = Matrix::Matrix(0L, sparse=TRUE),
-             nhoodReducedDim = list()
+             nhoodReducedDim = list(),
+             nhoodGraph = list()
          )
 )
