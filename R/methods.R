@@ -93,6 +93,10 @@
 #' nhoods<-
 #' nhoods,Milo-method
 #' nhoods<-,Milo-method
+#' nhoodGraph
+#' nhoodGraph<-
+#' nhoodGraph,Milo-method
+#' nhoodGraph<-,Milo-method
 #' show
 #' show,Milo-method
 #'
@@ -228,7 +232,7 @@ setMethod("nhoodGraph<-", "Milo", function(x, value){
     coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
     coolcat("nhoodReducedDim names(%d): %s\n", names(object@nhoodReducedDim))
     coolcat("nhoodGraph names(%d): %s\n", names(object@nhoodGraph))
-    
+
     sink(file="/dev/null")
     gc()
     sink(file=NULL)
