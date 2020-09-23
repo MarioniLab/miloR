@@ -8,3 +8,5 @@ R package implementation of milo for testing differentially abundant neighbourho
 
 To install:
 ```devtools::install_github("MikeDMorgan/miloR") ```
+
+Examples on how to use `miloR` can be found in the [milo github repo](https://github.com/MarioniLab/milo).
