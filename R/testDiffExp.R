@@ -65,22 +65,25 @@
 #'
 #' @examples
 #' library(SingleCellExperiment)
-#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' ux.1 <- matrix(rpois(6000, 5), ncol=200)
+#' ux.2 <- matrix(rpois(6000, 4), ncol=200)
+#' ux <- rbind(ux.1, ux.2)
 #' vx <- log2(ux + 1)
 #' pca <- prcomp(t(vx))
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
 #'                             reducedDims=SimpleList(PCA=pca$x))
+#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
 #'
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
-#' cond <- rep("A", nrow(m))
-#' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-#' cond.b <- setdiff(1:nrow(m), cond.a)
+#' cond <- rep("A", ncol(milo))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.5))
+#' cond.b <- setdiff(1:ncol(milo), cond.a)
 #' cond[cond.b] <- "B"
-#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 66), rep("R2", 66), rep("R3", 68)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 #' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 #'
@@ -89,7 +92,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df, overlap=3)
+#' nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df, overlap=15)
 #' nhood.dge
 #'
 #' @name testDiffExp
@@ -236,7 +239,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 }
 
 
-#' @importFrom limma makeContrasts lmFit topTreat eBayes
+#' @importFrom limma makeContrasts lmFit topTreat eBayes contrasts.fit
 .perform_lognormal_dge <- function(exprs.data, test.model, gene.offset=gene.offset,
                                    model.contrasts=NULL, n.coef=NULL){
 

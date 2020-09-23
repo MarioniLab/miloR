@@ -39,7 +39,9 @@
 #'
 #' @examples
 #' library(SingleCellExperiment)
-#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=400)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=400)
+#' ux <- rbind(ux.1, ux.2)
 #' vx <- log2(ux + 1)
 #' pca <- prcomp(t(vx))
 #'
@@ -50,11 +52,11 @@
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
-#' cond <- rep("A", nrow(m))
-#' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-#' cond.b <- setdiff(1:nrow(m), cond.a)
+#' cond <- rep("A", ncol(milo))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
+#' cond.b <- setdiff(1:ncol(milo), cond.a)
 #' cond[cond.b] <- "B"
-#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 #' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 #'

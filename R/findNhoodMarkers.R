@@ -52,22 +52,24 @@
 #'
 #' @examples
 #' library(SingleCellExperiment)
-#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=400)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=400)
+#' ux <- rbind(ux.1, ux.2)
 #' vx <- log2(ux + 1)
 #' pca <- prcomp(t(vx))
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
 #'                             reducedDims=SimpleList(PCA=pca$x))
-#'
+#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
-#' cond <- rep("A", nrow(m))
-#' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-#' cond.b <- setdiff(1:nrow(m), cond.a)
+#' cond <- rep("A", ncol(milo))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
+#' cond.b <- setdiff(1:ncol(milo), cond.a)
 #' cond[cond.b] <- "B"
-#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 #' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 #'
@@ -76,7 +78,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=5)
+#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=15)
 #' nhood.dge
 #'
 #' @name findNhoodMarkers
@@ -84,7 +86,8 @@ NULL
 
 
 #' @export
-#' @importFrom stats model.matrix
+#' @importFrom stats model.matrix as.formula
+#' @importFrom Matrix colSums
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE){
@@ -118,15 +121,19 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     marker.list <- list()
     i.contrast <- c("TestTest - TestRef") # always use contrasts for this
+    print(nhood.gr)
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
         i.meta$Test <- "Ref"
         i.meta$Test[fake.meta$Nhood.Group == nhood.gr[i]] <- "Test"
+        print(dim(i.meta))
+        print(dim(exprs))
 
         if(ncol(exprs) > 1 & nrow(i.meta) > 1){
             i.design <- as.formula(" ~ 0 + Test")
             i.model <- model.matrix(i.design, data=i.meta)
             rownames(i.model) <- rownames(i.meta)
+            print(colSums(i.model))
 
             if(any(rownames(i.model) != rownames(i.meta))){
                 warning("Design matrix and design matrix dimnames are not the same")
