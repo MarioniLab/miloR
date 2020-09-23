@@ -27,6 +27,9 @@
 #' @param gene.offset A logical scalar the determines whether a per-cell offset
 #' is provided in the DGE GLM to adjust for the number of detected genes with
 #' expression > 0.
+#' @param return.groups A logical scalar that returns a \code{\link{data.frame}} of the
+#' aggregated groups per single-cell. Cells that are members of non-DA neighbourhoods contain
+#' \code{NA} values.
 #'
 #'
 #' @details
@@ -46,7 +49,9 @@
 #'
 #'
 #' @return A \code{data.frame} of DGE results containing a log fold change and adjusted
-#' p-value for each aggregated group of neighbourhoods.
+#' p-value for each aggregated group of neighbourhoods. If \code{return.groups} then
+#' the return value is a list with the slots \code{groups} and \code{dge} containing the
+#' aggregated neighbourhood groups per single-cell and marker gene results, respectively.
 #'
 #' @author Mike Morgan & Emma Dann
 #'
@@ -90,7 +95,8 @@ NULL
 #' @importFrom Matrix colSums
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
-                             subset.row=NULL, gene.offset=TRUE){
+                             subset.row=NULL, gene.offset=TRUE,
+                             return.groups=FALSE){
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
     }
@@ -170,7 +176,12 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
     marker.df$GeneID <- rownames(i.res)
 
-    return(marker.df)
+    if(isTRUE(return.groups)){
+        out.list <- list("groups"=fake.meta, "dge"=marker.df)
+        return(out.list)
+    }else{
+        return(marker.df)
+    }
 }
 
 
