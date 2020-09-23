@@ -7,4 +7,4 @@ R package implementation of milo for testing differentially abundant neighbourho
 
 
 To install:
-````devtools::install_github("MikeDMorgan/miloR") ```
+```devtools::install_github("MikeDMorgan/miloR") ```
