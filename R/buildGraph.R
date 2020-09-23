@@ -13,9 +13,9 @@
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
 #' @param transposed Logical if the input x is transposed with rows as cells.
-#' @param BNPARAM refer to \link[scran]{buildKNNgraph} for details.
-#' @param BSPARAM refer to \link[scran]{buildKNNgraph} for details.
-#' @param BPPARAM refer to \link[scran]{buildKNNgraph} for details.
+#' @param BNPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
+#' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
+#' @param BPPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param seed Seed number used for pseudorandom number generators.
 #'
 #' @details
@@ -36,8 +36,16 @@
 #' Mike Morgan, with KNN code written by Aaron Lun & Jonathan Griffiths.
 #'
 #' @examples
-#' m <- matrix(rnorm(50000), ncol=50)
-#' milo <- buildGraph(m, d=30, transposed=TRUE)
+#' library(SingleCellExperiment)
+#' ux <- matrix(rpois(12000, 5), ncol=200)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#'
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, d=30, transposed=TRUE)
 #'
 #' milo
 #' @name buildGraph
@@ -160,18 +168,3 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 }
 
 
-#' @importFrom igraph make_graph simplify
-.neighborsToKNNGraph <- function(nn, directed=FALSE) {
-    start <- as.vector(row(nn))
-    end <- as.vector(nn)
-    interleaved <- as.vector(rbind(start, end))
-
-    if (directed) {
-        g <- make_graph(interleaved, directed=TRUE)
-
-    } else {
-        g <- make_graph(interleaved, directed=FALSE)
-        g <- simplify(g, edge.attr.comb = "first")
-    }
-    g
-}

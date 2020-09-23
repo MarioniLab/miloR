@@ -83,6 +83,11 @@ test_that("Milo inherits from SingleCellExperiment", {
     expect_is(sim1.mylo, "SingleCellExperiment")
 })
 
+test_that("Milo can instantiate an empty object", {
+    empty.mylo <- Milo()
+    expect_equal(ncol(empty.mylo), 0)
+    expect_equal(nrow(empty.mylo), 0)
+})
 
 test_that("Milo getters working as expected", {
     # graph retrieval with an empty graph should give a warning
@@ -112,7 +117,6 @@ test_that("Milo getters working as expected", {
                      sum(nrow(nhoodCounts(sim1.mylo)), ncol(sim1.mylo)))
     expect_identical(ncol(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
                      ncol(reducedDim(sim1.mylo, "PCA")[, 1:30]))
-
 })
 
 

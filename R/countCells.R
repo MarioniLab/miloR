@@ -25,21 +25,17 @@
 #' @examples
 #'
 #' library(igraph)
-#' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- buildGraph(m, d=10)
-#' milo <- makeNhoods(milo, prop=0.3)
+#' m <- matrix(rnorm(100000), ncol=100)
+#' milo <- buildGraph(m, k=20, d=10)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
 #' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
 #' cond.b <- setdiff(1:nrow(m), cond.a)
 #' cond[cond.b] <- "B"
-#' meta.df <- data.frame(Condition=cond,
-#'                       Replicate=c(rep("R1", floor(nrow(m)*0.33)),/
-#'                                   rep("R2", floor(nrow(m)*0.33)),/
-#'                                   rep("R3", nrow(m)-(2*floor(nrow(m)*0.33))))
-#'
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
-#' milo <- countCells(milo, meta.data=meta.df, sample.column="SampID")
+#' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 #' milo
 #'
 #' @name countCells
@@ -50,6 +46,11 @@ NULL
 #' @importFrom Matrix Matrix
 #' @importClassesFrom S4Vectors DataFrame
 countCells <- function(x, samples, meta.data=NULL){
+
+    # cast dplyr objects to data.frame
+    if(class(meta.data) != "data.frame" & !is.null(meta.data)){
+        meta.data <- as.data.frame(meta.data)
+    }
 
     if(length(samples) > 1 & !is.null(meta.data)){
         stop("Multiple sample columns provided, please specify a unique column name")

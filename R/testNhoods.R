@@ -19,6 +19,9 @@
 #' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
 #' spatial FDR correction is performed and returns a vector of NAs.
 #' @param seed Seed number used for pseudorandom number generators.
+#' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
+#' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
+#' Phipson et al, 2013 for details.
 #'
 #'
 #' @details
@@ -30,12 +33,38 @@
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
 #'
-#' @return A \code{\linkS4class{Milo}}
+#' @return A \code{data.frame} of model results.
 #'
 #' @author Mike Morgan
 #'
 #' @examples
-#' NULL
+#' library(SingleCellExperiment)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=400)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=400)
+#' ux <- rbind(ux.1, ux.2)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#'
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#'
+#' cond <- rep("A", ncol(milo))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
+#' cond.b <- setdiff(1:ncol(milo), cond.a)
+#' cond[cond.b] <- "B"
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
+#' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
+#' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
+#'
+#' test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
+#' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
+#' rownames(test.meta) <- test.meta$Sample
+#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+#' da.res
 #'
 #' @name testNhoods
 NULL
@@ -49,7 +78,7 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
-                               min.mean=0, model.contrasts=NULL, seed=42){
+                               min.mean=0, model.contrasts=NULL, seed=42, robust=TRUE){
     set.seed(seed)
     if(class(design) == "formula"){
         model <- model.matrix(design, data=design.df)
@@ -85,7 +114,7 @@ testNhoods <- function(x, design, design.df,
                    lib.size=log(colSums(nhoodCounts(x))))
 
     dge <- estimateDisp(dge, model)
-    fit <- glmQLFit(dge, model, robust=TRUE)
+    fit <- glmQLFit(dge, model, robust=robust)
     if(!is.null(model.contrasts)){
         mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
         res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),

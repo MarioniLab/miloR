@@ -6,6 +6,7 @@
 #'
 #' @param x A \code{Milo} object with \code{nhoods} slot populated, alternatively a list
 #' containing a vector of cell indices; one per neighbourhood.
+#' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
 #' @param exprs If \code{x} is a list of neighbourhoods, \code{exprs} is a matrix of genes X
@@ -23,8 +24,8 @@
 #' @examples
 #' require(SingleCellExperiment)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- Milo(SingleCellExperiment(assays(logcounts=m)))
-#' milo <- buildGraph(m, d=30, transposed=TRUE)
+#' milo <- Milo(SingleCellExperiment(assays=list(logcounts=m)))
+#' milo <- buildGraph(m, k=20, d=30)
 #' milo <- makeNhoods(milo)
 #' milo <- calcNhoodExpression(milo)
 #' dim(nhoodExpression(milo))
@@ -34,6 +35,7 @@ NULL
 
 #' @export
 #' @rdname calcNhoodExpression
+#' @import SingleCellExperiment
 calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NULL){
 
     if(class(x) == "Milo"){
@@ -64,7 +66,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 }
 
 
-#' @importFrom Matrix colSums
+#' @import Matrix
 .calc_expression <- function(nhoods, data.set, subset.row=NULL){
     neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
 
@@ -82,7 +84,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
     if(is.null(subset.row)){
         rownames(neigh.exprs) <- rownames(data.set)
     } else{
-        rownames(neigh.exprs) <- rownames(data.set)[subset.row]
+        rownames(neigh.exprs) <- rownames(data.set[subset.row, ])
     }
 
     return(neigh.exprs)

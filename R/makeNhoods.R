@@ -16,6 +16,7 @@
 #' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions.
+#' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
 #' @param seed An integer scalar seed to initial the pseudorandom number
 #' generator
 #' @details
@@ -36,8 +37,8 @@
 #'
 #' @examples
 #'
-#' requires(igraph)
-#' m <- matrix(rnorm(10000), ncol=10)
+#' require(igraph)
+#' m <- matrix(rnorm(100000), ncol=100)
 #' milo <- buildGraph(m, d=10)
 #'
 #' milo <- makeNhoods(milo, prop=0.1)
@@ -161,8 +162,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
         message("Finding neighbours of sampled vertices")
         vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
-
     }
+
+    sink(file="/dev/null")
+    gc()
+    sink(file=NULL)
 }
 
 

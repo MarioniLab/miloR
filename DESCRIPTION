@@ -13,9 +13,27 @@ Encoding: UTF-8
 Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
-        matrixStats, dplyr
+        matrixStats, dplyr, ggraph, gtools
 Suggests: 
-    testthat
+    testthat, MASS, mvtnorm, scater, scran, covr
 RoxygenNote: 7.1.1
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
+Collate: 
+    'AllClasses.R'
+    'AllGenerics.R'
+    'buildFromAdjacency.R'
+    'buildGraph.R'
+    'calcNhoodExpression.R'
+    'countCells.R'
+    'findNhoodMarkers.R'
+    'graphSpatialFDR.R'
+    'makeNhoods.R'
+    'milo.R'
+    'methods.R'
+    'plotNhoods.R'
+    'projectNhoodExpression.R'
+    'testNhoods.R'
+    'testDiffExp.R'
+    'utils.R'
+    'buildNhoodGraph.R'

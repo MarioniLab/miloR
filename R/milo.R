@@ -1,4 +1,4 @@
-#' The Milo class
+#' The Milo constuctor
 #'
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the
@@ -7,7 +7,7 @@
 #' via distance, and the KNN-graph used to define the neighbourhoods.
 #'
 #' @param ... Arguments passed to the Milo constructor to fill the slots of the
-#' base class. This should be either a \linkS4class{SingleCellExperiment} or
+#' base class. This should be either a \code{\linkS4class{SingleCellExperiment}} or
 #' matrix of features X cells
 #' @param graph An igraph object or list of adjacent vertices that represents
 #' the KNN-graph
@@ -43,7 +43,7 @@
 #' pca <- prcomp(t(vx))
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
-#'   reducedDims=SimpleList(PCA=pca$x))
+#'                             reducedDims=SimpleList(PCA=pca$x))
 #'
 #' milo <- Milo(sce)
 #' milo
@@ -67,7 +67,9 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
         on.exit(S4Vectors:::disableValidity(old))
     }
 
-    if(class(unlist(...)) == "SingleCellExperiment"){
+    if(length(list(...)) == 0){
+        milo <- .emptyMilo()
+    } else if(class(unlist(...)) == "SingleCellExperiment"){
         milo <- .fromSCE(unlist(...))
     }
 
@@ -94,23 +96,40 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     out
 }
 
+#' @importFrom Matrix Matrix
+.emptyMilo <- function(...){
+    # return an empty Milo object
+    out <- new("Milo",
+               graph=list(),
+               nhoods=list(),
+               nhoodDistances=Matrix(0L, sparse=TRUE),
+               nhoodCounts=Matrix(0L, sparse=TRUE),
+               nhoodIndex=list(),
+               nhoodExpression=Matrix(0L, sparse=TRUE))
+
+    reducedDims(out) <- list()
+    altExps(out) <- list()
+
+    out
+}
+
 
 ## class validator
 #' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
-    if (class(object@nhoodCounts) != "matrixORdgCMatrixORdsCMatrix"){
+    if (class(object@nhoodCounts) != "matrixORMatrix"){
         "@nhoodCounts must be a matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodDistances) != "matrixORdgCMatrixORdsCMatrix"){
+    if(class(object@nhoodDistances) != "matrixORMatrix"){
         "@nhoodDistances must be a matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodExpression) != "matrixORdgCMatrixORdsCMatrix"){
+    if(class(object@nhoodExpression) != "matrixORMatrix"){
         "@nhoodExpression must be a matrix format"
     } else{
         TRUE
