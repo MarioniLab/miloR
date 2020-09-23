@@ -10,18 +10,18 @@
 #' This constructs a graph where nodes represent neighbourhoods and edges represent the number of overlapping
 #' cells between two neighbourhoods.
 #'
-#' @return A \code{\linkS4class{Milo}} object with filled  
+#' @return A \code{\linkS4class{Milo}} object with filled
 #'
 #' @author
 #' Emma Dann
 #'
 #' @examples
 #'
-#' ...
+#' NULL
 #'
 #' @import igraph
 #' @export
-#' @rdname projectNhoodExpression
+#' @rdname buildNhoodGraph
 buildNhoodGraph <- function(x){
   # are neighbourhoods calculated?
   if(length(nhoods(x)) == 0){
@@ -39,8 +39,7 @@ buildNhoodGraph <- function(x){
 }
 
 
-#' Build adjacency matrix of overlap between neighbourhoods
-#' 
+# Build adjacency matrix of overlap between neighbourhoods
 #' @importFrom gtools permutations
 .build_nhood_adjacency <- function(nhoods){
   nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = T)
