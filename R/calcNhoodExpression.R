@@ -75,7 +75,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
     }
 
     if(!is.null(subset.row)){
-        neigh.exprs <- t(neighbour.model) %*% t(data.set[subset.row, ])
+        neigh.exprs <- t(neighbour.model) %*% t(data.set[subset.row, , drop=FALSE])
     } else{
         neigh.exprs <- t(neighbour.model) %*% t(data.set)
     }
@@ -84,7 +84,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
     if(is.null(subset.row)){
         rownames(neigh.exprs) <- rownames(data.set)
     } else{
-        rownames(neigh.exprs) <- rownames(data.set[subset.row, ])
+        rownames(neigh.exprs) <- rownames(data.set[subset.row, , drop=FALSE])
     }
 
     return(neigh.exprs)
