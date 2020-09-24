@@ -32,7 +32,8 @@
 #' \code{NA} values.
 #' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
 #' to subset before aggregation and DGE testing.
-#'
+#' @param na.function A valid NA action function to apply, should be one of
+#' \code{na.fail, na.omit, na.exclude, na.pass}.
 #'
 #' @details
 #' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
@@ -98,12 +99,38 @@ NULL
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
-                             return.groups=FALSE, subset.nhoods=NULL){
+                             return.groups=FALSE, subset.nhoods=NULL,
+                             na.function="na.pass"){
+
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
+    } else if(any(!assay %in% assayNames(x))){
+        stop(paste0("Unrecognised assay slot: ", assay))
     }
 
-    n.da <- sum(da.res$SpatialFDR < da.fdr)
+    if(is.null(na.function)){
+        warning("NULL passed to na.function, using na.pass")
+        na.func <- get("na.pass")
+    } else{
+        tryCatch({
+            na.func <- get(na.function)
+        }, warning=function(warn){
+            warning(warn)
+        }, error=function(err){
+            stop(paste0("NA function ", na.function, " not recognised"))
+        }, finally={
+        })
+    }
+
+    n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
+    if(!is.na(n.da) & n.da == 0){
+        stop("No DA neighbourhoods found")
+    }
+
+    if(any(is.na(da.res$SpatialFDR))){
+        warning("NA values found in SpatialFDR vector")
+    }
+
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
@@ -126,31 +153,25 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     # only compare against the other DA neighbourhoods
     x <- x[, !is.na(fake.meta$Nhood.Group)]
     fake.meta <- fake.meta[!is.na(fake.meta$Nhood.Group), ]
+
+    if(!is.null(subset.row)){
+        x <- x[subset.row, , drop=FALSE]
+    }
+
     exprs <- assay(x, assay)
 
     marker.list <- list()
     i.contrast <- c("TestTest - TestRef") # always use contrasts for this
-    print(nhood.gr)
+
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
         i.meta$Test <- "Ref"
         i.meta$Test[fake.meta$Nhood.Group == nhood.gr[i]] <- "Test"
-        print(dim(i.meta))
-        print(dim(exprs))
 
         if(ncol(exprs) > 1 & nrow(i.meta) > 1){
             i.design <- as.formula(" ~ 0 + Test")
             i.model <- model.matrix(i.design, data=i.meta)
             rownames(i.model) <- rownames(i.meta)
-            print(colSums(i.model))
-
-            if(any(rownames(i.model) != rownames(i.meta))){
-                warning("Design matrix and design matrix dimnames are not the same")
-            }
-        }
-
-        if(!is.null(subset.row)){
-            x <- x[subset.row, ]
         }
 
         sink(file="/dev/null")
@@ -164,7 +185,10 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             i.res <- .perform_counts_dge(exprs, i.model, model.contrasts=i.contrast,
                                          gene.offset=gene.offset)
         } else{
-            stop("Assay type not recognised - must be either logcounts or counts")
+            warning("Assay type is not counts or logcounts - assuming (log)-normal distribution. Use these results at your peril")
+            i.res <- .perform_lognormal_dge(exprs, i.model,
+                                            model.contrasts=i.contrast,
+                                            gene.offset=gene.offset)
         }
 
         i.res$adj.P.Val[is.na(i.res$adj.P.Val)] <- 1

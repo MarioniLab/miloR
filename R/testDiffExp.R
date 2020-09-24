@@ -95,7 +95,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df, overlap=15)
+#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=15)
 #' nhood.dge
 #'
 #' @name testDiffExp
@@ -240,9 +240,15 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 .group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
                                      lfc.threshold=NULL, merge.discord=FALSE,
                                      subset.nhoods=NULL){
+    if(is.null(names(nhs))){
+        warning("No names attributed to nhoods. Converting indices to names")
+        names(nhs) <- paste0(nhs)
+    }
+
     if(!is.null(subset.nhoods)){
         if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
             ll_names <- expand.grid(names(nhs)[subset.nhoods], names(nhs)[subset.nhoods])
+            n.dim <- length(names(nhs)[subset.nhoods])
             if(length(is.da) == length(names(nhs))){
                 is.da[subset.nhoods]
             } else{
@@ -252,12 +258,11 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
             stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
         }
     } else{
-        if(length(is.da) == length(names(nhs))){
-            is.da[subset.nhoods]
-        } else{
+        if(length(is.da) != length(names(nhs))){
             stop("Subsetting `is.da` vector length does not equal nhoods length")
         }
         ll_names <- expand.grid(names(nhs), names(nhs))
+        n.dim <- length(names(nhs))
     }
 
     lintersect <- sapply(1:nrow(ll_names), function(x) length(intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]])))
@@ -278,7 +283,11 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
 
     ## Convert to adjacency matrix (values = no of common cells)
-    d <- matrix(lintersect_filt, nrow = length(nhs), byrow = TRUE)
+    d <- matrix(lintersect_filt, nrow = n.dim, byrow = TRUE)
+    if(nrow(d) != ncol(d)){
+        stop("Non-square distance matrix - check nhood subsetting")
+    }
+
     g <- graph_from_adjacency_matrix(d, mode="undirected", diag=FALSE)
     groups <- components(g)$membership
 
