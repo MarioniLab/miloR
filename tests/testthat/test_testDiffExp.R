@@ -20,23 +20,33 @@ block1.p <- qr.Q(qr(matrix(rnorm(block1.cells^2, mean=4, sd=0.01), block1.cells)
 block1.sigma <- crossprod(block1.p, block1.p*block1.eigens)
 block1.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block1.cells, mean=2, sd=0.01), sigma=block1.sigma))
 
+# need to through in random 0's for realism
+block1.drop <- matrix(sapply(1:1000, FUN=function(X) rbinom(n=500, size=1, prob=0.05) == 1), nrow=nrow(block1.gex), byrow=TRUE)
+block1.gex[block1.drop] <- 0
 
 block2.cells <- 500
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block2.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block2.eigens <- block2.eigens[order(block2.eigens)]
-block2.p <- qr.Q(qr(matrix(rnorm(block2.cells^2, mean=4, sd=0.01), block2.cells)))
+block2.p <- qr.Q(qr(matrix(rnorm(block2.cells^2, mean=3, sd=0.01), block2.cells)))
 block2.sigma <- crossprod(block2.p, block2.p*block2.eigens)
 block2.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block2.cells, mean=4, sd=0.01), sigma=block2.sigma))
 
+# need to through in random 0's for realism
+block2.drop <- matrix(sapply(1:1000, FUN=function(X) rbinom(n=500, size=1, prob=0.05) == 1), nrow=nrow(block2.gex), byrow=TRUE)
+block2.gex[block2.drop] <- 0
 
 block3.cells <- 650
 # select a set of eigen values for the covariance matrix of each block, say 50 eigenvalues?
 block3.eigens <- sapply(1:n.dim, FUN=function(X) rexp(n=1, rate=abs(runif(n=1, min=0, max=50))))
 block3.eigens <- block3.eigens[order(block3.eigens)]
-block3.p <- qr.Q(qr(matrix(rnorm(block3.cells^2, mean=4, sd=0.01), block3.cells)))
+block3.p <- qr.Q(qr(matrix(rnorm(block3.cells^2, mean=4.5, sd=0.01), block3.cells)))
 block3.sigma <- crossprod(block3.p, block3.p*block3.eigens)
 block3.gex <- abs(rmvnorm(n=r.n, mean=rnorm(n=block3.cells, mean=5, sd=0.01), sigma=block3.sigma))
+
+# need to through in random 0's for realism
+block3.drop <- matrix(sapply(1:1000, FUN=function(X) rbinom(n=500, size=1, prob=0.05) == 1), nrow=nrow(block3.gex), byrow=TRUE)
+block3.gex[block3.drop] <- 0
 
 sim1.gex <- do.call(cbind, list("b1"=block1.gex, "b2"=block2.gex, "b3"=block3.gex))
 colnames(sim1.gex) <- paste0("Cell", 1:ncol(sim1.gex))
@@ -251,8 +261,9 @@ test_that("Contrasts can be passed without error" , {
     expect_error(do.call(rbind.data.frame,
                          suppressWarnings(testDiffExp(blockC.mylo, blockC.res, meta.data=meta.df,
                                                       da.fdr=0.2,
-                                                      model.contrasts=c("ConditionA - ConditionB"),
+                                                      model.contrasts=c("ConditionA - ConditionC"),
                                                       design=~0 + Condition,
+                                                      gene.offset=FALSE,
                                                       merge.discord=FALSE))),
                  NA)
     })

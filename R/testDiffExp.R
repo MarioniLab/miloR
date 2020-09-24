@@ -241,7 +241,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
                                      lfc.threshold=NULL, merge.discord=FALSE,
                                      subset.nhoods=NULL){
     if(!is.null(subset.nhoods)){
-        if(class(subset.nhoods) %in% c("character", "logical", "numeric")){
+        if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
             ll_names <- expand.grid(names(nhs)[subset.nhoods], names(nhs)[subset.nhoods])
             if(length(is.da) == length(names(nhs))){
                 is.da[subset.nhoods]
@@ -296,8 +296,13 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     if(isTRUE(gene.offset)){
         n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
         old.col <- colnames(test.model)
-        test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
-        colnames(test.model) <- c(old.col[1], "NGenes", old.col[c(2:length(old.col))])
+        if(all(test.model[, 1] == 1)){
+            test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
+            colnames(test.model) <- c(old.col[1], "NGenes", old.col[c(2:length(old.col))])
+        } else{
+            test.model <- cbind(n.gene, test.model)
+            colnames(test.model) <- c("NGenes", old.col)
+        }
     }
 
     i.fit <- lmFit(exprs.data, test.model)
@@ -331,7 +336,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
         test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
         colnames(test.model) <- c(colnames(test.model)[1], "NGenes", colnames(test.model[, c(2:ncol(test.model))]))
     }
-    print(head(test.model))
+
     i.fit <- glmQLFit(i.dge, test.model, robust=TRUE)
 
     if(!is.null(model.contrasts)){
