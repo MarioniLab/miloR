@@ -40,6 +40,8 @@
 #' @param n.coef A numeric scalar refering to the coefficient to select from the
 #' DGE model. This is especially pertinent when passing an ordered variable and
 #' only one specific type of effects are to be tested.
+#' @param na.function A valid NA action function to apply, should be one of
+#' \code{na.fail, na.omit, na.exclude, na.pass}.
 #'
 #'
 #' @details
@@ -54,8 +56,9 @@
 #' using the single-cell log normalized gene expression with a GLM
 #' (for details see \code{\link[limma]{limma-package}}), or the single-cell counts using a
 #' negative binomial GLM (for details see \code{\link[edgeR]{edgeR-package}}). When using
-#' the latter it is recommended to set \code{gene.offset=TRUE} as this behaviour adjusts
-#' the model offsets by the number of detected genes in each cell.
+#' single-cell data for DGE it is recommended to set \code{gene.offset=TRUE} as this
+#' behaviour adjusts the model by the number of detected genes in each cell as a proxy for
+#' differences in capture efficiency and cellular RNA content.
 #'
 #'
 #' @return A \code{list} containing a \code{data.frame} of DGE results for each aggregated
@@ -98,26 +101,50 @@
 #' @name testDiffExp
 NULL
 
-#### This needs to correct for cell size as well.
-
 
 #' @export
 #' @importFrom stats model.matrix
+#' @importFrom SummarizedExperiment assayNames
+#' @importFrom stats na.pass na.fail na.omit na.exclude
 testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrasts=NULL,
                         overlap=1, lfc.threshold=NULL, assay="logcounts",
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
-                        merge.discord=FALSE){
+                        merge.discord=FALSE, na.function="na.pass"){
 
     if(class(x) != "Milo"){
         stop("Unrecognised input type - must be of class Milo")
+    } else if(any(!assay %in% assayNames(x))){
+        stop(paste0("Unrecognised assay slot: ", assay))
     }
 
-    n.da <- sum(da.res$SpatialFDR < da.fdr)
+    if(is.null(na.function)){
+        warning("NULL passed to na.function, using na.pass")
+        na.func <- get("na.pass")
+    } else{
+        tryCatch({
+            na.func <- get(na.function)
+        }, warning=function(warn){
+            warning(warn)
+        }, error=function(err){
+            stop(paste0("NA function ", na.function, " not recognised"))
+        }, finally={
+        })
+    }
+
+    n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
+    if(!is.na(n.da) & n.da == 0){
+        stop("No DA neighbourhoods found")
+    }
+
+    if(any(is.na(da.res$SpatialFDR))){
+        warning("NA values found in SpatialFDR vector")
+    }
+
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
-                                          is.da=da.res$SpatialFDR < da.fdr,
+                                          is.da=na.func(da.res$SpatialFDR < da.fdr),
                                           overlap=overlap) # returns a vector group values for each nhood
     # assign this group level information to the consituent cells using the input meta.data
     copy.meta <- meta.data # make a copy assume the order is the same, just check the rownames are the same
@@ -134,16 +161,25 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
 
     # subset to non-NA group cells
-    x <- x[, !is.na(copy.meta$Nhood.Group)]
-    copy.meta <- copy.meta[!is.na(copy.meta$Nhood.Group), ]
+    subset.dims <- !is.na(copy.meta$Nhood.Group)
+    x <- x[, subset.dims]
+    copy.meta <- copy.meta[subset.dims, ]
 
     if(class(design) == "formula"){
         model <- model.matrix(design, data=copy.meta)
         rownames(model) <- rownames(copy.meta)
     } else if(class(design) == "matrix"){
         model <- design
-        if(any(rownames(model) != rownames(meta.data))){
-            warning("Design matrix and design matrix dimnames are not the same")
+        if(nrow(model) != nrow(copy.meta)){
+            message("Subsetting input design matrix to DA neighbourhood cells")
+            if(length(subset.dims) == nrow(model)){
+                model <- model[subset.dims, ]
+            } else{
+                stop(paste0("Cannot subset model matrix, subsetting vector is wrong length:", length(subset.dims)))
+            }
+        }
+        if(any(rownames(model) != rownames(copy.meta))){
+            warning("Design matrix and meta-data dimnames are not the same")
         }
     }
 
@@ -153,7 +189,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
 
     if(!is.null(subset.row)){
-        x <- x[subset.row, ]
+        x <- x[subset.row, , drop=FALSE]
     }
 
     sink(file="/dev/null")
@@ -166,18 +202,9 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     for(i in seq_along(nhood.gr)){
         i.meta <- copy.meta[copy.meta$Nhood.Group == nhood.gr[i], ]
         i.exprs <- assay(x[, copy.meta$Nhood.Group == nhood.gr[i]], assay)
+        i.model <- model[copy.meta$Nhood.Group == nhood.gr[i], ]
 
         if(ncol(i.exprs) > 1 & nrow(i.meta) > 1){
-            if(class(design) == "formula"){
-                i.model <- model.matrix(design, data=i.meta)
-                rownames(i.model) <- rownames(i.meta)
-            } else if(class(design) == "matrix"){
-                i.model <- design[copy.meta$Nhood.Group == nhood.gr[i], ]
-                if(any(rownames(i.model) != rownames(i.meta))){
-                    warning("Design matrix and design matrix dimnames are not the same")
-                }
-            }
-
             if(assay == "logcounts"){
                 i.res <- .perform_lognormal_dge(i.exprs, i.model,
                                                 model.contrasts=model.contrasts,
@@ -187,7 +214,10 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
                                              model.contrasts=model.contrasts,
                                              gene.offset=gene.offset, n.coef=n.coef)
             } else{
-                stop("Assay type not recognised - must be either logcounts or counts")
+                warning("Assay type is not counts or logcounts - assuming (log)-normal distribution. Use these results at your peril")
+                i.res <- .perform_lognormal_dge(i.exprs, i.model,
+                                                model.contrasts=model.contrasts,
+                                                gene.offset=gene.offset, n.coef=n.coef)
             }
 
             i.res$adj.P.Val[is.na(i.res$adj.P.Val)] <- 1
@@ -222,6 +252,11 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
             stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
         }
     } else{
+        if(length(is.da) == length(names(nhs))){
+            is.da[subset.nhoods]
+        } else{
+            stop("Subsetting `is.da` vector length does not equal nhoods length")
+        }
         ll_names <- expand.grid(names(nhs), names(nhs))
     }
 
@@ -229,17 +264,17 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     ## Count as connected only nhoods with at least n shared cells
     lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
 
+    if(!is.null(lfc.threshold)){
+        # set adjacency to 0 for nhoods with lfc < threshold
+        lfc.pass <- sapply(1:nrow(ll_names), function(x) (abs(da.res[ll_names[x, 1], ]$logFC) >= lfc.threshold) &
+                               (abs(da.res[ll_names[x, 2], ]$logFC) >= lfc.threshold))
+        lintersect_filt <- ifelse(lfc.pass, 0, lintersect_filt)
+    }
+
     ## check for concordant signs - assume order is the same as nhoods
     if(isFALSE(merge.discord)){
         concord.sign <- sapply(1:nrow(ll_names), function(x) sign(da.res[ll_names[x, 1], ]$logFC) != sign(da.res[ll_names[x, 2], ]$logFC))
         lintersect_filt <- ifelse(concord.sign, 0, lintersect_filt)
-    }
-
-    if(!is.null(lfc.threshold)){
-        # set adjacency to 0 for nhoods with lfc < threshold
-        lfc.pass <- sapply(1:nrow(ll_names), function(x) (da.res[ll_names[x, 1], ]$logFC >= lfc.threshold) &
-                               (da.res[ll_names[x, 2], ]$logFC >= lfc.threshold))
-        lintersect_filt <- ifelse(lfc.pass, 0, lintersect_filt)
     }
 
     ## Convert to adjacency matrix (values = no of common cells)
