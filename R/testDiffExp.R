@@ -208,8 +208,23 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
 #' @importFrom igraph graph_from_adjacency_matrix components
 .group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
-                                     lfc.threshold=NULL, merge.discord=FALSE){
-    ll_names <- expand.grid(names(nhs), names(nhs))
+                                     lfc.threshold=NULL, merge.discord=FALSE,
+                                     subset.nhoods=NULL){
+    if(!is.null(subset.nhoods)){
+        if(class(subset.nhoods) %in% c("character", "logical", "numeric")){
+            ll_names <- expand.grid(names(nhs)[subset.nhoods], names(nhs)[subset.nhoods])
+            if(length(is.da) == length(names(nhs))){
+                is.da[subset.nhoods]
+            } else{
+                stop("Subsetting `is.da` vector length does not equal nhoods length")
+            }
+        } else{
+            stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
+        }
+    } else{
+        ll_names <- expand.grid(names(nhs), names(nhs))
+    }
+
     lintersect <- sapply(1:nrow(ll_names), function(x) length(intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]])))
     ## Count as connected only nhoods with at least n shared cells
     lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
