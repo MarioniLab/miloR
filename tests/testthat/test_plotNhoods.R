@@ -91,16 +91,22 @@ sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
 sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
 rownames(sim1.meta) <- sim1.meta$Sample
 
+#test for DA
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
-
+sim1.da.res <- testNhoods(sim1.mylo, design = ~ Condition, design.df = sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
 ## Tests for plotNhoodExpressionDA ##
 
-test_that("Incorrect/missing inputs produce proper errors", {
+test_that("Incorrect input features produce proper errors", {
     # input features not in milo object
-    expect_error(plotNhoodExpressionDA(sim1.mylo, features = "GeneA"),
-                 "Some features are not in rownames(x)")
-
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = "GeneA"),
+                 "Some features are not in rownames(x)", fixed=TRUE)
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = NA),
+               "Some features are not in rownames(x)", fixed=TRUE)
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c()),
+                 "features is empty", fixed=TRUE)
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = NULL),
+                 "Some features are not in rownames(x)", fixed=TRUE)
 })
 
 

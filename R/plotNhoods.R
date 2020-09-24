@@ -219,6 +219,9 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @import dplyr
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts"){
+  if (length(features) <= 0) {
+    stop("features is empty")
+  }
   ## Check if features are in rownames(x)
   if (!all(features %in% rownames(x))) {
     stop("Some features are not in rownames(x)")
@@ -263,7 +266,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
   
   ## Bottom plot: gene expression heatmap
-  if (cluster_features) {
+  if (isTRUE(cluster_features)) {
     row.order <- hclust(dist(expr_mat))$order # clustering
     ordered_features <- rownames(expr_mat)[row.order]
   } else {
