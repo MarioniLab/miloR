@@ -109,5 +109,17 @@ test_that("Incorrect input features produce proper errors", {
                  "Some features are not in rownames(x)", fixed=TRUE)
 })
 
+test_that("calcNhoodExpression is run within the function only if needed", {
+  feats <- paste0("Gene", 1:100)
+  sim1.mylo.2 <- calcNhoodExpression(sim1.mylo, subset.row = feats)
+  expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene101", "Gene102", "Gene103")))
+  expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene103")))
+  expect_silent(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene3")))
+})
+
+
+
+
+
 
 
