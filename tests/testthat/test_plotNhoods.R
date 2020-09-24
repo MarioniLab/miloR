@@ -115,9 +115,25 @@ test_that("calcNhoodExpression is run within the function only if needed", {
   expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene101", "Gene102", "Gene103")))
   expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene103")))
   expect_silent(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene3")))
-})
+  })
 
+sim1.mylo <- calcNhoodExpression(sim1.mylo)
 
+test_that("Subsetting produces the expected number of neighbourhoods", {
+  p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                             subset.nhoods = c(1:100))
+  expect_identical(length(unique(p$data$Nhood)), length(1:100))
+  })
+
+test_that("The order of features is maintained if cluster_features=FALSE", {
+  p_feats <- paste0("Gene", 400:300)
+  p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = p_feats,
+                             cluster_features = FALSE)
+  expect_identical(levels(p$data[["feature"]]), p_feats)
+  p1 <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = p_feats,
+                             cluster_features = TRUE)
+  expect_false(all(levels(p1$data[["feature"]]) == p_feats))
+  })
 
 
 

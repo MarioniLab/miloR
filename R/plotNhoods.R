@@ -199,12 +199,16 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @param da.res a data.frame of DA testing results
 #' @param features a character vector of features to plot (they must be in rownames(x))
 #' @param alpha significance level for Spatial FDR (default: 0.1)
-#' @param subset.nhoods indices of subset of nhoods to show in plot (default: NULL, no subsetting)
+#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot 
+#' (default: NULL, no subsetting)
 #' @param cluster_features logical indicating whether features should be clustered with hierarchical clustering.
 #' If FALSE then the order in \code{features} is maintained (default: FALSE)
-#' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression.
+#' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression. 
 #' (default: logcounts)
-#'
+#' Of note: neighbourhood expression will be computed only if the requested features are not in the \code{nhoodExpression} slot
+#' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run 
+#' \code{calcNhoodExpression(x)} with the desired assay.
+#' 
 #' @return a \code{\linkS4class{ggplot}} object
 #'
 #' @author Emma Dann
@@ -236,14 +240,15 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     warning("Not all features in nhoodExpression(x): recomputing for requested features...")  
     x <- calcNhoodExpression(x, assay = assay, subset.row = features)
   } 
+  
+  expr_mat <- nhoodExpression(x)[features,]
+  colnames(expr_mat) <- 1:length(nhoods(x))
+  
   ## Get nhood expression matrix
-  if (is.null(subset.nhoods)) {
-    expr_mat <- nhoodExpression(x)[features,]
-    colnames(expr_mat) <- 1:length(nhoods(x))
-  } else {
-    expr_mat <- nhoodExpression(x)[features,subset.nhoods]
-    colnames(expr_mat) <- subset.nhoods
+  if (!is.null(subset.nhoods)) {
+    expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
+  
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
   
   pl_df <- data.frame(t(expr_mat)) %>%
