@@ -19,11 +19,21 @@
 #'
 #' @examples
 #'
-#' requires(igraph)
-#' m <- matrix(rnorm(10000), ncol=10)
-#' milo <- buildGraph(m, d=10)
+#' require(igraph)
+#' require(SingleCellExperiment)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=400)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=400)
+#' ux <- rbind(ux.1, ux.2)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
 #'
-#' milo <- makeNhoods(milo, prop=0.1)
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#'
+#' milo <- makeNhoods(milo, d=10, prop=0.1)
 #' plotNhoodSizeHist(milo)
 #'
 
@@ -73,7 +83,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
 #' @param ... arguments to pass to \code{ggraph}
 #'
-#' @return a \code{\linkS4class{ggplot}} object
+#' @return a \code{ggplot-class} object
 #'
 #' @author Emma Dann
 #'
@@ -84,7 +94,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotNhoodGraph
 #' @import igraph
 #' @import ggraph
-plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, ... ){
+plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
     stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
@@ -95,10 +105,10 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, .
     }
   }
   nh_graph <- nhoodGraph(x)
-  
+
   ## Order vertex ids by size (so big nhoods are plotted first)
   nh_graph <- permute(nh_graph, order(vertex_attr(nh_graph)$size))
-  
+
   ## Define layout
   if (is.character(layout)) {
     redDim <- layout
@@ -108,10 +118,10 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, .
   ## Define node color
   if (!is.na(colour_by)) {
     if (colour_by %in% colnames(colData(x))) {
-      
+
       col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name),][[colour_by]]
-      if (!is.numeric(col_vals)) { 
-        col_vals <- as.character(col_vals) 
+      if (!is.numeric(col_vals)) {
+        col_vals <- as.character(col_vals)
         }
       V(nh_graph)$colour_by <- col_vals
     } else {
@@ -121,9 +131,9 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, .
     V(nh_graph)$colour_by <- V(nh_graph)$size
     colour_by <- "Nhood size"
   }
-  
-  pl <- ggraph(simplify(nh_graph), layout = layout) + 
-    geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) + 
+
+  pl <- ggraph(simplify(nh_graph), layout = layout) +
+    geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
     geom_node_point(aes(fill = colour_by, size = size), shape=21) +
     scale_size(range = c(1,6), name="Nhood size") +
     scale_edge_width(range = c(0.2,3), name="overlap size") +
@@ -131,13 +141,13 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, .
     theme(axis.line = element_blank(), axis.text = element_blank(),
           axis.ticks = element_blank(), axis.title = element_blank())
     # theme_graph()
-  
+
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
   } else {
     pl <- pl + scale_fill_brewer(palette="Spectral", name=colour_by)
   }
-  
+
   pl
   }
 
@@ -151,7 +161,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, color_palette = NA, .
 #' @param alpha significance level for Spatial FDR (default: 0.05)
 #' @param ... arguments to pass to \code{plotNhoodGraph}
 #'
-#' @return a \code{\linkS4class{ggplot}} object
+#' @return a \code{ggplot} object
 #'
 #' @author Emma Dann
 #'
@@ -170,19 +180,19 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
       stop(paste(layout, "is not in readucedDim(x) - choose a different layout"))
     }
   }
-  
+
   ## Add milo results to colDataa
   signif_res <- milo_res
   signif_res[signif_res$SpatialFDR > alpha,"logFC"] <- 0
   colData(x)["logFC"] <- NA
   colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),] <- signif_res$logFC
-  
+
   ## Plot logFC
   plotNhoodGraph(x, colour_by = "logFC", ... )
   }
-  
+
 # ----- # ---- # ---- #
-## Old plotting functions  ## 
+## Old plotting functions  ##
 # ----- # ---- # ---- #
 
 ### Plotting DA test results ###
