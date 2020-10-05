@@ -55,7 +55,3 @@ buildNhoodGraph <- function(x){
   return(nh_intersect_mat)
 }
 
-# ## A little test
-# nh1 <- sample(names(nhoods))[1]
-# nh2 <- sample(names(nhoods))[1]
-# nh_intersect_mat[nh1, nh2] == length(intersect(nhoods(sim_milo)[[nh1]], nhoods(sim_milo)[[nh2]]))
