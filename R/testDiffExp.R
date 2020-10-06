@@ -141,7 +141,6 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
-
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
                                           is.da=na.func(da.res$SpatialFDR < da.fdr),
@@ -155,9 +154,10 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
     copy.meta$Nhood.Group <- NA
     nhood.gr <- unique(nhs.da.gr)
+
     for(i in seq_along(nhood.gr)){
-        nhood.x <- nhs.da.gr == nhood.gr[i]
-        copy.meta[unlist(nhoods(x)[da.res$SpatialFDR < da.fdr][nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        nhood.x <- nhs.da.gr %in% nhood.gr[i]
+        copy.meta[unlist((nhoods(x)[names(nhs.da.gr)])[nhood.x]),]$Nhood.Group <- nhood.gr[i]
     }
 
     # subset to non-NA group cells
@@ -292,6 +292,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     groups <- components(g)$membership
 
     # only keep the groups that contain >= 1 DA neighbourhoods
+    names(groups) <- names(nhs)
     keep.groups <- intersect(unique(groups[is.da]), unique(groups))
 
     return(groups[groups %in% keep.groups])

@@ -109,6 +109,7 @@ test_that("Inputting a non-square binary matrix result generates the expected er
 })
 
 test_that("Providing a distance matrix generates a message", {
+    sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
     sim1.dist <- nhoodDistances(sim1.mylo)
     expect_message(suppressWarnings(buildFromAdjacency(sim1.dist, k=21)),
                    "Adding nhoodDistances to Milo object")

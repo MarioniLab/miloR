@@ -72,6 +72,7 @@
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
 #'
 #' cond <- rep("A", ncol(milo))
 #' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))

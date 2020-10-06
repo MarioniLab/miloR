@@ -13,6 +13,8 @@
 #' @param reduced.dim If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). Otherwise this should be an N X P matrix with rows in the same order as the
 #' columns of the input Milo object \code{x}.
+#' @param use.asay A character scalar defining which \code{assay} slot in the
+#' \code{\linkS4class{Milo}} to use
 #'
 #' @return A \code{\linkS4class{Milo}} object with the distance slots populated.
 #'
@@ -41,7 +43,7 @@ NULL
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
 #' @importFrom reshape2 melt
-calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts", ...){
+calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     if(class(x) == "Milo"){
         # check for reducedDims
         if(is.null(reducedDim(x)) & is.null(reduced.dim)){
