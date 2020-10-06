@@ -43,15 +43,15 @@ buildNhoodGraph <- function(x){
 #' @importFrom gtools permutations
 .build_nhood_adjacency <- function(nhoods){
   nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = T)
+  keep_pairs <- sapply( 1:nrow(nms) , function(x) any(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]))
   print("Calculating nhood adjacency....")
-  out <- sapply( 1:nrow(nms) , function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) )
+  pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) ) 
+  out <- rep(0, nrow(nms))
+  out[which(keep_pairs)] <- pairs_int
+
   nh_intersect_mat <- matrix(out, nrow = length(nhoods), byrow = TRUE)
   rownames(nh_intersect_mat) <- unique(nms[,1])
   colnames(nh_intersect_mat) <- unique(nms[,2])
   return(nh_intersect_mat)
 }
 
-# ## A little test
-# nh1 <- sample(names(nhoods))[1]
-# nh2 <- sample(names(nhoods))[1]
-# nh_intersect_mat[nh1, nh2] == length(intersect(nhoods(sim_milo)[[nh1]], nhoods(sim_milo)[[nh2]]))
