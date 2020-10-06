@@ -81,6 +81,8 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param layout this can be (a) a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use for layout (default: 'UMAP') (b) an igraph layout object
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
+#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot 
+#' (default: NULL, no subsetting)
 #' @param ... arguments to pass to \code{ggraph}
 #'
 #' @return a \code{ggplot-class} object
@@ -94,7 +96,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotNhoodGraph
 #' @import igraph
 #' @import ggraph
-plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, ... ){
+plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
     stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
@@ -105,6 +107,12 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, ... ){
     }
   }
   nh_graph <- nhoodGraph(x)
+  
+  ## Subset 
+  if (!is.null(subset.nhoods)) {
+    nh_graph <- igraph::induced_subgraph(nh_graph, vids = which(as.numeric(V(nh_graph)$name) %in% unlist(nhoodIndex(x)[subset.nhoods])))
+  }
+  
 
   ## Order vertex ids by size (so big nhoods are plotted first)
   nh_graph <- permute(nh_graph, order(vertex_attr(nh_graph)$size))
