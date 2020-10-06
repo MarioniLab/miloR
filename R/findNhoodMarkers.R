@@ -136,6 +136,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
                                           is.da=da.res$SpatialFDR < da.fdr,
+                                          merge.discord=merge.discord,
                                           overlap=overlap,
                                           subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     nhood.gr <- unique(nhs.da.gr)
