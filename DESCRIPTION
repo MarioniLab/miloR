@@ -10,11 +10,10 @@ Description: This package performs single-cell differential abundance testing by
     modelling cell states as neighbourhoods on a nearest neighbour graph.
 License: GPL-3
 Encoding: UTF-8
-Depends: edgeR
+Depends: edgeR, dplyr
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
-        matrixStats, dplyr, ggraph, gtools, SummarizedExperiment, patchwork,
-        reshape2
+        matrixStats, ggraph, gtools, SummarizedExperiment, patchwork
 Suggests: 
     testthat, MASS, mvtnorm, scater, scran, covr
 RoxygenNote: 7.1.1
