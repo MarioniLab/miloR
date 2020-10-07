@@ -42,7 +42,6 @@ NULL
 #' @rdname calcNhoodDistance
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
-#' @importFrom reshape2 melt
 calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     if(class(x) == "Milo"){
         # check for reducedDims

@@ -220,7 +220,8 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @rdname plotNhoodExpressionDA
 #' @import ggplot2
 #' @import patchwork
-#' @import dplyr
+#' @importFrom dplyr mutate left_join filter
+#' @importFrom tidyr pivot_longer
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts"){
   if (length(features) <= 0) {
