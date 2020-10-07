@@ -16,8 +16,9 @@
 #' to calculate the kNN graph. Only necessary if this function is being used
 #' outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available
-#' @param distances (optional) A \code{matrix} of cell-to-cell distances. Only necessary if
-#' this function is being used outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
+#' @param distances (optional) A \code{matrix} of cell-to-cell distances or a list
+#' of distance matrices, 1 per neighbourhood. Only necessary if this function is being
+#' used outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available.
 #' @param indices (optional) A list of neighbourhood index vertices in the same order as the input neighbourhoods.
 #' Only used for the k-distance weighting.
@@ -25,7 +26,7 @@
 #' @details Each neighbourhood is weighted according to the weighting scheme
 #' defined. Vertex and edge use the respective graph connectivity measures
 #' of the neighbourhoods, k-distance uses the distance to the kth nearest neighbour
-#' of the index vertex, while neighbour-distance uses the average with-neighbourhood
+#' of the index vertex, while neighbour-distance uses the average within-neighbourhood
 #' Euclidean distance in reduced dimensional space. The frequency-weighted version of the
 #' BH method is then applied to the p-values, as in \code{cydar}.
 #'
@@ -41,6 +42,7 @@ NULL
 
 #' @export
 #' @import igraph
+#' @importFrom Matrix rowMeans
 graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
     # Discarding NA pvalues.
@@ -78,6 +80,8 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})
+        } else if(class(distances("list"))){
+            t.connect <- unlist(lapply(distances, FUN=function(NHD) mean(rowMeans(NHD))))
         } else{
             stop("A matrix of reduced dimensions is required to calculate distances")
         }
@@ -87,7 +91,13 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
             # use distances first as they are already computed
             # compute the distance to the kth nearest neighbour
             # this is just the most distant neighbour
-            t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[X, ])))
+            if(class(distances) %in% c("matrix")){
+                t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[X, ])))
+            } else if(class(distances) %in% c("list")){
+                t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
+            } else{
+                stop("Neighbourhood distances must be either a matrix or a list of matrices")
+            }
         } else if(!is.null(reduced.dimensions) & !is.null(indices)){
             # find the kth NN and distance
             t.connect <- unlist(lapply(indices,

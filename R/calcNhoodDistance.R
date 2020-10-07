@@ -62,20 +62,21 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     if(any(names(reducedDims(x)) %in% c("PCA"))){
         nhood.dists <- sapply(names(nhoods(x)),
                               function(X) .calc_distance(reducedDim(x, "PCA")[c(as.numeric(X), unlist(nhoods(x)[[X]])), c(1:d),drop=FALSE]))
-        names(nhood.dists) <- names(nhoods(x))
+        names(nhood.dists) <- nhoodIndex(x)
 
     } else if(is.character(reduced.dim)){
         nhood.dists <- sapply(names(nhoods(x)),
                               function(X) .calc_distance(reducedDim(x, reduced.dim)[c(as.numeric(X), unlist(nhoods(x)[[X]])), c(1:d),drop=FALSE]))
-        names(nhood.dists) <- names(nhoods(x))
+        names(nhood.dists) <- nhoodIndex(x)
     }
 
     # ensure garbage collection
     sink(file="/dev/null")
     gc()
     sink(file=NULL)
-    all.dist <- .aggregate_dists(nhoods(x), nhood.dists, colnames(x))
-    nhoodDistances(x) <- all.dist
+    # all.dist <- .aggregate_dists.hard(nhoods(x), nhood.dists, colnames(x))
+    # strictly this only actually needs to be a list of distance matrices
+    nhoodDistances(x) <- nhood.dists
 
     return(x)
 }
@@ -97,7 +98,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     dist.df <- do.call(rbind.data.frame, dist.list)
     out.dist <- sparseMatrix(i=dist.df$rowIndex, j=dist.df$colIndex, x=dist.df$dist,
                              dimnames=list(rownames(in.x), rownames(in.x)),
-                             giveCsparse=TRUE)
+                             giveCsparse=FALSE)
     return(out.dist)
 }
 
@@ -123,7 +124,10 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 
     all.dists <- do.call(rbind.data.frame, dist.list)
     rownames(all.dists) <- NULL
+    n.grid <- expand.grid(cell.names, cell.names)
+
     n.grid <- expand.grid(cell.names, setdiff(index.df$cname, all.dists$i.name))
+
     i.fake <- data.frame("i.name"=n.grid$Var1, "j.name"=n.grid$Var2, "x"=rep(0, nrow(n.grid)))
     i.fake <- merge(i.fake, index.df, by.x='i.name', by.y='cname')
 
@@ -144,7 +148,69 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 
     # need to fill in the blanks
     sp.out <- sparseMatrix(i=all.dists$i, j=all.dists$j, x=all.dists$x,
-                           dimnames=list(cell.names, cell.names))
+                           dimnames=list(cell.names, cell.names),
+                           giveCsparse=TRUE)
     return(sp.out)
 
 }
+
+
+#' @importFrom Matrix sparseMatrix
+.aggregate_dists.hard <- function(nhood.list, nhood.dists, cell.names){
+    # we know the indices for each matrix, but these don't uniquely identify
+    # entries across matrices <- replace these with the cell IDs and concatenate
+    # the distance matrices into the appropriate order <- fill in missing values
+    # as zeroes
+
+    # this could be so much more elegant than this.
+    ix <- 1
+    for(x in seq_along(names(nhood.list))){
+        x.ix <- names(nhood.list)[x]
+        if(ix == 1){
+            sp.out <- nhood.dists[[x.ix]]
+        } else{
+            int.id <- intersect(colnames(sp.out), colnames(nhood.dists[[x.ix]]))
+            if(any(is.na(int.id))){
+                stop("Corrupted dimension names")
+            } else {
+                # nice and easy join when no cells overlap between matrices
+                i.n <- nrow(sp.out) - length(int.id)
+                j.n <- ncol(nhood.dists[[x.ix]]) - length(int.id)
+                if(length(int.id) > 0){
+                null.mat.i <- matrix(0L, nrow=nrow(sp.out), ncol=j.n,
+                                     dimnames=list(rownames(sp.out), setdiff(colnames(nhood.dists[[x.ix]]), colnames(sp.out))))
+
+                null.mat.j <- matrix(0L, nrow=j.n, ncol=nrow(sp.out),
+                                     dimnames=list(colnames(nhood.dists[[x.ix]]), rownames(sp.out)))
+
+                .tmp.i <- cbind(sp.out, null.mat.i)
+                .tmp.j <- cbind(null.mat.j, nhood.dists[[x.ix]])
+                } else{
+                    # remove the intersecting columns and rows
+                    # construct the remaining matrices as normal
+                    # extend the removed rows and columns
+                    # concatenate at the endß
+
+                }
+
+                sp.out <- rbind(.tmp.i, .tmp.j)
+
+                # check square
+                if(ncol(sp.out) != nrow(sp.out)){
+                    stop("Matrix corrupted - dimensions are not the same size")
+                }
+                sink(file="/dev/null")
+                rm(list=c(".tmp.i", ".tmp.j"))
+                gc()
+                sink(file=NULL)
+                print(dim(sp.out))
+            }
+        }
+        ix <- ix + 1
+    }
+
+    sp.out <- as(sp.out, "dgCMatrix")
+    return(sp.out)
+}
+
+

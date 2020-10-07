@@ -246,9 +246,9 @@ test_that("Contrasts can be passed without error" , {
 
     # define neighbourhoods - this is slow for large data sets
     # how can this be sped up? There are probably some parallelisable steps
-    blockC.mylo <- makeNhoods(blockC.mylo, k=21, prop=0.3, refined=TRUE,
-                              d=10,
-                              reduced_dims="PCA")
+    blockC.mylo <- makeNhoods(blockC.mylo, k=21, prop=0.1, refined=TRUE,
+                              d=10, reduced_dims="PCA")
+    blockC.mylo <- calcNhoodDistance(blockC.mylo, d=10)
 
     blockC.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C", 3)),
                               "Replicate"=rep(c("R1", "R2", "R3"), 3))
@@ -262,7 +262,7 @@ test_that("Contrasts can be passed without error" , {
     expect_error(do.call(rbind.data.frame,
                          suppressWarnings(testDiffExp(blockC.mylo, blockC.res, meta.data=meta.df,
                                                       da.fdr=0.2,
-                                                      model.contrasts=c("ConditionA - ConditionC"),
+                                                      model.contrasts=c("ConditionC - ConditionB"),
                                                       design=~0 + Condition,
                                                       gene.offset=FALSE,
                                                       merge.discord=FALSE))),

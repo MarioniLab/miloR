@@ -128,10 +128,11 @@ setMethod("nhoodDistances", "Milo", function(x) x@nhoodDistances)
 
 #' @export
 setMethod("nhoodDistances<-", "Milo", function(x, value){
-    if(!any(class(value) %in% c("dgCMatrix"))){
-        x@nhoodDistances <- as(value, "dgCMatrix")
-    } else{
-        x@nhoodDistances <- value
+
+    if(class(value) %in% c("list", "NULL")){
+        if(!any(unlist(lapply(value, class)) %in% c("dgCMatrix"))){
+            x@nhoodDistances <- lapply(value, function(X) as(X ,"dgCMatrix"))
+        }
     }
 
     validObject(x)
@@ -226,7 +227,7 @@ setMethod("nhoodGraph<-", "Milo", function(x, value){
     callNextMethod()
     coolcat("nhoods dimensions(%d): %s\n", length(object@nhoods))
     coolcat("nhoodCounts dimensions(%d): %s\n", dim(object@nhoodCounts))
-    coolcat("nhoodDistances dimensions(%d): %s\n", dim(object@nhoodDistances))
+    coolcat("nhoodDistances dimension(%d): %s\n", length(object@nhoodDistances))
     coolcat("graph names(%d): %s\n", names(object@graph))
     coolcat("nhoodIndex names(%d): %s\n", length(object@nhoodIndex))
     coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
