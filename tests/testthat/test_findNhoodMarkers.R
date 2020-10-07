@@ -144,7 +144,7 @@ test_that("Less than optimal input gives the expected warnings", {
                    "Assay type is not counts or logcounts")
 })
 
-test_that("Larger required overlap produces more nhood groups" , {
+test_that("Larger minimal overlap produces more nhood groups" , {
     full.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res, overlap=5))
 
     sub.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res, overlap=10))

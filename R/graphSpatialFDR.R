@@ -41,8 +41,9 @@ NULL
 
 
 #' @export
-#' @import igraph
+#' @importFrom igraph induced_subgraph vertex_connectivity edge_connectivity
 #' @importFrom Matrix rowMeans
+#' @importFrom stats dist
 graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
     # Discarding NA pvalues.
@@ -80,7 +81,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})
-        } else if(class(distances("list"))){
+        } else if(class(distances) %in% c("list") & all(unlist(lapply(distance, class)) %in% c("matrix"))){
             t.connect <- unlist(lapply(distances, FUN=function(NHD) mean(rowMeans(NHD))))
         } else{
             stop("A matrix of reduced dimensions is required to calculate distances")

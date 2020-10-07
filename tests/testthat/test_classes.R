@@ -95,12 +95,14 @@ test_that("Milo getters working as expected", {
 
     sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
     expect_type(graph(sim1.mylo), "list")
-    expect_s4_class(nhoodDistances(sim1.mylo), "Matrix")
 
     sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                     d=30,
                                     reduced_dims="PCA")
     expect_type(nhoods(sim1.mylo), "list")
+
+    sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
+    expect_equal(class(nhoodDistances(sim1.mylo)), "list")
 
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_s4_class(nhoodCounts(sim1.mylo), "Matrix")
@@ -124,8 +126,8 @@ test_that("Milo setters working as expected", {
     graph(sim1.mylo) <- list()
     expect_identical(graph(sim1.mylo), list())
 
-    nhoodDistances(sim1.mylo) <- matrix(0L, ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
-    expect_equal(sum(rowSums(nhoodDistances(sim1.mylo))), 0)
+    nhoodDistances(sim1.mylo) <- list()
+    expect_equal(class(nhoodDistances(sim1.mylo)), "list")
 
     nhoods(sim1.mylo) <- list()
     expect_identical(nhoods(sim1.mylo), list())

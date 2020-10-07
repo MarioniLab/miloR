@@ -103,9 +103,10 @@ test_that("Incorrect input features produce proper errors", {
                  "Some features are not in rownames(x)", fixed=TRUE)
     expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = NA),
                "Some features are not in rownames(x)", fixed=TRUE)
+    sim1.mylo <- calcNhoodExpression(sim1.mylo)
     expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c()),
                  "features is empty", fixed=TRUE)
-    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = NULL),
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("blah")),
                  "Some features are not in rownames(x)", fixed=TRUE)
 })
 
@@ -126,7 +127,7 @@ test_that("Subsetting produces the expected number of neighbourhoods", {
   })
 
 test_that("Different input types produce the same subsetting", {
-  subset_numeric <- 1:10 
+  subset_numeric <- 1:10
   subset_logical <- c(rep(TRUE, 10), rep(FALSE, length(nhoods(sim1.mylo))-10))
   p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
                              subset.nhoods = subset_numeric)

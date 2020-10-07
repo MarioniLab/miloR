@@ -223,9 +223,10 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom dplyr mutate left_join filter
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
+#' @importFrom tibble rownames_to_column
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts"){
-  if (length(features) <= 0) {
+  if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
   }
   ## Check if features are in rownames(x)

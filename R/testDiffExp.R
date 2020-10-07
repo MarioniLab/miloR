@@ -292,7 +292,12 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     groups <- components(g)$membership
 
     # only keep the groups that contain >= 1 DA neighbourhoods
-    names(groups) <- names(nhs)
+    if(!is.null(subset.nhoods)){
+        names(groups) <- names(nhs[subset.nhoods])
+    } else{
+        names(groups) <- names(nhs)
+    }
+
     keep.groups <- intersect(unique(groups[is.da]), unique(groups))
 
     return(groups[groups %in% keep.groups])
