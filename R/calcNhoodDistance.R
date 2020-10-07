@@ -13,7 +13,7 @@
 #' @param reduced.dim If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). Otherwise this should be an N X P matrix with rows in the same order as the
 #' columns of the input Milo object \code{x}.
-#' @param use.asay A character scalar defining which \code{assay} slot in the
+#' @param use.assay A character scalar defining which \code{assay} slot in the
 #' \code{\linkS4class{Milo}} to use
 #'
 #' @return A \code{\linkS4class{Milo}} object with the distance slots populated.
