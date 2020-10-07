@@ -222,7 +222,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @import patchwork
 #' @import dplyr
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
-                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts"){
+                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
   if (length(features) <= 0) {
     stop("features is empty")
   }
@@ -247,6 +247,10 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
     expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
+  }
+  
+  if (!isFALSE(scale_to_1)) {
+    expr_mat <- t(apply(expr_mat, 1, function(x) (x - min(x))/(max(x)- min(x))))
   }
   
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame

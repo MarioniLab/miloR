@@ -19,7 +19,7 @@
 #'
 #' NULL
 #'
-#' @import igraph
+#' @importFrom igraph graph.adjacency set_vertex_attr vertex.attributes
 #' @export
 #' @rdname buildNhoodGraph
 buildNhoodGraph <- function(x){
