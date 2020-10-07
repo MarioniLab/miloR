@@ -220,7 +220,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @rdname plotNhoodExpressionDA
 #' @import ggplot2
 #' @import patchwork
-#' @importFrom dplyr mutate left_join filter
+#' @importFrom dplyr mutate left_join filter percent_rank
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
