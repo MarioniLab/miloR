@@ -17,6 +17,8 @@
 #' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BPPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param seed Seed number used for pseudorandom number generators.
+#' @param get.distance A logical scalar whether to compute distances during graph
+#' construction.
 #'
 #' @details
 #' This function computes a k-nearest neighbour graph. Each graph vertex is a
@@ -57,7 +59,7 @@ NULL
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
+buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPARAM=KmknnParam(),
                        BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
     set.seed(seed)
     # check class of x to determine which function to call
@@ -106,7 +108,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
         x <- Milo(x)
     }
 
-    .buildGraph(x, k=k, d=d,
+    .buildGraph(x, k=k, d=d, get.distance=get.distance,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
@@ -115,7 +117,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-.buildGraph <- function(x, k=10, d=50,
+.buildGraph <- function(x, k=10, d=50, get.distance=FALSE,
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
@@ -133,37 +135,39 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
     graph(x) <- zee.graph
 
     # adding distances
-    message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    # set this up as a dense matrix first, then coerce to a sparse matrix
-    # starting with a sparse matrix requires a coercion at each iteration
-    # which uses up lots of memory and unncessary CPU time
-    old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
+    if(isTRUE(get.distance)){
+        message(paste0("Retrieving distances from ", k, " nearest neighbours"))
+        # set this up as a dense matrix first, then coerce to a sparse matrix
+        # starting with a sparse matrix requires a coercion at each iteration
+        # which uses up lots of memory and unncessary CPU time
+        old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
 
-    n.idx <- ncol(x)
-    for(i in seq_along(1:n.idx)){
-        i.knn <- nn.out$index[i, ]
-        i.dists <- nn.out$distance[i, ]
-        old.dist[i, i.knn] <- i.dists
-        old.dist[i.knn, i] <- i.dists
+        n.idx <- ncol(x)
+        for(i in seq_along(1:n.idx)){
+            i.knn <- nn.out$index[i, ]
+            i.dists <- nn.out$distance[i, ]
+            old.dist[i, i.knn] <- i.dists
+            old.dist[i.knn, i] <- i.dists
+        }
+        old.dist <- as(old.dist, "dgCMatrix")
+        nhoodDistances(x) <- old.dist
+
+        sink(file="/dev/null")
+        gc()
+        sink(file=NULL)
     }
-    old.dist <- as(old.dist, "dgCMatrix")
-    nhoodDistances(x) <- old.dist
-
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 
     x
 }
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, k, d=50,
+.setup_knn_data <- function(x, k, d=50, get.distance=FALSE,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
+    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
 }
 
 

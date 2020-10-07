@@ -199,17 +199,17 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @param da.res a data.frame of DA testing results
 #' @param features a character vector of features to plot (they must be in rownames(x))
 #' @param alpha significance level for Spatial FDR (default: 0.1)
-#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot 
+#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
 #' (default: NULL, no subsetting)
 #' @param cluster_features logical indicating whether features should be clustered with hierarchical clustering.
 #' If FALSE then the order in \code{features} is maintained (default: FALSE)
-#' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression. 
+#' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression.
 #' (default: logcounts)
 #' Of note: neighbourhood expression will be computed only if the requested features are not in the \code{nhoodExpression} slot
-#' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run 
+#' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run
 #' \code{calcNhoodExpression(x)} with the desired assay.
-#' 
-#' @return a \code{\linkS4class{ggplot}} object
+#'
+#' @return a \code{ggplot} object
 #'
 #' @author Emma Dann
 #'
@@ -220,30 +220,33 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @rdname plotNhoodExpressionDA
 #' @import ggplot2
 #' @import patchwork
-#' @import dplyr
+#' @importFrom dplyr mutate left_join filter percent_rank
+#' @importFrom tidyr pivot_longer
+#' @importFrom stats hclust
+#' @importFrom tibble rownames_to_column
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
-  if (length(features) <= 0) {
+  if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
   }
   ## Check if features are in rownames(x)
   if (!all(features %in% rownames(x))) {
     stop("Some features are not in rownames(x)")
   }
-  ## Check if nhood expression exists 
+  ## Check if nhood expression exists
   if (dim(nhoodExpression(x))[2] == 1){
     warning("Nothing in nhoodExpression(x): computing for requested features...")
     x <- calcNhoodExpression(x, assay = assay, subset.row = features)
-  } 
+  }
   ## Check if all features are in nhoodExpression
   if (!all(features %in% rownames(nhoodExpression(x)))) {
-    warning("Not all features in nhoodExpression(x): recomputing for requested features...")  
+    warning("Not all features in nhoodExpression(x): recomputing for requested features...")
     x <- calcNhoodExpression(x, assay = assay, subset.row = features)
-  } 
-  
+  }
+
   expr_mat <- nhoodExpression(x)[features,]
   colnames(expr_mat) <- 1:length(nhoods(x))
-  
+
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
     expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
@@ -254,13 +257,13 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   }
   
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
-  
+
   pl_df <- data.frame(t(expr_mat)) %>%
     rownames_to_column("Nhood") %>%
     mutate(Nhood=as.double(Nhood)) %>%
     left_join(da.res, by="Nhood") %>%
-    mutate(logFC_rank=percent_rank(logFC)) 
-  
+    mutate(logFC_rank=percent_rank(logFC))
+
   ## Top plot: nhoods ranked by DA log FC
   pl_top <- pl_df %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, paste0("SpatialFDR < ", alpha), NA)) %>%
@@ -273,7 +276,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     scale_color_manual(values="red", name="") +
     scale_x_continuous(expand = c(0.01, 0)) +
     theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank())
-  
+
   ## Bottom plot: gene expression heatmap
   if (isTRUE(cluster_features)) {
     row.order <- hclust(dist(expr_mat))$order # clustering
@@ -281,11 +284,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   } else {
     ordered_features <- rownames(expr_mat)
   }
-  
+
   pl_bottom <- pl_df %>%
     pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
-    mutate(feature=factor(feature, levels=ordered_features)) %>% 
-    ggplot(aes(logFC_rank, feature, fill=avg_expr)) + 
+    mutate(feature=factor(feature, levels=ordered_features)) %>%
+    ggplot(aes(logFC_rank, feature, fill=avg_expr)) +
     geom_tile() +
     scale_fill_viridis_c(option="magma", name="Avg.Expr.") +
     xlab("Neighbourhoods") + ylab("Features") +
@@ -293,7 +296,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank(),
           axis.line.y = element_blank(), axis.ticks.y = element_blank())
-  
+
   ## Assemble plot
   (pl_top / pl_bottom) + plot_layout(heights = c(1,2))
 }

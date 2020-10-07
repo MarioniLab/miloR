@@ -86,6 +86,7 @@ sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                 d=30,
                                 reduced_dims="PCA")
+sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
 
 sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
                         "Replicate"=rep(c("R1", "R2", "R3"), 2))

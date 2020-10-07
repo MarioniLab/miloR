@@ -85,7 +85,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     out <- new("Milo", sce,
                graph=list(),
                nhoods=list(),
-               nhoodDistances=Matrix(0L, sparse=TRUE),
+               nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE))
@@ -102,7 +102,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     out <- new("Milo",
                graph=list(),
                nhoods=list(),
-               nhoodDistances=Matrix(0L, sparse=TRUE),
+               nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE))
@@ -118,13 +118,13 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 #' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
     if (class(object@nhoodCounts) != "matrixORMatrix"){
-        "@nhoodCounts must be a matrix format"
+        "@nhoodCounts must be matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodDistances) != "matrixORMatrix"){
-        "@nhoodDistances must be a matrix format"
+    if(class(object@nhoodDistances) != "listORNULL"){
+        "@nhoodDistances must be a list of matrices"
     } else{
         TRUE
     }
