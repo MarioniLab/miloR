@@ -75,7 +75,7 @@
 #' milo <- calcNhoodDistance(milo, d=10)
 #'
 #' cond <- rep("A", ncol(milo))
-#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.4))
 #' cond.b <- setdiff(1:ncol(milo), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
@@ -87,7 +87,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=15)
+#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=1)
 #' nhood.dge
 #'
 #' @name findNhoodMarkers
@@ -137,6 +137,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
                                           is.da=da.res$SpatialFDR < da.fdr,
+                                          merge.discord=merge.discord,
                                           overlap=overlap,
                                           subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     nhood.gr <- unique(nhs.da.gr)

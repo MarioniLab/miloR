@@ -225,7 +225,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
 plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
-                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts"){
+                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
   if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
   }
@@ -251,7 +251,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(subset.nhoods)) {
     expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
-
+  
+  if (!isFALSE(scale_to_1)) {
+    expr_mat <- t(apply(expr_mat, 1, function(x) (x - min(x))/(max(x)- min(x))))
+  }
+  
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
 
   pl_df <- data.frame(t(expr_mat)) %>%

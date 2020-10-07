@@ -248,6 +248,8 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     if(!is.null(subset.nhoods)){
         if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
             ll_names <- expand.grid(names(nhs)[subset.nhoods], names(nhs)[subset.nhoods])
+            ll_names[,"Var1"] <- as.character(ll_names[,"Var1"])
+            ll_names[,"Var2"] <- as.character(ll_names[,"Var2"])
             n.dim <- length(names(nhs)[subset.nhoods])
             if(length(is.da) == length(names(nhs))){
                 is.da[subset.nhoods]
@@ -262,13 +264,20 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
             stop("Subsetting `is.da` vector length does not equal nhoods length")
         }
         ll_names <- expand.grid(names(nhs), names(nhs))
+        ll_names[,"Var1"] <- as.character(ll_names[,"Var1"])
+        ll_names[,"Var2"] <- as.character(ll_names[,"Var2"])
         n.dim <- length(names(nhs))
     }
-
-    lintersect <- sapply(1:nrow(ll_names), function(x) length(intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]])))
+    
+    keep_pairs <- sapply(1:nrow(ll_names) , function(x) any(nhs[[ll_names[x,1]]] %in% nhs[[ll_names[x,2]]]))
+    pairs_int <- sapply( which(keep_pairs), function(x) length( intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]]) )) 
+    lintersect <- rep(0, nrow(ll_names))
+    lintersect[which(keep_pairs)] <- pairs_int
+    
+    # lintersect <- sapply(1:nrow(ll_names), function(x) length(intersect(nhs[[ll_names[x,1]]], nhs[[ll_names[x,2]]])))
     ## Count as connected only nhoods with at least n shared cells
     lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
-
+    
     if(!is.null(lfc.threshold)){
         # set adjacency to 0 for nhoods with lfc < threshold
         lfc.pass <- sapply(1:nrow(ll_names), function(x) (abs(da.res[ll_names[x, 1], ]$logFC) >= lfc.threshold) &
@@ -278,8 +287,9 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
     ## check for concordant signs - assume order is the same as nhoods
     if(isFALSE(merge.discord)){
-        concord.sign <- sapply(1:nrow(ll_names), function(x) sign(da.res[ll_names[x, 1], ]$logFC) != sign(da.res[ll_names[x, 2], ]$logFC))
-        lintersect_filt <- ifelse(concord.sign, 0, lintersect_filt)
+        concord.sign <- sapply(which(keep_pairs), function(x) sign(da.res[ll_names[x, 1], ]$logFC) != sign(da.res[ll_names[x, 2], ]$logFC))
+        lintersect_filt <- lintersect
+        lintersect_filt[which(keep_pairs)] <- ifelse(concord.sign, 0, lintersect_filt[which(keep_pairs)])
     }
 
     ## Convert to adjacency matrix (values = no of common cells)

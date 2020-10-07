@@ -129,15 +129,17 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
     nn_mat <- findKNN(all_reduced_dims,
                       k = nrow(nh_reduced_dims) + 1,
                       subset = rownames(nh_reduced_dims))[["index"]]
-    nn_mat_names <- apply(nn_mat, c(1,2), function(x) rownames(all_reduced_dims)[x])
+    ## Look for first NN that is not another nhood
+    nh_ixs <- 1:nrow(nh_reduced_dims)
     i = 1
-    sampled_vertices <- rep("nh_0", nrow(nn_mat))
-    while (any(grepl(sampled_vertices, pattern = "nh_"))) {
-        update_ix <- grep(sampled_vertices, pattern="nh_")
-        sampled_vertices[update_ix] <- nn_mat_names[update_ix, i]
+    sampled_vertices <- rep(0, nrow(nn_mat))
+    while (any(sampled_vertices <= max(nh_ixs))) {
+        update_ix <- which(sampled_vertices <= max(nh_ixs))
+        sampled_vertices[update_ix] <- nn_mat[update_ix, i]
         i <- i + 1
     }
-    sampled_vertices <- match(sampled_vertices, rownames(X_reduced_dims))
+    ## Reset indexes
+    sampled_vertices <- sampled_vertices - max(nh_ixs)
     return(sampled_vertices)
 }
 
