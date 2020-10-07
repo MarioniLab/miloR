@@ -52,7 +52,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         } else if(is.null(reducedDim(x)) & is.character(reduced.dim)){
-            stop(paste(reduce.dim, " not found in reducedDim slot"))
+            stop(paste(reduced.dim, " not found in reducedDim slot"))
         }
     } else{
         stop("Input is not a valid Milo object")
