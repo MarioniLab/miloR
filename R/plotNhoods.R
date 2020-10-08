@@ -113,13 +113,18 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, ... ){
   if (is.character(layout)) {
     redDim <- layout
     layout <- reducedDim(x, redDim)[as.numeric(vertex_attr(nh_graph)$name),]
+    # make sure this is a matrix!
+    if(!any(class(layout) %in% c("matrix"))){
+        warning("Coercing layout to matrix format")
+        layout <- as(layout, "matrix")
+    }
   }
 
   ## Define node color
   if (!is.na(colour_by)) {
     if (colour_by %in% colnames(colData(x))) {
 
-      col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name),][[colour_by]]
+      col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
       if (!is.numeric(col_vals)) {
         col_vals <- as.character(col_vals)
         }
