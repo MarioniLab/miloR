@@ -34,6 +34,8 @@ Collate:
     'methods.R'
     'plotNhoods.R'
     'projectNhoodExpression.R'
+    'sim_discrete.R'
+    'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'
     'utils.R'
