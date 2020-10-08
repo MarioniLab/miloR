@@ -56,6 +56,10 @@
 #' the return value is a list with the slots \code{groups} and \code{dge} containing the
 #' aggregated neighbourhood groups per single-cell and marker gene results, respectively.
 #'
+#' \emph{Warning}: If all neighbourhoods are grouped together, then it is impossible to
+#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will spit
+#' out a warning and return \code{NULL}.
+#'
 #' @author Mike Morgan & Emma Dann
 #'
 #' @examples
