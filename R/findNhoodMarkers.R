@@ -75,7 +75,7 @@
 #' milo <- calcNhoodDistance(milo, d=10)
 #'
 #' cond <- rep("A", ncol(milo))
-#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.4))
+#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
 #' cond.b <- setdiff(1:ncol(milo), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
@@ -85,7 +85,7 @@
 #' test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
-#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+#' da.res <- testNhoods(milo, design=~0 + Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
 #' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=1)
 #' nhood.dge
@@ -165,6 +165,15 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     marker.list <- list()
     i.contrast <- c("TestTest - TestRef") # always use contrasts for this
 
+    # if there is only 1 group, then need to make sure that all neighbourhoods
+    # are not in this group - otherwise can't do any DGE testing
+    if(length(nhood.gr) == 1){
+        if(sum(fake.meta$Nhood.Group == nhood.gr[1]) == nrow(fake.meta)){
+            warning("All graph neighbourhoods are in the same group - cannot perform DGE testing. Returning NULL")
+            return(NULL)
+        }
+    }
+
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
         i.meta$Test <- "Ref"
@@ -212,10 +221,4 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         return(marker.df)
     }
 }
-
-
-
-
-
-
 
