@@ -38,3 +38,4 @@ Collate:
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
+LazyData: true
