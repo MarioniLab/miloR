@@ -245,7 +245,7 @@ test_that("Contrasts can be passed without error" , {
     meta.df$Sample <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
     meta.df$Vertex <- c(1:nrow(meta.df))
     #meta.df$Condition <- ordered(meta.df$Condition, levels=c("A", "B", "C"))
-    rownames(meta.df) <- colnames(sim1.gex)
+    rownames(meta.df) <- colnames(sim1.gex[, c(1:nrow(meta.df))])
 
     blockC.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex[, c(1:nrow(meta.df))]),
                                      reducedDims=list("PCA"=sim1.pca$x[c(1:nrow(meta.df)), ]))
