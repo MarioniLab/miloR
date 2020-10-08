@@ -208,6 +208,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' Of note: neighbourhood expression will be computed only if the requested features are not in the \code{nhoodExpression} slot
 #' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run
 #' \code{calcNhoodExpression(x)} with the desired assay.
+#' @param scale_to_1 A logical scalar to re-scale gene expression values between 0 and 1 for visualisation.
 #'
 #' @return a \code{ggplot} object
 #'
@@ -251,11 +252,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(subset.nhoods)) {
     expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
-  
+
   if (!isFALSE(scale_to_1)) {
     expr_mat <- t(apply(expr_mat, 1, function(x) (x - min(x))/(max(x)- min(x))))
   }
-  
+
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
 
   pl_df <- data.frame(t(expr_mat)) %>%
