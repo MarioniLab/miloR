@@ -252,10 +252,12 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
     if(!is.null(subset.nhoods)){
         if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
-            ll_names <- expand.grid(names(nhs)[subset.nhoods], names(nhs)[subset.nhoods])
-            n.dim <- length(names(nhs)[subset.nhoods])
+            sub.vec <- c(1:length(nhs))[subset.nhoods]
+            #nhs <- nhs[sub.vec]
+            ll_names <- expand.grid(sub.vec, sub.vec)
+            n.dim <- length(sub.vec)
             if(length(is.da) == length(names(nhs))){
-                is.da[subset.nhoods]
+                is.da <- is.da[subset.nhoods]
             } else{
                 stop("Subsetting `is.da` vector length does not equal nhoods length")
             }
