@@ -1,19 +1,19 @@
 Package: miloR
 Type: Package
-Title: Differential neighbourhood abundance testing on a tree
+Title: Differential neighbourhood abundance testing on a graph
 Version: 0.1.0
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Description: This package performs single-cell differential abundance testing by 
+    modelling cell states as neighbourhoods on a nearest neighbour graph.
 License: GPL-3
 Encoding: UTF-8
 Depends: edgeR
 Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
-        methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
-        matrixStats, dplyr, ggraph, gtools, SummarizedExperiment, patchwork
+        methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
+        matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr
 Suggests: 
     testthat, MASS, mvtnorm, scater, scran, covr
 RoxygenNote: 7.1.1
@@ -25,6 +25,7 @@ Collate:
     'buildFromAdjacency.R'
     'buildGraph.R'
     'calcNhoodExpression.R'
+    'calcNhoodDistance.R'
     'countCells.R'
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
@@ -33,7 +34,10 @@ Collate:
     'methods.R'
     'plotNhoods.R'
     'projectNhoodExpression.R'
+    'sim_discrete.R'
+    'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
+LazyData: true

@@ -86,6 +86,7 @@ sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                 d=30,
                                 reduced_dims="PCA")
+sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
 
 sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
                         "Replicate"=rep(c("R1", "R2", "R3"), 2))
@@ -101,7 +102,7 @@ test_that("Incorrect parameter values produce errors", {
                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     expect_error(graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
-                                 graph=graph(sim1.mylo),
+                                 graph=miloR::graph(sim1.mylo),
                                  weighting="neighbour-distance",
                                  pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
                                  indices=nhoodIndex(sim1.mylo),
@@ -318,7 +319,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
         coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
     }
-    t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[X, ])))
+    t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
     w <- 1/unlist(t.connect)
     w[is.infinite(w)] <- 0
 

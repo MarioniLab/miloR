@@ -56,6 +56,10 @@
 #' the return value is a list with the slots \code{groups} and \code{dge} containing the
 #' aggregated neighbourhood groups per single-cell and marker gene results, respectively.
 #'
+#' \emph{Warning}: If all neighbourhoods are grouped together, then it is impossible to
+#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will spit
+#' out a warning and return \code{NULL}.
+#'
 #' @author Mike Morgan & Emma Dann
 #'
 #' @examples
@@ -72,6 +76,7 @@
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
 #'
 #' cond <- rep("A", ncol(milo))
 #' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
@@ -84,9 +89,9 @@
 #' test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
-#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+#' da.res <- testNhoods(milo, design=~0 + Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=15)
+#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=1)
 #' nhood.dge
 #'
 #' @name findNhoodMarkers
@@ -136,6 +141,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                           da.res=da.res,
                                           is.da=da.res$SpatialFDR < da.fdr,
+                                          merge.discord=merge.discord,
                                           overlap=overlap,
                                           subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     nhood.gr <- unique(nhs.da.gr)
@@ -162,6 +168,15 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     marker.list <- list()
     i.contrast <- c("TestTest - TestRef") # always use contrasts for this
+
+    # if there is only 1 group, then need to make sure that all neighbourhoods
+    # are not in this group - otherwise can't do any DGE testing
+    if(length(nhood.gr) == 1){
+        if(sum(fake.meta$Nhood.Group == nhood.gr[1]) == nrow(fake.meta)){
+            warning("All graph neighbourhoods are in the same group - cannot perform DGE testing. Returning NULL")
+            return(NULL)
+        }
+    }
 
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
@@ -210,10 +225,4 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         return(marker.df)
     }
 }
-
-
-
-
-
-
 
