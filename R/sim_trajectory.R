@@ -1,3 +1,4 @@
+#' @title sim_trajectory
 #' Simulated linear trajectory data
 #'
 #' Data are simulated single-cells along a single linear trajectory. Cells are
@@ -6,7 +7,6 @@
 #' function in the \code{dyntoy} package.
 #'
 #' @docType data
-#'
 #' @usage data(sim_trajectory)
 #'
 #' @format A list containing a \code{\linkS4class{Milo}} object in the "mylo" slot,

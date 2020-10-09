@@ -230,7 +230,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
-plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
+plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show_rownames=TRUE,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
   if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
@@ -255,11 +255,16 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
-    expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
+      expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
 
   if (!isFALSE(scale_to_1)) {
-    expr_mat <- t(apply(expr_mat, 1, function(x) (x - min(x))/(max(x)- min(x))))
+      expr_mat <- t(apply(expr_mat, 1, function(X) (X - min(X))/(max(X)- min(X))))
+      # force NAs to 0?
+      if(sum(is.na(expr_mat)) > 0){
+          warning("NA values found - resetting to 0")
+          expr_mat[is.na(expr_mat)] <- 0
+      }
   }
 
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
@@ -285,8 +290,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 
   ## Bottom plot: gene expression heatmap
   if (isTRUE(cluster_features)) {
-    row.order <- hclust(dist(expr_mat))$order # clustering
-    ordered_features <- rownames(expr_mat)[row.order]
+      row.order <- hclust(dist(expr_mat))$order # clustering
+      ordered_features <- rownames(expr_mat)[row.order]
   } else {
     ordered_features <- rownames(expr_mat)
   }
@@ -302,6 +307,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank(),
           axis.line.y = element_blank(), axis.ticks.y = element_blank())
+
+  if(isFALSE(show_rownames)){
+      pl_bottom <- pl_bottom +
+          theme(axis.text.y=element_blank())
+  }
 
   ## Assemble plot
   (pl_top / pl_bottom) + plot_layout(heights = c(1,2))
