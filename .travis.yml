@@ -1,6 +1,6 @@
 language: r
 cache: packages
-warnings_are_errors: false
+warnings_are_errors: true
 
 r: 
   - bioc-release
@@ -11,6 +11,7 @@ r_packages:
 
 bioc_packages:
     - BiocCheck
+    - BiocStyle
 
 # safelist
 branches:
