@@ -19,4 +19,5 @@
 #' NULL
 #'
 #' @name sim_trajectory
+#' @aliases sim_trajectory
 NULL

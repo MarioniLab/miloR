@@ -20,4 +20,5 @@
 #' NULL
 #'
 #' @name sim_discrete
+#' @aliases sim_discrete
 NULL
