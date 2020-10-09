@@ -1,0 +1,68 @@
+---
+title: "Differential abundance testing with _Milo_"
+author:
+  - Emma Dann
+  - Mike Morgan
+output:
+  BiocStyle::html_document:
+    toc_float: true
+  BiocStyle::pdf_document: default
+package: miloR
+vignette: |
+  %\VignetteIndexEntry{Differential abundance testing with Milo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE
+)
+```
+
+```{r setup}
+library(miloR)
+library(SingleCellExperiment)
+```
+
+
+# Introduction
+
+Milo models the differences in representation of cell states between experimental conditions using graph neighbourhoods.
+
+# Load data
+
+For this demo we will use a synthetic dataset simulating a developmental trajectory, generated using [dyntoy](https://github.com/dynverse/dyntoy).
+
+```{r}
+data("sim_trajectory", package = "miloR")
+
+## Extract Milo object
+traj_milo <- x.traj[['mylo']]
+
+## Extract sample metadata to use for testing
+traj_meta <- x.traj[["meta"]]
+```
+
+# Create a Milo object
+
+For differential abundance analysis on graph neighbourhoods we first construct a `Milo` object. This extends the [`SingleCellExperiment`](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) class to store information about neighbourhoods on the KNN graph. The easiest way to create a Milo object from scratch is to start from a `SingleCellExperiment` object.
+
+```{r}
+counts <- counts(traj_milo)
+traj_sce <- SingleCellExperiment(counts, colData=traj_meta)
+
+traj_milo <- Milo(traj_sce)
+traj_milo
+```
+
+# Pre-processing 
+
+For DA analysis we need to construct an undirected KNN graph of single-cells. Standard single-cell analysis pipelines usually do this from distances in PCA. We normalize and calculate principal components using `scran`.  
+
+```{r}
+logcounts(traj_milo) <- log(counts(traj_milo) + 1)
+traj_milo <- runPCA(traj_milo, ncomponents=30)
+```
+
+
