@@ -1,0 +1,185 @@
+---
+title: "Differential abundance testing with _Milo_"
+author:
+  - Emma Dann
+  - Mike Morgan
+output:
+  BiocStyle::html_document:
+    toc_float: true
+  BiocStyle::pdf_document: default
+package: miloR
+vignette: |
+  %\VignetteIndexEntry{Differential abundance testing with Milo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = FALSE
+)
+```
+
+```{r setup, message=FALSE, warning=FALSE}
+library(miloR)
+library(SingleCellExperiment)
+library(scater)
+library(dplyr)
+```
+
+
+# Introduction
+
+Milo models the differences in representation of cell states between experimental conditions using graph neighbourhoods.
+
+# Load data
+
+For this demo we will use a synthetic dataset simulating a developmental trajectory, generated using [dyntoy](https://github.com/dynverse/dyntoy).
+
+```{r}
+data("sim_trajectory", package = "miloR")
+
+## Extract SingleCellExperiment object
+traj_sce <- x.traj[['SCE']]
+
+## Extract sample metadata to use for testing
+traj_meta <- x.traj[["meta"]]
+
+## Add metadata to colData slot
+colData(traj_sce) <- DataFrame(traj_meta)
+```
+
+# Pre-processing 
+
+For DA analysis we need to construct an undirected KNN graph of single-cells. Standard single-cell analysis pipelines usually do this from distances in PCA. We normalize and calculate principal components using `scater`. I also run UMAP for visualization purposes.
+
+```{r}
+logcounts(traj_sce) <- log(counts(traj_sce) + 1)
+traj_sce <- runPCA(traj_sce, ncomponents=30)
+traj_sce <- runUMAP(traj_sce)
+
+plotUMAP(traj_sce)
+```
+
+# Create a Milo object
+
+For differential abundance analysis on graph neighbourhoods we first construct a `Milo` object. This extends the [`SingleCellExperiment`](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) class to store information about neighbourhoods on the KNN graph. 
+
+```{r}
+traj_milo <- Milo(traj_sce)
+reducedDim(traj_milo, "UMAP") <- reducedDim(traj_sce, "UMAP")
+
+traj_milo
+```
+
+# Construct KNN graph
+
+We need to add the KNN graph to the Milo object. This is stored in the `graph` slot, in [`igraph`](https://igraph.org/r/) format. The `miloR` package includes functionality to build and store the graph from the PCA stored in the `reducedDim` slot.
+
+```{r}
+traj_milo <- buildGraph(traj_milo, k = 10, d = 30)
+```
+
+Alternatively, if you already have a KNN graph (for example constructed with Seurat/scanpy) you can add it from the adjacency matrix.
+
+```{r}
+## Build up a mock SNN graph made with Seurat
+library(Seurat)
+pca_df <- reducedDim(traj_milo, "PCA")
+rownames(pca_df) <- traj_milo$cell_id
+snn_graph <- FindNeighbors(pca_df)[["snn"]]
+
+graph(traj_milo) <-  graph(buildFromAdjacency(snn_graph, k=10))
+```
+
+# Making neighbourhoods
+
+We sample the KNN graph to define neighbourhoods of cells on which to test for differential abundance. In practice, we sample a cell on the KNN graph and define a neighbourhood as all the cells connected to the sampled one. For efficiency, we don't build a neighbourhood for every cell, but we sample a subset of representative cells using a KNN sampling algorithm used by [Gut et al. 2015](https://www.nature.com/articles/nmeth.3545).
+
+For sampling you need to define a few parameters:
+
+- `prop` the proportion of cells to randomly sample to start with (usually 0.1 - 0.2 is sufficient)
+- `k` the k to use for KNN refinement (we recommend using the same k used for KNN graph building)
+- `d` the number of reduced dimensions to use for KNN refinement (we recommend using the same d used for KNN graph building)
+- `refined` indicated whether you want to use the sampling refinement algorith, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using random instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn). The results will be affected significantly by changing this parameter.
+
+```{r}
+traj_milo <- makeNhoods(traj_milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+```
+
+Once we have defined neighbourhoods, it's good to take a look at how big the neighbourhoods are (i.e. how many cells are included in each neighbourhood). This affects the power of DA testing. We can check this out using the `plotNhoodSizeHist` function. Empirically, we found it's best to have a distribution peaking between 50 and 100. Otherwise you might consider rerunning `makeNhoods` increasing `k` and/or `prop` (here the distribution looks ludicrous because it's a small dataset).
+
+```{r}
+plotNhoodSizeHist(traj_milo)
+```
+
+# Counting cells in neighbourhoods
+
+Now we have to count how many cells from each sample are in each neighbourhood. We need to use the cell metadata and specify which column contains the sample information.
+
+```{r}
+traj_milo <- countCells(traj_milo, meta.data = data.frame(colData(traj_milo)), sample="Sample")
+```
+
+# Differential abundance testing
+
+Now we are all set to test for differential abundance in neighbourhoods. We implement this hypothesis testing in a generalized linear model (GLM) framework, specifically using the Negative Binomial GLM implementation in [`edgeR`](https://bioconductor.org/packages/release/bioc/html/edgeR.html).
+
+We first need to think about our experimental design. The design matrix should match samples to a condition of interest. In this case the `Condition` is the covariate we are going to test for.
+
+```{r}
+traj_design <- data.frame(colData(traj_milo))[,c("Sample", "Condition")]
+traj_design <- distinct(traj_design)
+
+traj_design
+```
+
+Milo uses an adaptation of the Spatial FDR correction introduced by [cydar](https://bioconductor.org/packages/release/bioc/html/cydar.html), which accounts for the overlap between neighbourhoods. Specifically, each hypothesis test P-value is weighted by the reciprocal of the kth nearest neighbour distance. To use this statistic we first need to store the distances between nearest neighbors in the Milo object.
+
+```{r}
+traj_milo <- calcNhoodDistance(traj_milo, d=30)
+```
+
+Now we can do the test, explicitly defining our experimental design. 
+
+```{r}
+da_results <- testNhoods(traj_milo, design = ~ Condition, design.df = traj_design)
+```
+
+This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between conditions.
+
+```{r}
+da_results %>%
+  arrange(- SpatialFDR) %>%
+  head() 
+```
+
+To visualize DA results, we build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding.
+
+```{r, fig.width=10, fig.height=5}
+traj_milo <- buildNhoodGraph(traj_milo)
+
+plotUMAP(traj_milo) + plotNhoodGraphDA(traj_milo, da_results, alpha=0.05)
+```
+
+<details>
+  <summary>**Session Info**</summary>
+  
+```{r}
+sessionInfo()
+```
+
+</details>
+
+
+
+
+
+
+
+
+
+
+
+
+
