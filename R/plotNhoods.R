@@ -214,6 +214,8 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run
 #' \code{calcNhoodExpression(x)} with the desired assay.
 #' @param scale_to_1 A logical scalar to re-scale gene expression values between 0 and 1 for visualisation.
+#' @param show.rownames A logical scalar whether to plot rownames or not. Generally useful to set this to
+#' \code{show.rownames=FALSE} when plotting many genes.
 #'
 #' @return a \code{ggplot} object
 #'
@@ -230,7 +232,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
-plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show_rownames=TRUE,
+plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show.rownames=TRUE,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
   if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
@@ -308,7 +310,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show_rownames=
     theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank(),
           axis.line.y = element_blank(), axis.ticks.y = element_blank())
 
-  if(isFALSE(show_rownames)){
+  if(isFALSE(show.rownames)){
       pl_bottom <- pl_bottom +
           theme(axis.text.y=element_blank())
   }
