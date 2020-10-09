@@ -92,7 +92,7 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     # if the matrix contains distances then also population the nhoodDistances slot
     if(!is.binary & is.square){
         message("Adding nhoodDistances to Milo object")
-        nhoodDistances(mylo) <- x
+        nhoodDistances(mylo) <- NULL
     }
 
     return(mylo)

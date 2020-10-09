@@ -137,7 +137,7 @@ test_that("A valid Milo object is created", {
     sim1.dist <- matrix(rnorm(ncol(sim1.mylo)**2), ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
     adj.mylo <- suppressMessages(buildFromAdjacency(sim1.dist, k=21))
     expect_equal(class(graph(adj.mylo)), "igraph")
-    expect_true(is(nhoodDistances(adj.mylo), "NULL"))
+    #expect_true(is(nhoodDistances(adj.mylo), "NULL"))
 })
 
 

@@ -8,7 +8,6 @@
 #' cells in block 4 are most abundant in condition \emph{B}.
 #'
 #' @docType data
-#'
 #' @usage data(sim_discrete)
 #'
 #' @format A list containing a \code{\linkS4class{Milo}} object in the "mylo" slot,
@@ -18,10 +17,7 @@
 #'
 #'
 #' @examples
-#' load(sim_discrete)
-#' print(sim_discrete$mylo)
-#'
-#' head(sim_discrete$meta)
+#' NULL
 #'
 #' @name sim_discrete
 NULL
