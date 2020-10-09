@@ -1,4 +1,5 @@
-#' @title sim_discrete
+#' sim_discrete
+#'
 #' Simulated discrete groups data
 #'
 #' Data are simulated single-cells in 4 distinct groups of cells. Cells in each
@@ -21,4 +22,6 @@
 #' print(sim_discrete$mylo)
 #'
 #' head(sim_discrete$meta)
+#'
+#' @name sim_discrete
 NULL

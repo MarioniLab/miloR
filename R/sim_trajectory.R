@@ -1,8 +1,7 @@
-#' @title sim_trajectory
 #' Simulated linear trajectory data
 #'
 #' Data are simulated single-cells along a single linear trajectory. Cells are
-#' simulated from 5 groups, and assigned to 1 of 2 conditions; \emph{A} or \empj{B}.
+#' simulated from 5 groups, and assigned to 1 of 2 conditions; \emph{A} or \emph{B}.
 #' Data were generated using in the \code{\link[dyntoy]{simulate_linear_trajectory}}
 #' function in the \code{dyntoy} package.
 #'
@@ -21,4 +20,6 @@
 #' print(sim_trajectory$mylo)
 #'
 #' head(sim_trajectory$meta)
+#'
+#' @name sim_trajectory
 NULL
