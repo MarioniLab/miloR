@@ -111,7 +111,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
                         merge.discord=FALSE, na.function="na.pass"){
 
-    if(is(x, "Milo")){
+    if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
         stop(paste0("Unrecognised assay slot: ", assay))
