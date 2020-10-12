@@ -123,13 +123,13 @@ setValidity("Milo", function(object){
         TRUE
     }
 
-    if(!class(object@nhoodDistances, "listORNULL")){
+    if(!is(object@nhoodDistances, "listORNULL")){
         "@nhoodDistances must be a list of matrices"
     } else{
         TRUE
     }
 
-    if(!class(object@nhoodExpression, "matrixORMatrix")){
+    if(!is(object@nhoodExpression, "matrixORMatrix")){
         "@nhoodExpression must be a matrix format"
     } else{
         TRUE
