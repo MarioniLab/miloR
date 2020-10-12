@@ -71,7 +71,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     } else{
         stop(paste0("Data format: ", class(x), " not recognised. Should be Milo or igraph"))
     }
-    random_vertices <- .sample_vertices(graph, prop, seed, return.vertices = TRUE)
+    random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
 
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
