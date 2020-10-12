@@ -59,7 +59,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
   n_neigh <- length(nhoods(milo))
   is_not_empty <- n_neigh > 0
   if (is_not_empty) {
-    is_igraph_vx <- class(milo@nhoods[[sample(1:n_neigh, 1)]]) == "igraph.vs"
+    is_igraph_vx <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "igraph.vs")
     if (isTRUE(is_igraph_vx)){
       TRUE
     } else {
@@ -81,7 +81,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param layout this can be (a) a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use for layout (default: 'UMAP') (b) an igraph layout object
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
-#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot 
+#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
 #' (default: NULL, no subsetting)
 #' @param ... arguments to pass to \code{ggraph}
 #'
@@ -96,6 +96,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @rdname plotNhoodGraph
 #' @import igraph
 #' @import ggraph
+#' @importFrom SummarizedExperiment colData<-
 plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
@@ -107,12 +108,12 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
     }
   }
   nh_graph <- nhoodGraph(x)
-  
-  ## Subset 
+
+  ## Subset
   if (!is.null(subset.nhoods)) {
     nh_graph <- igraph::induced_subgraph(nh_graph, vids = which(as.numeric(V(nh_graph)$name) %in% unlist(nhoodIndex(x)[subset.nhoods])))
   }
-  
+
 
   ## Order vertex ids by size (so big nhoods are plotted first)
   nh_graph <- permute(nh_graph, order(vertex_attr(nh_graph)$size))
@@ -222,6 +223,8 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run
 #' \code{calcNhoodExpression(x)} with the desired assay.
 #' @param scale_to_1 A logical scalar to re-scale gene expression values between 0 and 1 for visualisation.
+#' @param show.rownames A logical scalar whether to plot rownames or not. Generally useful to set this to
+#' \code{show.rownames=FALSE} when plotting many genes.
 #'
 #' @return a \code{ggplot} object
 #'
@@ -238,7 +241,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
-plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
+plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show.rownames=TRUE,
                                   subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
   if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
@@ -263,11 +266,16 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
-    expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
+      expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
 
   if (!isFALSE(scale_to_1)) {
-    expr_mat <- t(apply(expr_mat, 1, function(x) (x - min(x))/(max(x)- min(x))))
+      expr_mat <- t(apply(expr_mat, 1, function(X) (X - min(X))/(max(X)- min(X))))
+      # force NAs to 0?
+      if(sum(is.na(expr_mat)) > 0){
+          warning("NA values found - resetting to 0")
+          expr_mat[is.na(expr_mat)] <- 0
+      }
   }
 
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
@@ -293,8 +301,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 
   ## Bottom plot: gene expression heatmap
   if (isTRUE(cluster_features)) {
-    row.order <- hclust(dist(expr_mat))$order # clustering
-    ordered_features <- rownames(expr_mat)[row.order]
+      row.order <- hclust(dist(expr_mat))$order # clustering
+      ordered_features <- rownames(expr_mat)[row.order]
   } else {
     ordered_features <- rownames(expr_mat)
   }
@@ -310,6 +318,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     theme_classic(base_size = 16) +
     theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank(),
           axis.line.y = element_blank(), axis.ticks.y = element_blank())
+
+  if(isFALSE(show.rownames)){
+      pl_bottom <- pl_bottom +
+          theme(axis.text.y=element_blank())
+  }
 
   ## Assemble plot
   (pl_top / pl_bottom) + plot_layout(heights = c(1,2))

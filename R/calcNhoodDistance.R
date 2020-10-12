@@ -43,7 +43,7 @@ NULL
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
 calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         # check for reducedDims
         if(is.null(reducedDim(x)) & is.null(reduced.dim)){
             # assume logcounts is present?
@@ -86,13 +86,11 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 #' @export
 .calc_distance <- function(in.x){
 
-    dist.list <- list()
-    for(i in seq_along(1:nrow(in.x))){
-        i.diff <- t(apply(in.x, 1, FUN=function(P) P - in.x[i, ]))
-        i.dist <- sqrt(rowSums(i.diff**2))
-        dist.list[[paste0(i)]] <- list("rowIndex"=rep(i, nrow(in.x)), "colIndex"=c(1:length(i.dist)),
-                                       "dist"=i.dist)
-    }
+    dist.list <- lapply(1:nrow(in.x), FUN=function(i){
+        i.dist <- apply(in.x, 1, FUN=function(P) sqrt(sum((P - in.x[i, ])**2)))
+        list("rowIndex"=rep(i, nrow(in.x)), "colIndex"=c(1:length(i.dist)),
+             "dist"=i.dist)
+        })
 
     dist.df <- do.call(rbind.data.frame, dist.list)
     out.dist <- sparseMatrix(i=dist.df$rowIndex, j=dist.df$colIndex, x=dist.df$dist,

@@ -11,6 +11,7 @@ r_packages:
 
 bioc_packages:
     - BiocCheck
+    - BiocStyle
 
 # safelist
 branches:

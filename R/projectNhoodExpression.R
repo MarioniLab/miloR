@@ -46,7 +46,7 @@
 #' @export
 #' @rdname projectNhoodExpression
 projectNhoodExpression <- function(x, d = 30, reduced_dims = "PCA", scale=TRUE, center=TRUE){
-  if (class(x) != "Milo") {
+  if (!is(x, "Milo")) {
     stop("Unrecognised input type - must be of class Milo")
   } else if (!isTRUE(.valid_nhood(x))) {
     stop(

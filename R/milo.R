@@ -69,7 +69,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 
     if(length(list(...)) == 0){
         milo <- .emptyMilo()
-    } else if(class(unlist(...)) == "SingleCellExperiment"){
+    } else if(is(unlist(...), "SingleCellExperiment")){
         milo <- .fromSCE(unlist(...))
     }
 
@@ -117,19 +117,19 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 ## class validator
 #' @importFrom igraph is_igraph
 setValidity("Milo", function(object){
-    if (class(object@nhoodCounts) != "matrixORMatrix"){
+    if (!is(object@nhoodCounts, "matrixORMatrix")){
         "@nhoodCounts must be matrix format"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodDistances) != "listORNULL"){
+    if(!is(object@nhoodDistances, "listORNULL")){
         "@nhoodDistances must be a list of matrices"
     } else{
         TRUE
     }
 
-    if(class(object@nhoodExpression) != "matrixORMatrix"){
+    if(!is(object@nhoodExpression, "matrixORMatrix")){
         "@nhoodExpression must be a matrix format"
     } else{
         TRUE

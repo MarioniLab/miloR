@@ -67,26 +67,13 @@
 #' @author Mike Morgan & Emma Dann
 #'
 #' @examples
-#' library(SingleCellExperiment)
-#' ux.1 <- matrix(rpois(6000, 5), ncol=200)
-#' ux.2 <- matrix(rpois(6000, 4), ncol=200)
-#' ux <- rbind(ux.1, ux.2)
-#' vx <- log2(ux + 1)
-#' pca <- prcomp(t(vx))
+#' data(sim_discrete)
 #'
-#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
-#'                             reducedDims=SimpleList(PCA=pca$x))
-#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
-#'
-#' milo <- Milo(sce)
+#' milo <- Milo(sim_discrete$SCE)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
-#' cond <- rep("A", ncol(milo))
-#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.5))
-#' cond.b <- setdiff(1:ncol(milo), cond.a)
-#' cond[cond.b] <- "B"
-#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 66), rep("R2", 66), rep("R3", 68)))
+#' meta.df <- sim_discrete$meta
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 #' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 #'
@@ -95,7 +82,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=15)
+#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=1)
 #' nhood.dge
 #'
 #' @name testDiffExp
@@ -111,7 +98,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
                         merge.discord=FALSE, na.function="na.pass"){
 
-    if(class(x) != "Milo"){
+    if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
         stop(paste0("Unrecognised assay slot: ", assay))
@@ -165,10 +152,10 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     x <- x[, subset.dims]
     copy.meta <- copy.meta[subset.dims, ]
 
-    if(class(design) == "formula"){
+    if(is(design, "formula")){
         model <- model.matrix(design, data=copy.meta)
         rownames(model) <- rownames(copy.meta)
-    } else if(class(design) == "matrix"){
+    } else if(is.matrix(design)){
         model <- design
         if(nrow(model) != nrow(copy.meta)){
             message("Subsetting input design matrix to DA neighbourhood cells")
