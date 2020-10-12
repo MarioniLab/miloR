@@ -12,6 +12,8 @@
 #' @param d The number of dimensions to use if the input is a matrix of cells
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
+#' @param reduced.dim A character scalar that refers to a specific entry in
+#' the \code{reduceDim} slot of the \code{\linkS4class{Milo}} object.
 #' @param transposed Logical if the input x is transposed with rows as cells.
 #' @param BNPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
@@ -59,7 +61,8 @@ NULL
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPARAM=KmknnParam(),
+buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
+                       reduced.dim="PCA", BNPARAM=KmknnParam(),
                        BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
     set.seed(seed)
     # check class of x to determine which function to call
@@ -75,7 +78,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPA
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
-        } else if(!any(names(reducedDims(x)) %in% c("PCA"))){
+        } else if(!any(names(reducedDims(x)) %in% c(reduced.dim))){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
@@ -118,10 +121,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPA
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 .buildGraph <- function(x, k=10, d=50, get.distance=FALSE,
+                        reduced.dim="PCA",
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
-    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), d=d,
+    nn.out <- .setup_knn_data(x=reducedDim(x, reduced.dim), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
     sink(file="/dev/null")
