@@ -18,7 +18,6 @@
 #' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from edge,
 #' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
 #' spatial FDR correction is performed and returns a vector of NAs.
-#' @param seed Seed number used for pseudorandom number generators.
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
 #' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 #' Phipson et al, 2013 for details.
@@ -79,19 +78,18 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
                                fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
-                               min.mean=0, model.contrasts=NULL, seed=42, robust=TRUE){
-    set.seed(seed)
-    if(class(design) == "formula"){
+                               min.mean=0, model.contrasts=NULL, robust=TRUE){
+    if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
-    } else if(class(design) == "matrix"){
+    } else if(is(design, "matrix")){
         model <- design
         if(any(rownames(model) != rownames(design.df))){
             warning("Design matrix and design matrix dimnames are not the same")
         }
     }
 
-    if(class(x) != "Milo"){
+    if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")

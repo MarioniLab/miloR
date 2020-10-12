@@ -5,14 +5,14 @@ Version: 0.1.0
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
-Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
 Description: This package performs single-cell differential abundance testing by 
     modelling cell states as neighbourhoods on a nearest neighbour graph.
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
+biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: edgeR
-Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
+Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
         matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr
 Suggests: 
@@ -41,4 +41,3 @@ Collate:
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
-

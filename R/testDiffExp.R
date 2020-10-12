@@ -111,7 +111,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
                         merge.discord=FALSE, na.function="na.pass"){
 
-    if(class(x) != "Milo"){
+    if(is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
         stop(paste0("Unrecognised assay slot: ", assay))
@@ -165,10 +165,10 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     x <- x[, subset.dims]
     copy.meta <- copy.meta[subset.dims, ]
 
-    if(class(design) == "formula"){
+    if(is(design, "formula")){
         model <- model.matrix(design, data=copy.meta)
         rownames(model) <- rownames(copy.meta)
-    } else if(class(design) == "matrix"){
+    } else if(is.matrix(design)){
         model <- design
         if(nrow(model) != nrow(copy.meta)){
             message("Subsetting input design matrix to DA neighbourhood cells")

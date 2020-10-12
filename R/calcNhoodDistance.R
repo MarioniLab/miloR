@@ -43,7 +43,7 @@ NULL
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
 calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         # check for reducedDims
         if(is.null(reducedDim(x)) & is.null(reduced.dim)){
             # assume logcounts is present?

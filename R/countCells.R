@@ -48,7 +48,7 @@ NULL
 countCells <- function(x, samples, meta.data=NULL){
 
     # cast dplyr objects to data.frame
-    if(class(meta.data) != "data.frame" & !is.null(meta.data)){
+    if(!is.data.frame(meta.data) & !is.null(meta.data)){
         meta.data <- as.data.frame(meta.data)
     }
 

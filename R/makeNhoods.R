@@ -17,8 +17,7 @@
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions.
 #' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
-#' @param seed An integer scalar seed to initial the pseudorandom number
-#' generator
+#'
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
@@ -49,8 +48,8 @@
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors
 #' @importFrom stats setNames
-makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
-    if(class(x) == "Milo"){
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
+    if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
         if(!.valid_graph(graph(x))){
@@ -63,7 +62,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
             d <- ncol(X_reduced_dims)
         }
         X_reduced_dims  <- X_reduced_dims[,1:d]
-    } else if(class(x) == "igraph"){
+    } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
@@ -89,7 +88,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
                 neighbors(graph, v = sampled_vertices[X])
         )
     nh_list <- setNames(nh_list, sampled_vertices)
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         nhoodIndex(x) <- as(sampled_vertices, "list")
         nhoods(x) <- nh_list
         return(x)
@@ -154,8 +153,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
 }
 
 #' @import igraph
-.sample_vertices <- function(graph, prop, return.vertices=FALSE, seed=42){
-    set.seed(seed)
+.sample_vertices <- function(graph, prop, return.vertices=FALSE){
     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
     if(isTRUE(return.vertices)){

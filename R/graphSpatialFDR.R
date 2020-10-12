@@ -81,7 +81,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})
-        } else if(class(distances) %in% c("list") & all(unlist(lapply(distance, class)) %in% c("matrix"))){
+        } else if(is.list(distances) & all(unlist(lapply(distances, class)) %in% c("matrix"))){
             t.connect <- unlist(lapply(distances, FUN=function(NHD) mean(rowMeans(NHD))))
         } else{
             stop("A matrix of reduced dimensions is required to calculate distances")
