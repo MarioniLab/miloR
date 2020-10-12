@@ -38,7 +38,7 @@ NULL
 #' @import SingleCellExperiment
 calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NULL){
 
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         # are neighbourhoods calculated?
         if(length(nhoods(x)) == 0){
             stop("No neighbourhoods found - run makeNhoods first")
@@ -51,7 +51,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
             nhoodExpression(x) <- n.exprs
             return(x)
         }
-    } else if(class(x) == "list"){
+    } else if(is.list(x)){
         if(is.null(exprs)){
             stop("No expression data found. Please specific a gene expression matrix to exprs")
         } else{

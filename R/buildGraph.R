@@ -12,11 +12,12 @@
 #' @param d The number of dimensions to use if the input is a matrix of cells
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
+#' @param reduced.dim A character scalar that refers to a specific entry in
+#' the \code{reduceDim} slot of the \code{\linkS4class{Milo}} object.
 #' @param transposed Logical if the input x is transposed with rows as cells.
 #' @param BNPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BPPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
-#' @param seed Seed number used for pseudorandom number generators.
 #' @param get.distance A logical scalar whether to compute distances during graph
 #' construction.
 #'
@@ -59,41 +60,42 @@ NULL
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPARAM=KmknnParam(),
-                       BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
-    set.seed(seed)
+buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
+                       reduced.dim="PCA", BNPARAM=KmknnParam(),
+                       BSPARAM=bsparam(), BPPARAM=SerialParam()){
+
     # check class of x to determine which function to call
     # in all cases it must return a Milo object with the graph slot populated
     # what is a better design principle here? make a Milo object here and just
     # have one function, or have a separate function for input data type? I
     # think the former probably.
 
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         # check for reducedDims
         if(is.null(reducedDim(x))){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
-        } else if(!any(names(reducedDims(x)) %in% c("PCA"))){
+        } else if(!any(names(reducedDims(x)) %in% c(reduced.dim))){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         }
-    } else if(class(x) == "matrix" & isTRUE(transposed)){
+    } else if(is.matrix(x) & isTRUE(transposed)){
         # assume input are PCs - the expression data is non-sensical here
         SCE <- SingleCellExperiment(assays=list(counts=Matrix(0L, nrow=1, ncol=nrow(x))),
                                     reducedDims=SimpleList("PCA"=x))
         x <- Milo(SCE)
-    } else if(class(x) == "matrix" & isFALSE(transposed)){
+    } else if(is.matrix(x) & isFALSE(transposed)){
         # this should be a gene expression matrix
         SCE <- SingleCellExperiment(assays=list(logcounts=x))
         x_pca <- prcomp_irlba(t(logcounts(SCE)), n=min(d+1, ncol(x)-1),
                               scale.=TRUE, center=TRUE)
         reducedDim(SCE, "PCA") <- x_pca$x
         x <- Milo(SCE)
-    } else if (class(x) == "SingleCellExperiment"){
+    } else if (is(x, "SingleCellExperiment")){
         # test for reducedDims, if not then compute them
         # give me a Milo object
         if(is.null(reducedDim(x))){
@@ -118,10 +120,11 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE, BNPA
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 .buildGraph <- function(x, k=10, d=50, get.distance=FALSE,
+                        reduced.dim="PCA",
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
-    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), d=d,
+    nn.out <- .setup_knn_data(x=reducedDim(x, reduced.dim), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
     sink(file="/dev/null")

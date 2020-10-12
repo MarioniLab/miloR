@@ -121,9 +121,11 @@ test_that("calcNhoodExpression is run within the function only if needed", {
 sim1.mylo <- calcNhoodExpression(sim1.mylo)
 
 test_that("Subsetting produces the expected number of neighbourhoods", {
+  max.length <- nrow(sim1.da.res)
+  subset.length <- max.length - 10
   p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
-                             subset.nhoods = c(1:100))
-  expect_identical(length(unique(p$data$Nhood)), length(1:100))
+                             subset.nhoods = c(1:subset.length))
+  expect_equal(length(unique(p$data$Nhood)), subset.length)
   })
 
 test_that("Different input types produce the same subsetting", {

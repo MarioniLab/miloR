@@ -42,10 +42,10 @@ buildNhoodGraph <- function(x){
 # Build adjacency matrix of overlap between neighbourhoods
 #' @importFrom gtools permutations
 .build_nhood_adjacency <- function(nhoods){
-  nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = T)
+  nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = TRUE)
   keep_pairs <- sapply( 1:nrow(nms) , function(x) any(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]))
   print("Calculating nhood adjacency....")
-  pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) ) 
+  pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) )
   out <- rep(0, nrow(nms))
   out[which(keep_pairs)] <- pairs_int
 
