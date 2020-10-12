@@ -101,19 +101,24 @@ test_that("Passing d parameter higher than ncols of reducedDims gives warning", 
 
 test_that("Random sampling returns the same vertex list with a set seed", {
     sim1.mylo <- buildGraph(sim1.mylo, k=21)
-    random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE, seed=101))
-    expect_equal(nhoods(makeNhoods(sim1.mylo, refined=FALSE, seed=101)), random.vertices)
+    set.seed(101)
+    random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE))
+    set.seed(101)
+    expect_equal(nhoods(makeNhoods(sim1.mylo, refined=FALSE)), random.vertices)
 
     # indices should also be the same
-    random.indx <- nhoodIndex(makeNhoods(sim1.mylo, refined=FALSE, seed=101))
-    expect_equal(nhoodIndex(makeNhoods(sim1.mylo, refined=FALSE, seed=101)), random.indx)
+    set.seed(101)
+    random.indx <- nhoodIndex(makeNhoods(sim1.mylo, refined=FALSE))
+    set.seed(101)
+    expect_equal(nhoodIndex(makeNhoods(sim1.mylo, refined=FALSE)), random.indx)
 })
 
 
 test_that("Refined sampling strictly returns equal to or fewer neighbourhoods than random sampling", {
     sim1.mylo <- buildGraph(sim1.mylo, k=21)
-    random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE, seed=101))
-    expect_true(length(nhoods(makeNhoods(sim1.mylo, refined=FALSE, seed=101))) <= length(random.vertices))
+    set.seed(101)
+    random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE))
+    expect_true(length(nhoods(makeNhoods(sim1.mylo, refined=FALSE))) <= length(random.vertices))
 })
 
 
