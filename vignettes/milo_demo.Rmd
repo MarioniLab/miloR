@@ -40,10 +40,10 @@ For this demo we will use a synthetic dataset simulating a developmental traject
 data("sim_trajectory", package = "miloR")
 
 ## Extract SingleCellExperiment object
-traj_sce <- x.traj[['SCE']]
+traj_sce <- sim_trajectory[['SCE']]
 
 ## Extract sample metadata to use for testing
-traj_meta <- x.traj[["meta"]]
+traj_meta <- sim_trajectory[["meta"]]
 
 ## Add metadata to colData slot
 colData(traj_sce) <- DataFrame(traj_meta)
