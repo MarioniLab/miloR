@@ -16,7 +16,17 @@ Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
         matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr
 Suggests: 
-    testthat, MASS, mvtnorm, scater, scran, covr
+    testthat,
+    MASS,
+    mvtnorm,
+    scater,
+    scran,
+    covr,
+    knitr,
+    rmarkdown,
+    uwot,
+    Seurat,
+    BiocStyle
 RoxygenNote: 7.1.1
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
@@ -41,3 +51,4 @@ Collate:
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
+VignetteBuilder: knitr
