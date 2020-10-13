@@ -24,6 +24,7 @@ Suggests:
     covr,
     knitr,
     rmarkdown,
+    uwot,
     BiocStyle
 RoxygenNote: 7.1.1
 NeedsCompilation: no
