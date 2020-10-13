@@ -23,7 +23,8 @@ Suggests:
     scran,
     covr,
     knitr,
-    rmarkdown
+    rmarkdown,
+    BiocStyle
 RoxygenNote: 7.1.1
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
@@ -49,4 +50,3 @@ Collate:
     'utils.R'
     'buildNhoodGraph.R'
 VignetteBuilder: knitr
-Suggests: BiocStyle, knitr, rmarkdown
