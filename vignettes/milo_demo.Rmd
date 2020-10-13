@@ -25,6 +25,7 @@ library(miloR)
 library(SingleCellExperiment)
 library(scater)
 library(dplyr)
+library(Seurat)
 ```
 
 
@@ -83,13 +84,12 @@ traj_milo <- buildGraph(traj_milo, k = 10, d = 30)
 Alternatively, if you already have a KNN graph (for example constructed with Seurat/scanpy) you can add it from the adjacency matrix.
 
 ```{r}
-## Build up a mock SNN graph made with Seurat
-library(Seurat)
-pca_df <- reducedDim(traj_milo, "PCA")
-rownames(pca_df) <- traj_milo$cell_id
-snn_graph <- FindNeighbors(pca_df)[["snn"]]
-
-graph(traj_milo) <-  graph(buildFromAdjacency(snn_graph, k=10))
+# ## Build up a mock SNN graph made with Seurat
+# pca_df <- reducedDim(traj_milo, "PCA")
+# rownames(pca_df) <- traj_milo$cell_id
+# snn_graph <- FindNeighbors(pca_df)[["snn"]]
+# 
+# graph(traj_milo) <-  graph(buildFromAdjacency(snn_graph, k=10))
 ```
 
 # Making neighbourhoods
