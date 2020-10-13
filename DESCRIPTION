@@ -48,4 +48,5 @@ Collate:
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
-
+VignetteBuilder: knitr
+Suggests: BiocStyle, knitr, rmarkdown
