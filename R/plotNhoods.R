@@ -361,28 +361,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
       pl_bottom <- pl_bottom +
           theme(axis.text.y=element_blank())
   }
-  
-  # pl_bottom <- pl_df %>%
-  #   pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
-  #   mutate(feature=factor(feature, levels=ordered_features)) %>% 
-  #   mutate(label=ifelse(feature %in% highlight_genes, as.character(feature), NA)) %>%
-  #   ggplot(aes(logFC_rank, feature, fill=avg_expr)) + 
-  #   geom_tile() +
-  #   scale_fill_viridis_c(option="magma", name="Scaled NH\nexpression") +
-  #   xlab("Endothelial Neighbourhoods") + ylab("DE genes") +
-  #   scale_x_continuous(expand = c(0.01, 0),
-  #                      # limits = c(0, max(pl_df$logFC_rank) + 0.2)
-  #   ) +
-  #   coord_cartesian(clip="off") +
-  #   ggrepel::geom_text_repel(data=. %>% dplyr::filter(!is.na(label)) %>% 
-  #                              group_by(label) %>%
-  #                              summarise(logFC_rank=max(logFC_rank), avg_expr=mean(avg_expr), feature=dplyr::first(feature)),
-  #                            aes(label=label, x=logFC_rank), size=4, xlim = c(max(pl_df$logFC_rank) + 0.01, max(pl_df$logFC_rank) + 0.02),
-  #                            min.segment.length = 0, seed=42
-  #   ) +
-  #   theme_classic(base_size = 16) 
-  #   )
-  
+
   ## Assemble plot
   (pl_top / pl_bottom) + 
     plot_layout(heights = c(1,4), guides = "collect") & 
