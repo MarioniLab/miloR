@@ -223,8 +223,11 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' of the milo object. If you wish to plot average neighbourhood expression from a different assay, you should run
 #' \code{calcNhoodExpression(x)} with the desired assay.
 #' @param scale_to_1 A logical scalar to re-scale gene expression values between 0 and 1 for visualisation.
-#' @param show.rownames A logical scalar whether to plot rownames or not. Generally useful to set this to
-#' \code{show.rownames=FALSE} when plotting many genes.
+#' @param show_rownames A logical scalar whether to plot rownames or not. Generally useful to set this to
+#' \code{show_rownames=FALSE} when plotting many genes.
+#' @param highlight_features A character vector of feature names that should be highlighted on the right side of 
+#' the heatmap. Generally useful in conjunction to \code{show_rownames=FALSE}, if you are interested in only a few 
+#' features
 #'
 #' @return a \code{ggplot} object
 #'
@@ -237,12 +240,16 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @rdname plotNhoodExpressionDA
 #' @import ggplot2
 #' @import patchwork
-#' @importFrom dplyr mutate left_join filter percent_rank
+#' @importFrom dplyr mutate left_join filter percent_rank first group_by summarise
+#' @importFrom ggrepel geom_text_repel
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
-plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show.rownames=TRUE,
-                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", scale_to_1 = FALSE){
+plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, 
+                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", 
+                                  scale_to_1 = FALSE,
+                                  show_rownames=TRUE,
+                                  highlight_features = NULL){
   if (length(features) <= 0 | is.null(features)) {
     stop("features is empty")
   }
@@ -306,26 +313,80 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, show.rownames=
   } else {
     ordered_features <- rownames(expr_mat)
   }
-
-  pl_bottom <- pl_df %>%
+  
+  pl_df <- pl_df %>%
     pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
-    mutate(feature=factor(feature, levels=ordered_features)) %>%
+    mutate(feature=factor(feature, levels=ordered_features))
+  
+  if (!is.null(highlight_features)) {
+    if (!all(highlight_features %in% pl_df$feature)){
+      missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
+      warning(paste0('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') ))
+    }
+    pl_df <- pl_df %>%
+      mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
+  }
+  
+  pl_bottom <- pl_df %>%
     ggplot(aes(logFC_rank, feature, fill=avg_expr)) +
     geom_tile() +
     scale_fill_viridis_c(option="magma", name="Avg.Expr.") +
     xlab("Neighbourhoods") + ylab("Features") +
     scale_x_continuous(expand = c(0.01, 0)) +
     theme_classic(base_size = 16) +
+    coord_cartesian(clip="off") +
     theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank(),
-          axis.line.y = element_blank(), axis.ticks.y = element_blank())
-
-  if(isFALSE(show.rownames)){
+          axis.line.y = element_blank(), axis.ticks.y = element_blank(),
+          panel.spacing = margin(2, 2, 2, 2, "cm"),
+          legend.margin=margin(0,0,0,0),
+          legend.box.margin=margin(10,10,10,10)
+          )
+  
+  if (!is.null(highlight_features)) {
+    pl_bottom <- pl_bottom +
+      geom_text_repel(data=. %>% 
+                        filter(!is.na(label)) %>% 
+                        group_by(label) %>%
+                        summarise(logFC_rank=max(logFC_rank), avg_expr=mean(avg_expr), feature=first(feature)),
+                      aes(label=label, x=logFC_rank), 
+                      size=4, 
+                      xlim = c(max(pl_df$logFC_rank) + 0.01, max(pl_df$logFC_rank) + 0.02),
+                      min.segment.length = 0, 
+                      seed=42
+      )
+      
+  }
+  
+  if(isFALSE(show_rownames)){
       pl_bottom <- pl_bottom +
           theme(axis.text.y=element_blank())
   }
-
+  
+  # pl_bottom <- pl_df %>%
+  #   pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
+  #   mutate(feature=factor(feature, levels=ordered_features)) %>% 
+  #   mutate(label=ifelse(feature %in% highlight_genes, as.character(feature), NA)) %>%
+  #   ggplot(aes(logFC_rank, feature, fill=avg_expr)) + 
+  #   geom_tile() +
+  #   scale_fill_viridis_c(option="magma", name="Scaled NH\nexpression") +
+  #   xlab("Endothelial Neighbourhoods") + ylab("DE genes") +
+  #   scale_x_continuous(expand = c(0.01, 0),
+  #                      # limits = c(0, max(pl_df$logFC_rank) + 0.2)
+  #   ) +
+  #   coord_cartesian(clip="off") +
+  #   ggrepel::geom_text_repel(data=. %>% dplyr::filter(!is.na(label)) %>% 
+  #                              group_by(label) %>%
+  #                              summarise(logFC_rank=max(logFC_rank), avg_expr=mean(avg_expr), feature=dplyr::first(feature)),
+  #                            aes(label=label, x=logFC_rank), size=4, xlim = c(max(pl_df$logFC_rank) + 0.01, max(pl_df$logFC_rank) + 0.02),
+  #                            min.segment.length = 0, seed=42
+  #   ) +
+  #   theme_classic(base_size = 16) 
+  #   )
+  
   ## Assemble plot
-  (pl_top / pl_bottom) + plot_layout(heights = c(1,2))
+  (pl_top / pl_bottom) + 
+    plot_layout(heights = c(1,4), guides = "collect") & 
+    theme(legend.justification=c(0, 1))
 }
 
 # ----- # ---- # ---- #
