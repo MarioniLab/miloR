@@ -36,8 +36,9 @@ test_that("Expected errors on missing input", {
 
 test_that("Code produced identical output", {
     library(igraph)
+    set.seed(42)
     overlap <- 1
-    traj_milo <- makeNhoods(traj_milo, prop = 0.1, k = 10, d=30, refined = TRUE)
+    traj_milo <- suppressWarnings(makeNhoods(traj_milo, prop = 0.1, k = 10, d=30, refined = TRUE))
     real.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=overlap))
 
     ## Build adjacency matrix for nhoods
@@ -72,7 +73,25 @@ test_that("Code produced identical output", {
 })
 
 test_that("Overlap reduces edge connections", {
-    traj_milo <- makeNhoods(traj_milo, prop = 0.3, k = 10, d=30, refined = TRUE)
+    set.seed(42)
+    data("sim_discrete", package = "miloR")
+
+    ## Extract SingleCellExperiment object
+    traj_sce <- sim_trajectory[['SCE']]
+
+    ## Extract sample metadata to use for testing
+    traj_meta <- sim_trajectory[["meta"]]
+
+    ## Add metadata to colData slot
+    colData(traj_sce) <- DataFrame(traj_meta)
+    logcounts(traj_sce) <- log(counts(traj_sce) + 1)
+    traj_sce <- runPCA(traj_sce, ncomponents=30)
+    traj_sce <- runUMAP(traj_sce)
+    traj_milo <- Milo(traj_sce)
+    reducedDim(traj_milo, "UMAP") <- reducedDim(traj_sce, "UMAP")
+
+    traj_milo <- buildGraph(traj_milo, k = 10, d = 30)
+    traj_milo <- suppressWarnings(makeNhoods(traj_milo, prop = 0.3, k = 10, d=30, refined = TRUE))
 
     full.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=overlap))
     sub.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=1500))
