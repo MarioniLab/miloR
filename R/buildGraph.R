@@ -77,11 +77,13 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
         } else if(!any(names(reducedDimNames(x)) %in% c(reduced.dim))){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
         }
     } else if(is.matrix(x) & isTRUE(transposed)){
         # assume input are PCs - the expression data is non-sensical here
@@ -95,6 +97,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                               scale.=TRUE, center=TRUE)
         reducedDim(SCE, "PCA") <- x_pca$x
         x <- Milo(SCE)
+        attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
     } else if (is(x, "SingleCellExperiment")){
         # test for reducedDims, if not then compute them
         # give me a Milo object
@@ -105,6 +108,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
         }
 
         x <- Milo(x)

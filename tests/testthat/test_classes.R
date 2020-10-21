@@ -75,9 +75,8 @@ meta.df$Vertex <- c(1:nrow(meta.df))
 
 sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
                                  reducedDims=list("PCA"=sim1.pca$x))
-attr(reducedDim(sim1.sce, "PCA"), "rotation") <- sim1.pca$rotation
-
 sim1.mylo <- Milo(sim1.sce)
+attr(reducedDim(sim1.mylo, "PCA"), "rotation") <- sim1.pca$rotation
 
 test_that("Milo inherits from SingleCellExperiment", {
     expect_is(sim1.mylo, "SingleCellExperiment")

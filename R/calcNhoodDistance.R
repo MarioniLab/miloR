@@ -45,7 +45,7 @@ NULL
 calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     if(is(x, "Milo")){
         # check for reducedDims
-        if(is.null(reducedDim(x)) & is.null(reduced.dim)){
+        if((length(reducedDimNames(x)) == 0) & is.null(reduced.dim)){
             # assume logcounts is present?
             message("Computing PCA on input")
             x_pca <- prcomp_irlba(t(assay(x, use.assay)), n=min(d+1, ncol(x)-1),
