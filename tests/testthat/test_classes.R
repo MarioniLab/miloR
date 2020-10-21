@@ -112,12 +112,6 @@ test_that("Milo getters working as expected", {
     sim1.mylo <- calcNhoodExpression(sim1.mylo)
     expect_identical(ncol(nhoodExpression(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
     expect_identical(nrow(nhoodExpression(sim1.mylo)), nrow(sim1.mylo))
-
-    # loadings were set on Milo object at instantiation
-    expect_identical(nrow(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
-                     sum(nrow(nhoodCounts(sim1.mylo)), ncol(sim1.mylo)))
-    expect_identical(ncol(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
-                     ncol(reducedDim(sim1.mylo, "PCA")[, 1:30]))
 })
 
 

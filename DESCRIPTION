@@ -45,7 +45,6 @@ Collate:
     'milo.R'
     'methods.R'
     'plotNhoods.R'
-    'projectNhoodExpression.R'
     'sim_discrete.R'
     'sim_trajectory.R'
     'testNhoods.R'
