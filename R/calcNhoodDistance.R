@@ -51,7 +51,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
             x_pca <- prcomp_irlba(t(assay(x, use.assay)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
-        } else if(is.null(reducedDim(x)) & is.character(reduced.dim)){
+        } else if((length(reducedDimNames(x)) == 0) & is.character(reduced.dim)){
             stop(paste(reduced.dim, " not found in reducedDim slot"))
         }
     } else{

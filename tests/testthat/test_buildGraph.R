@@ -76,26 +76,27 @@ sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
 
 sim1.mylo <- Milo(sim1.sce)
 
-sim1.graph <- graph(buildGraph(sim1.mylo, k=21))
+set.seed(42)
+sim1.graph <- miloR::graph(buildGraph(sim1.mylo, k=21))
 # test each input data type builds the same graph
 test_that("buildGraph can take different inputs", {
     require(igraph)
     sim1.mylo <- Milo(sim1.sce)
     # with input reduced dimensions
-    expect_true(igraph::identical_graphs(graph(buildGraph(sim1.mylo, k=21)), sim1.graph))
+    expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.mylo, k=21)), sim1.graph))
 
     # input is an SCE object
-    expect_true(igraph::identical_graphs(graph(buildGraph(sim1.sce, k=21)), sim1.graph))
+    expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.sce, k=21)), sim1.graph))
 
-    # withouth input reduced dimensions
+    # without input reduced dimensions
     sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex))
     sim1.mylo <- Milo(sim1.sce)
-    expect_true(igraph::identical_graphs(graph(suppressWarnings(buildGraph(sim1.mylo, k=21))), sim1.graph))
+    expect_true(igraph::identical_graphs(miloR::graph(suppressWarnings(buildGraph(sim1.mylo, k=21))), sim1.graph))
 
     # input are PCs
-    expect_true(igraph::identical_graphs(graph(buildGraph(sim1.pca$x, transposed=TRUE, k=21)), sim1.graph))
+    expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.pca$x, transposed=TRUE, k=21)), sim1.graph))
 
     # input are expression values
-    expect_true(igraph::identical_graphs(graph(buildGraph(sim1.gex, transposed=FALSE, k=21)), sim1.graph))
+    expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.gex, transposed=FALSE, k=21)), sim1.graph))
 })
 

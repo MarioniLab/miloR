@@ -36,7 +36,7 @@ NULL
 buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     # test class? If it's not sparse then cast it to one
     if(!is(x, "sparseMatrix")){
-        if(class(x) %in% c("matrix")){
+        if(any(class(x) %in% c("matrix"))){
             message("Casting to sparse matrix format")
             x <- as(x, "dgTMatrix")
         } else{
