@@ -225,8 +225,8 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @param scale_to_1 A logical scalar to re-scale gene expression values between 0 and 1 for visualisation.
 #' @param show_rownames A logical scalar whether to plot rownames or not. Generally useful to set this to
 #' \code{show_rownames=FALSE} when plotting many genes.
-#' @param highlight_features A character vector of feature names that should be highlighted on the right side of 
-#' the heatmap. Generally useful in conjunction to \code{show_rownames=FALSE}, if you are interested in only a few 
+#' @param highlight_features A character vector of feature names that should be highlighted on the right side of
+#' the heatmap. Generally useful in conjunction to \code{show_rownames=FALSE}, if you are interested in only a few
 #' features
 #'
 #' @return a \code{ggplot} object
@@ -245,8 +245,9 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
 #' @importFrom tibble rownames_to_column
-plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1, 
-                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts", 
+#' @importFrom stringr str_replace
+plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
+                                  subset.nhoods=NULL, cluster_features=FALSE, assay="logcounts",
                                   scale_to_1 = FALSE,
                                   show_rownames=TRUE,
                                   highlight_features = NULL){
@@ -268,7 +269,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     x <- calcNhoodExpression(x, assay = assay, subset.row = features)
   }
 
-  expr_mat <- nhoodExpression(x)[features,]
+  expr_mat <- nhoodExpression(x)[features, ]
   colnames(expr_mat) <- 1:length(nhoods(x))
 
   ## Get nhood expression matrix
@@ -313,11 +314,15 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   } else {
     ordered_features <- rownames(expr_mat)
   }
-  
+
+  # this code assumes that colnames do not begin with numeric values
+  # add 'X' to feature names with numeric first characters
+  rownames(expr_mat) <- str_replace(rownames(expr_mat), pattern="(^[0-9]+)", replacement="X\\1")
+
   pl_df <- pl_df %>%
     pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
     mutate(feature=factor(feature, levels=ordered_features))
-  
+
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
@@ -326,7 +331,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
   }
-  
+
   pl_bottom <- pl_df %>%
     ggplot(aes(logFC_rank, feature, fill=avg_expr)) +
     geom_tile() +
@@ -341,30 +346,30 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
           legend.margin=margin(0,0,0,0),
           legend.box.margin=margin(10,10,10,10)
           )
-  
+
   if (!is.null(highlight_features)) {
     pl_bottom <- pl_bottom +
-      geom_text_repel(data=. %>% 
-                        filter(!is.na(label)) %>% 
+      geom_text_repel(data=. %>%
+                        filter(!is.na(label)) %>%
                         group_by(label) %>%
                         summarise(logFC_rank=max(logFC_rank), avg_expr=mean(avg_expr), feature=first(feature)),
-                      aes(label=label, x=logFC_rank), 
-                      size=4, 
+                      aes(label=label, x=logFC_rank),
+                      size=4,
                       xlim = c(max(pl_df$logFC_rank) + 0.01, max(pl_df$logFC_rank) + 0.02),
-                      min.segment.length = 0, 
+                      min.segment.length = 0,
                       seed=42
       )
-      
+
   }
-  
+
   if(isFALSE(show_rownames)){
       pl_bottom <- pl_bottom +
           theme(axis.text.y=element_blank())
   }
 
   ## Assemble plot
-  (pl_top / pl_bottom) + 
-    plot_layout(heights = c(1,4), guides = "collect") & 
+  (pl_top / pl_bottom) +
+    plot_layout(heights = c(1,4), guides = "collect") &
     theme(legend.justification=c(0, 1))
 }
 

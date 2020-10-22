@@ -12,10 +12,10 @@ Encoding: UTF-8
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: edgeR
-Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats,
+Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats, stringr,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
         matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr,
-	ggrepel
+        ggrepel
 Suggests: 
     testthat,
     MASS,
