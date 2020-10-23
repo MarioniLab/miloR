@@ -119,6 +119,7 @@ sim1.mylo <- makeNhoods(sim1.mylo, k=30, prop=0.2, refined=TRUE,
                         d=10,
                         reduced_dims="PCA")
 sim1.mylo <- calcNhoodDistance(sim1.mylo, d=10)
+sim1.mylo <- buildNhoodGraph(sim1.mylo)
 
 sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
                         "Replicate"=rep(c("R1", "R2", "R3"), 2))
@@ -141,7 +142,7 @@ test_that("Incorrect input gives the expected errors", {
     na.res$SpatialFDR[1:10] <- NA
     expect_error(suppressWarnings(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
                                               design=~Condition, na.function="na.omit")),
-                                  "Subsetting `is.da` vector length does not equal nhoods length")
+                                  "Subsetting `is.da` vector length")
 
     expect_error(suppressWarnings(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
                                               design=~Condition, na.function="junk")),
@@ -166,24 +167,28 @@ test_that("Incorrect input gives the expected errors", {
 test_that("Less than optimal input gives the expected warnings", {
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
                                                 design=~Condition, na.function=NULL,
+                                                compute.new=TRUE,
                                                 overlap=1)),
                                     "NULL passed to na.function, using na.pass")
 
     na.res <- sim1.res
     na.res$SpatialFDR[1:10] <- NA
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
+                                                compute.new=TRUE,
                                                 design=~Condition)),
                    "NA values found in SpatialFDR vector")
 
     fake.meta <- meta.df
     rownames(fake.meta) <- paste0("X", c(1:nrow(meta.df)))
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=fake.meta,
+                                                compute.new=TRUE,
                                                 design=~Condition)),
                    "Column names of x are not the same as meta-data rownames")
 
     fake.model <- model.matrix(~Condition, data=meta.df)
     rownames(fake.model) <- paste0("X", c(1:nrow(fake.model)))
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
+                                                compute.new=TRUE,
                                                 design=fake.model)),
                    "Design matrix and meta-data dimnames are not the same")
 
@@ -197,6 +202,7 @@ test_that("Less than optimal input gives the expected warnings", {
 
     SingleCellExperiment::cpm(sim1.mylo) <- ux.cpm
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
+                                                compute.new=TRUE,
                                                 design=~Condition, assay="cpm")),
                    "Assay type is not counts or logcounts")
     })
@@ -204,6 +210,7 @@ test_that("Less than optimal input gives the expected warnings", {
 
 test_that("Output is correct type", {
     full.out <- suppressWarnings(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
+                                             compute.new=TRUE,
                                              design=~Condition, overlap=5))
     expect_identical(class(full.out) , "list")
 })
@@ -261,6 +268,7 @@ test_that("Contrasts can be passed without error" , {
     blockC.mylo <- makeNhoods(blockC.mylo, k=30, prop=0.1, refined=TRUE,
                               d=10, reduced_dims="PCA")
     blockC.mylo <- calcNhoodDistance(blockC.mylo, d=10)
+    blockC.mylo <- buildNhoodGraph(blockC.mylo)
 
     blockC.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C", 3)),
                               "Replicate"=rep(c("R1", "R2", "R3"), 3))
@@ -277,6 +285,7 @@ test_that("Contrasts can be passed without error" , {
                                                       model.contrasts=c("ConditionC - ConditionB"),
                                                       design=~0 + Condition,
                                                       gene.offset=FALSE,
+                                                      compute.new=TRUE,
                                                       merge.discord=FALSE))),
                  NA)
     })
@@ -286,6 +295,7 @@ test_that("Row subsetting returns expected number of results", {
     full.out <- suppressWarnings(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
                                              da.fdr=0.2,
                                              design=~0 + Condition,
+                                             compute.new=TRUE,
                                              merge.discord=FALSE))
     full.lengths <- lapply(full.out, nrow)
 
@@ -293,6 +303,7 @@ test_that("Row subsetting returns expected number of results", {
                                                da.fdr=0.2,
                                                subset.row=sample(1:nrow(sim1.mylo), size=100),
                                                design=~0 + Condition,
+                                               compute.new=TRUE,
                                                merge.discord=FALSE))
     subset.lengths <- lapply(subset.out, nrow)
 

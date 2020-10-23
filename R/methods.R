@@ -26,6 +26,8 @@
 #' \item{\code{nhoods(x)}:}{Returns a list of \code{N} neighbourhoods and constiuent single-cells.}
 #' \item{\code{nhoodGraph(x)}:}{Returns an \code{igraph} object representation of the
 #' graph of neighbourhoods, with number of vertices equal to the number of neighbourhoods.}
+#' \item{\code{nhoodAdjacency(x)}:}{Returns a matrix of \code{N} by \code{N} neighbourhoods with entries
+#' of 1 where neighbourhods share cells, and 0 elsewhere.}
 #'}
 #'
 #' @section Setters:
@@ -51,6 +53,8 @@
 #' by some means.}
 #' \item{\code{nhoodGraph(x) <- value}:}{Populates the nhoodGraph slot with \code{value} -
 #' this should be a valid graph representation in either \code{igraph} or \code{list} format.}
+#' \item{\code{nhoodAdjacency(x) <- value}:}{Populates the nhoodAdjacency slot with \code{value} -
+#' this should be a \code{N} by \code{N} matrix with elements denoting which neighbourhoods share cells}
 #' }
 #'
 #' @section Miscellaneous:
@@ -97,6 +101,10 @@
 #' nhoodGraph<-
 #' nhoodGraph,Milo-method
 #' nhoodGraph<-,Milo-method
+#' nhoodAdjacency
+#' nhoodAdjacency<-
+#' nhoodAdjacency,Milo-method
+#' nhoodAdjacency<-,Milo-method
 #' show
 #' show,Milo-method
 #'
@@ -212,6 +220,7 @@ setMethod("nhoodGraph", "Milo", function(x) {
         list()
     }
 })
+
 #' @export
 #' @describeIn Milo set nhoodGraph
 setMethod("nhoodGraph<-", "Milo", function(x, value){
@@ -219,6 +228,31 @@ setMethod("nhoodGraph<-", "Milo", function(x, value){
     validObject(x)
     x
 })
+
+
+#' @export
+setMethod("nhoodAdjacency", "Milo", function(x) {
+    if(ncol(x@nhoodAdjacency)){
+        x@nhoodAdjacency
+    } else{
+        warning("nhoodAdjacency not set")
+        NULL
+    }
+    x@nhoodAdjacency
+})
+
+#' @export
+setMethod("nhoodAdjacency<-", "Milo", function(x, value){
+    if(!is(value, "matrix")){
+        stop("nhoodAdjacency must be a matrix class")
+    } else{
+        x@nhoodAdjacency <- value
+        validObject(x)
+        x
+    }
+})
+
+
 
 
 #' @importFrom S4Vectors coolcat
@@ -233,6 +267,7 @@ setMethod("nhoodGraph<-", "Milo", function(x, value){
     coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
     coolcat("nhoodReducedDim names(%d): %s\n", names(object@nhoodReducedDim))
     coolcat("nhoodGraph names(%d): %s\n", names(object@nhoodGraph))
+    coolcat("nhoodAdjacency dimension(%d): %s\n", dim(object@nhoodGraph))
 
     sink(file="/dev/null")
     gc()
