@@ -42,7 +42,8 @@
 #' only one specific type of effects are to be tested.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass}.
-#'
+#' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
+#' adjacency matrix if already present.
 #'
 #' @details
 #' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
@@ -82,7 +83,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=1)
+#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=1, compute.new=TRUE)
 #' nhood.dge
 #'
 #' @name testDiffExp
@@ -96,7 +97,8 @@ NULL
 testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrasts=NULL,
                         overlap=1, lfc.threshold=NULL, assay="logcounts",
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
-                        merge.discord=FALSE, na.function="na.pass"){
+                        merge.discord=FALSE, na.function="na.pass",
+                        compute.new=FALSE){
 
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
@@ -128,10 +130,19 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     }
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
-    nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
-                                          da.res=da.res,
-                                          is.da=na.func(da.res$SpatialFDR < da.fdr),
-                                          overlap=overlap) # returns a vector group values for each nhood
+    if(!is.null(nhoodAdjacency(x)) & isFALSE(compute.new)){
+        message("nhoodAdjacency found - using for nhood grouping")
+        nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
+                                                  nhood.adj=nhoodAdjacency(x),
+                                                  da.res=da.res,
+                                                  is.da=na.func(da.res$SpatialFDR < da.fdr),
+                                                  overlap=overlap)
+    } else{
+        nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
+                                              da.res=da.res,
+                                              is.da=na.func(da.res$SpatialFDR < da.fdr),
+                                              overlap=overlap) # returns a vector group values for each nhood
+    }
     # assign this group level information to the consituent cells using the input meta.data
     copy.meta <- meta.data # make a copy assume the order is the same, just check the rownames are the same
 
@@ -227,94 +238,6 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 ########################################
 ## utility functions for testDiffExp ###
 ########################################
-
-#' @importFrom igraph graph_from_adjacency_matrix components
-.group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
-                                     lfc.threshold=NULL, merge.discord=FALSE,
-                                     subset.nhoods=NULL){
-    if(is.null(names(nhs))){
-        warning("No names attributed to nhoods. Converting indices to names")
-        names(nhs) <- as.character(c(1:length(nhs)))
-    }
-
-    if(!is.null(subset.nhoods)){
-        if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
-            sub.vec <- c(1:length(nhs))[subset.nhoods]
-            #nhs <- nhs[sub.vec]
-            ll_names <- expand.grid(sub.vec, sub.vec)
-            n.dim <- length(sub.vec)
-            if(length(is.da) == length(names(nhs))){
-                is.da <- is.da[subset.nhoods]
-            } else{
-                stop("Subsetting `is.da` vector length does not equal nhoods length")
-            }
-        } else{
-            stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
-        }
-    } else{
-        if(length(is.da) != length(names(nhs))){
-            stop("Subsetting `is.da` vector length does not equal nhoods length")
-        }
-
-        ll_names <- expand.grid(c(1:length(nhs)), c(1:length(nhs)))
-        n.dim <- length(names(nhs))
-    }
-
-    keep_pairs <- sapply(1:nrow(ll_names) , function(x) any(nhs[[ll_names[x, 1]]] %in% nhs[[ll_names[x, 2]]]))
-    pairs_int <- sapply(which(keep_pairs), function(x) length(intersect(nhs[[ll_names[x, 1]]], nhs[[ll_names[x, 2]]])))
-    lintersect <- rep(0, nrow(ll_names))
-
-    if(length(pairs_int) != sum(keep_pairs)){
-        stop("Incorrect number of neighbourhood pairs selected")
-    }
-
-    lintersect[keep_pairs] <- pairs_int
-
-    ## Count as connected only nhoods with at least n shared cells
-    lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
-
-    if(!is.null(lfc.threshold)){
-        # set adjacency to 0 for nhoods with lfc < threshold
-        lfc.pass <- sapply(1:nrow(ll_names), function(x) (abs(da.res[as.numeric(ll_names[x, 1]), ]$logFC) >= lfc.threshold) &
-                               (abs(da.res[as.numeric(ll_names[x, 2]), ]$logFC) >= lfc.threshold))
-        lintersect_filt <- ifelse(lfc.pass, 0, lintersect_filt)
-    }
-
-    ## check for concordant signs - assume order is the same as nhoods
-    if(isFALSE(merge.discord)){
-        concord.sign <- sapply(which(keep_pairs), function(x) sign(da.res[as.numeric(ll_names[x, 1]), ]$logFC) !=
-                                   sign(da.res[as.numeric(ll_names[x, 2]), ]$logFC))
-        lintersect_filt <- lintersect
-        lintersect_filt[which(keep_pairs)] <- ifelse(concord.sign, 0, lintersect_filt[which(keep_pairs)])
-    }
-
-    ## Convert to adjacency matrix (values = no of common cells)
-    ## This should be binary for an adjacency matrix
-    d <- matrix(as.numeric(lintersect_filt > 0), nrow = n.dim, byrow = TRUE)
-
-    if(!isSymmetric(d)){
-        stop("Overlap matrix is not symmetric")
-    }
-
-    if(nrow(d) != ncol(d)){
-        stop("Non-square distance matrix - check nhood subsetting")
-    }
-
-    g <- graph_from_adjacency_matrix(d, mode="undirected", diag=FALSE)
-    groups <- components(g)$membership
-
-    # only keep the groups that contain >= 1 DA neighbourhoods
-    if(!is.null(subset.nhoods)){
-        names(groups) <- names(nhs[subset.nhoods])
-    } else{
-        names(groups) <- names(nhs)
-    }
-
-    keep.groups <- intersect(unique(groups[is.da]), unique(groups))
-
-    return(groups[groups %in% keep.groups])
-}
-
 
 #' @importFrom limma makeContrasts lmFit topTreat eBayes contrasts.fit
 .perform_lognormal_dge <- function(exprs.data, test.model, gene.offset=gene.offset,

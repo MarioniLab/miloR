@@ -34,6 +34,8 @@
 #' to subset before aggregation and DGE testing.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass}.
+#' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
+#' adjacency matrix if already present.
 #'
 #' @details
 #' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
@@ -91,7 +93,7 @@
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~0 + Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 #'
-#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=1)
+#' nhood.dge <- findNhoodMarkers(milo, da.res, overlap=1, compute.new=TRUE)
 #' nhood.dge
 #'
 #' @name findNhoodMarkers
@@ -105,7 +107,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
                              return.groups=FALSE, subset.nhoods=NULL,
-                             na.function="na.pass"){
+                             na.function="na.pass", compute.new=FALSE){
 
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
@@ -138,12 +140,23 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
-    nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
-                                          da.res=da.res,
-                                          is.da=da.res$SpatialFDR < da.fdr,
-                                          merge.discord=merge.discord,
-                                          overlap=overlap,
-                                          subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
+    if(!is.null(nhoodAdjacency(x)) & isFALSE(compute.new)){
+        message("nhoodAdjacency found - using for nhood grouping")
+        nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
+                                                  nhood.adj=nhoodAdjacency(x),
+                                                  da.res=da.res,
+                                                  is.da=da.res$SpatialFDR < da.fdr,
+                                                  merge.discord=merge.discord,
+                                                  overlap=overlap,
+                                                  subset.nhoods=subset.nhoods)
+    } else{
+        nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
+                                              da.res=da.res,
+                                              is.da=da.res$SpatialFDR < da.fdr,
+                                              merge.discord=merge.discord,
+                                              overlap=overlap,
+                                              subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
+    }
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
     message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
@@ -225,4 +238,3 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         return(marker.df)
     }
 }
-
