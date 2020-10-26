@@ -51,4 +51,5 @@ Collate:
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
+    'annotateNhoods.R'
 VignetteBuilder: knitr
