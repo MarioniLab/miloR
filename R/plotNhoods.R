@@ -373,6 +373,66 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
     theme(legend.justification=c(0, 1))
 }
 
+#' Visualize DA results as a beeswarm plot 
+#'
+#' @param da.res a data.frame of DA testing results
+#' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
+#' This can be a column added to the DA testing results using the `annotateNhoods` function. 
+#' (default: NULL, no grouping)
+#' @param alpha significance level for Spatial FDR (default: 0.1)
+#' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
+#' (default: NULL, no subsetting)
+#'
+#' @return a \code{ggplot} object
+#'
+#' @author Emma Dann
+#'
+#' @examples
+#' NULL
+#'
+#' @export
+#' @rdname plotDAbeeswarm
+#' @import ggplot2
+#' @importFrom dplyr mutate filter 
+#' @importFrom ggbeeswarm geom_quasirandom
+plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL){
+  if (!is.null(group.by)) {
+    if (!group.by %in% colnames(da.res)) {
+      stop(paste0(group.by, " is not a column in da.res. Have you forgot to run annotateNhoods(x, da.res, ", group.by,")?"))
+    }
+    if (is.numeric(da.res[,group.by])) {
+      stop(paste0(group.by, " is a numeric variable. Please bin to use for grouping."))
+    }
+    da.res <- mutate(da.res, group.by = da.res[,group.by])
+  } else {
+    da.res <- mutate(da.res, group.by = "g1")
+  }
+  
+  if (!is.factor(da.res[,"group.by"])) {
+    message(paste0("Converting group.by to factor..."))
+    da.res <- mutate(da.res, factor(group.by, levels=unique(group.by)))
+    # anno_vec <- factor(anno_vec, levels=unique(anno_vec))  
+  }
+  
+  da.res %>%
+    mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
+    mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
+    arrange(annotation_lineage) %>%
+    mutate(Nhood=factor(Nhood, levels=unique(Nhood))) %>%
+    ggplot(aes(annotation_indepth, logFC, color=logFC_color)) +
+    scale_color_gradient2() +
+    guides(color="none") +
+    xlab("annotation") + ylab("Log Fold Change") +
+    ggbeeswarm::geom_quasirandom(alpha=1) +
+    coord_flip() +
+    facet_grid(annotation_lineage~., scales="free", space="free") +
+    theme_bw(base_size=22) +
+    theme(strip.text.y =  element_text(angle=0),
+          axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+    )
+    
+}
+
 # ----- # ---- # ---- #
 ## Old plotting functions  ##
 # ----- # ---- # ---- #
