@@ -80,6 +80,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
         } else if(!any(names(reducedDimNames(x)) %in% c(reduced.dim))){
             # assume logcounts is present?
+	    message("Computing PCA - name not in slot")
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
