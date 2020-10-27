@@ -123,12 +123,14 @@ test_that("Incorrect input gives the expected errors", {
 })
 
 test_that("Less than optimal input gives the expected warnings", {
-    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, sim1.res, na.function=NULL)),
+    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, sim1.res, na.function=NULL,
+                                                     compute.new=TRUE)),
                    "NULL passed to na.function, using na.pass")
 
     na.res <- sim1.res
     na.res$SpatialFDR[1:10] <- NA
-    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, na.res)),
+    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, na.res,
+                                                     compute.new=TRUE)),
                    "NA values found in SpatialFDR vector")
 
     # add simulated CPMs to the data
@@ -140,21 +142,25 @@ test_that("Less than optimal input gives the expected warnings", {
     rownames(ux.cpm) <- rownames(sim1.mylo)
 
     SingleCellExperiment::cpm(sim1.mylo) <- ux.cpm
-    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, sim1.res, assay="cpm")),
+    expect_warning(suppressMessages(findNhoodMarkers(sim1.mylo, sim1.res, assay="cpm",
+                                                     compute.new=TRUE)),
                    "Assay type is not counts or logcounts")
 })
 
 
 test_that("Output is correct type", {
-    full.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res, overlap=5))
+    full.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,
+                                                  compute.new=TRUE, overlap=5))
     expect_identical(class(full.out) , "data.frame")
 })
 
 
 test_that("Row subsetting returns expected number of results", {
-    full.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res))
+    full.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,
+                                                  compute.new=TRUE))
 
     subset.out <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,
+                                                    compute.new=TRUE,
                                                     subset.row=c(1:100)))
 
     expect_true(nrow(full.out) > nrow(subset.out))
@@ -166,6 +172,7 @@ test_that("Nhood subsetting returns without error", {
     sub.nhoods <- sample(unlist(all.nhoods), size=floor(n.nhoods/1.75))
 
     expect_error(suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,
+                                                   compute.new=TRUE,
                                                    overlap=1,
                                                    subset.nhoods=sub.nhoods)),
                  NA)
@@ -173,6 +180,7 @@ test_that("Nhood subsetting returns without error", {
 
 test_that("Nhood returns groups as expected", {
     out.groups <- suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,
+                                                    compute.new=TRUE,
                                                     return.groups=TRUE))
     expect_identical(class(out.groups), "list")
     expect_identical(names(out.groups), c("groups", "dge"))
@@ -196,7 +204,7 @@ test_that("Neighbourhoods in a single group returns NULL", {
     milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
     milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
     milo <- calcNhoodDistance(milo, d=10)
-
+    milo <- buildNhoodGraph(milo)
     cond <- rep("A", ncol(milo))
     cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.1))
     cond.b <- setdiff(1:ncol(milo), cond.a)

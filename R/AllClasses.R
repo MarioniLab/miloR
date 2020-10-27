@@ -29,7 +29,8 @@ setClass("Milo",
              nhoodIndex = "list", # used to store nhood indices
              nhoodExpression = "matrixORMatrix", # this should be NA or a matrix
              nhoodReducedDim = "list", # this should be a list
-             nhoodGraph = "list" # this should be an igraph object (I'm copying from the graph slot)
+             nhoodGraph = "list", # this should be an igraph object (I'm copying from the graph slot)
+             nhoodAdjacency = "matrixORMatrix" # to save on computing adjacency multiple times
          ),
          prototype = list(
              graph = list(),
@@ -39,6 +40,7 @@ setClass("Milo",
              nhoodIndex = list(),
              nhoodExpression = Matrix::Matrix(0L, sparse=TRUE),
              nhoodReducedDim = list(),
-             nhoodGraph = list()
+             nhoodGraph = list(),
+             nhoodAdjacency = Matrix::Matrix(0L, sparse=TRUE)
          )
 )

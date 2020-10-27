@@ -38,6 +38,9 @@ buildNhoodGraph <- function(x, overlap=1){
     ## Build adjacency matrix for nhoods
     nh_intersect_mat <- .build_nhood_adjacency(nhoods(x))
 
+    # add to slot if empty
+    nhoodAdjacency(x) <- nh_intersect_mat
+
     ## Make igraph object
     ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
     nhood_sizes <- sapply(nhoods(x), length)
