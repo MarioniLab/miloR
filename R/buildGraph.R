@@ -78,7 +78,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
-        } else if(!any(names(reducedDimNames(x)) %in% c(reduced.dim))){
+        } else if(!any(reducedDimNames(x) %in% c(reduced.dim))){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
