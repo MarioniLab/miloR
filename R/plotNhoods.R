@@ -378,12 +378,17 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 #' @param da.res a data.frame of DA testing results
 #' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
 #' This can be a column added to the DA testing results using the `annotateNhoods` function. 
+#' If \code{da.res[,group.by]} is a character or a numeric, the function will coerce it to a factor (see details)
 #' (default: NULL, no grouping)
 #' @param alpha significance level for Spatial FDR (default: 0.1)
 #' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
 #' (default: NULL, no subsetting)
 #'
 #' @return a \code{ggplot} object
+#' 
+#' @details The group.by variable will be coerced to a factor. If you want the variables in group.by to be 
+#' in a given order make sure you set the column to a factor with the levels in the right order before running the 
+#' function.
 #'
 #' @author Emma Dann
 #'
@@ -403,33 +408,34 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     if (is.numeric(da.res[,group.by])) {
       stop(paste0(group.by, " is a numeric variable. Please bin to use for grouping."))
     }
-    da.res <- mutate(da.res, group.by = da.res[,group.by])
+    da.res <- mutate(da.res, group_by = da.res[,group.by])
   } else {
-    da.res <- mutate(da.res, group.by = "g1")
+    da.res <- mutate(da.res, group_by = "g1")
   }
   
-  if (!is.factor(da.res[,"group.by"])) {
+  if (!is.factor(da.res[,"group_by"])) {
     message(paste0("Converting group.by to factor..."))
-    da.res <- mutate(da.res, factor(group.by, levels=unique(group.by)))
+    da.res <- mutate(da.res, factor(group_by, levels=unique(group_by)))
     # anno_vec <- factor(anno_vec, levels=unique(anno_vec))  
+  }
+  
+  if (!is.null(subset.nhoods)) {
+    da.res <- da.res[subset.nhoods,]
   }
   
   da.res %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
     mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
-    arrange(annotation_lineage) %>%
+    arrange(group_by) %>%
     mutate(Nhood=factor(Nhood, levels=unique(Nhood))) %>%
-    ggplot(aes(annotation_indepth, logFC, color=logFC_color)) +
+    ggplot(aes(group_by, logFC, color=logFC_color)) +
     scale_color_gradient2() +
     guides(color="none") +
     xlab("annotation") + ylab("Log Fold Change") +
-    ggbeeswarm::geom_quasirandom(alpha=1) +
+    geom_quasirandom(alpha=1) +
     coord_flip() +
-    facet_grid(annotation_lineage~., scales="free", space="free") +
     theme_bw(base_size=22) +
-    theme(strip.text.y =  element_text(angle=0),
-          axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank(),
-    )
+    theme(strip.text.y =  element_text(angle=0))
     
 }
 
