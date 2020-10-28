@@ -370,7 +370,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   ## Assemble plot
   (pl_top / pl_bottom) +
     plot_layout(heights = c(1,4), guides = "collect") &
-    theme(legend.justification=c(0, 1))
+    theme(legend.justification=c(0, 1),
+          legend.margin = margin(0,0,0,50))
 }
 
 #' Visualize DA results as a beeswarm plot 
@@ -431,7 +432,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     ggplot(aes(group_by, logFC, color=logFC_color)) +
     scale_color_gradient2() +
     guides(color="none") +
-    xlab("annotation") + ylab("Log Fold Change") +
+    xlab(group.by) + ylab("Log Fold Change") +
     geom_quasirandom(alpha=1) +
     coord_flip() +
     theme_bw(base_size=22) +
