@@ -12,8 +12,8 @@
 #' \describe{
 #' \item{\code{graph(x)}:}{Returns an \code{igraph} object representation of the
 #' KNN-graph, with number of vertices equal to the number of single-cells.}
-#' \item{\code{nhoodDistances(x)}:}{Returns a sparse matrix of cell-to-cell distances
-#' between nearest neighbours. Largely used internally for computing the k-distance
+#' \item{\code{nhoodDistances(x)}:}{Returns a list of sparse matrix of cell-to-cell distances
+#' between nearest neighbours, one list entry per neighbourhood. Largely used internally for computing the k-distance
 #' weighting in \code{graphSpatialFDR}.}
 #' \item{\code{nhoodCounts(x)}:}{Returns a NxM sparse matrix of cell counts in
 #' each of \code{N} neighbourhoods with respect to the \code{M} experimental samples defined.}
@@ -37,7 +37,8 @@
 #' this should be a valid graph representation in either \code{igraph} or \code{list} format.}
 #' \item{\code{nhoodDistances(x) <- value}:}{Replaces the internally comptued neighbourhood
 #' distances. This is normally computed internally during graph building, but can be defined
-#' externally.}
+#' externally. Must be a list with one entry per neighbourhood containing the cell-to-cell distances for the
+#' cells within that neighbourhood.}
 #' \item{\code{nhoodCounts(x) <- value}:}{Replaces the neighbourhood counts matrix.
 #' This is normally computed and assigned by \code{countCells}, however, it can also be user-defined.}
 #' \item{\code{nhoodExpression(x) <- value}:}{Replaces the \code{nhoodExpression} slot. This is calculated

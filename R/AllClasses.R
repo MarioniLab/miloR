@@ -2,7 +2,7 @@
 #'
 #' @slot graph An igraph object that represents the kNN graph
 #' @slot nhoods A list of neighbourhoods as graph indices and their constituent single cells
-#' @slot nhoodDistances An list of PxN sparse matric of Euclidean distances between vertices in each neighbourhood, one matrix per neighbourhood
+#' @slot nhoodDistances An list of PxN sparse matrices of Euclidean distances between vertices in each neighbourhood, one matrix per neighbourhood
 #' @slot nhoodCounts An NxM sparse matrix of cells counts in each neighourhood across M samples
 #' @slot nhoodIndex A list of the index vertices for each neighbourhood
 #' @slot nhoodExpression An GxN matrix of genes X neighbourhoods containing average gene expression levels across cells in each neighbourhood

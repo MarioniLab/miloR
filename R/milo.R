@@ -13,8 +13,8 @@
 #' the KNN-graph
 #' @param nhoods A list of graph vertices, each containing the indices
 #' of the constiuent graph vertices in the respective neighbourhood
-#' @param nhoodDistances A sparse matrix of cell-to-cell distances for
-#' cells in the same neighbourhoods
+#' @param nhoodDistances A list containing sparse matrices of cell-to-cell distances for
+#' cells in the same neighbourhoods, one list entry per neighbourhood.
 #' @param nhoodCounts A matrix of neighbourhood X sample counts of the
 #' number of cells in each neighbourhood derived from the respective samples
 #' @param nhoodIndex A list of cells that are the neighborhood index cells.
