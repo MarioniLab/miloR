@@ -2,7 +2,9 @@ language: r
 cache: packages
 warnings_are_errors: false
 
-r: 
+r:
+  - release
+  - devel
   - bioc-release
   - bioc-devel
 
