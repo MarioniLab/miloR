@@ -149,15 +149,17 @@
         names(groups) <- names(nhs)
     }
 
-    keep.groups <- intersect(unique(groups[is.da]), unique(groups))
-
-    return(groups[groups %in% keep.groups])
+    #keep.groups <- intersect(unique(groups[is.da]), unique(groups))
+    # what about return ALL groups, and subset after?
+    return(groups)#[groups %in% keep.groups])
 }
 
 #' @importFrom igraph graph_from_adjacency_matrix components
 .group_nhoods_from_adjacency <- function(nhs, nhood.adj, da.res, is.da,
                                          merge.discord=FALSE,
                                          overlap=1, subset.nhoods=NULL){
+    print(dim(nhood.adj))
+    print(length(nhs))
     if(is.null(names(nhs))){
         warning("No names attributed to nhoods. Converting indices to names")
         names(nhs) <- as.character(c(1:length(nhs)))

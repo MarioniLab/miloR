@@ -140,7 +140,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
-    if(!is.null(nhoodAdjacency(x)) & isFALSE(compute.new)){
+    if((ncol(nhoodAdjacency(x)) == length(nhoods(x))) & isFALSE(compute.new)){
         message("nhoodAdjacency found - using for nhood grouping")
         nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
                                                   nhood.adj=nhoodAdjacency(x),
