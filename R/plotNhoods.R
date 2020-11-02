@@ -374,11 +374,11 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
           legend.margin = margin(0,0,0,50))
 }
 
-#' Visualize DA results as a beeswarm plot 
+#' Visualize DA results as a beeswarm plot
 #'
 #' @param da.res a data.frame of DA testing results
 #' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
-#' This can be a column added to the DA testing results using the `annotateNhoods` function. 
+#' This can be a column added to the DA testing results using the `annotateNhoods` function.
 #' If \code{da.res[,group.by]} is a character or a numeric, the function will coerce it to a factor (see details)
 #' (default: NULL, no grouping)
 #' @param alpha significance level for Spatial FDR (default: 0.1)
@@ -386,9 +386,9 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 #' (default: NULL, no subsetting)
 #'
 #' @return a \code{ggplot} object
-#' 
-#' @details The group.by variable will be coerced to a factor. If you want the variables in group.by to be 
-#' in a given order make sure you set the column to a factor with the levels in the right order before running the 
+#'
+#' @details The group.by variable will be coerced to a factor. If you want the variables in group.by to be
+#' in a given order make sure you set the column to a factor with the levels in the right order before running the
 #' function.
 #'
 #' @author Emma Dann
@@ -399,7 +399,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 #' @export
 #' @rdname plotDAbeeswarm
 #' @import ggplot2
-#' @importFrom dplyr mutate filter 
+#' @importFrom dplyr mutate filter arrange
 #' @importFrom ggbeeswarm geom_quasirandom
 plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL){
   if (!is.null(group.by)) {
@@ -413,17 +413,17 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   } else {
     da.res <- mutate(da.res, group_by = "g1")
   }
-  
+
   if (!is.factor(da.res[,"group_by"])) {
     message(paste0("Converting group.by to factor..."))
     da.res <- mutate(da.res, factor(group_by, levels=unique(group_by)))
-    # anno_vec <- factor(anno_vec, levels=unique(anno_vec))  
+    # anno_vec <- factor(anno_vec, levels=unique(anno_vec))
   }
-  
+
   if (!is.null(subset.nhoods)) {
     da.res <- da.res[subset.nhoods,]
   }
-  
+
   da.res %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
     mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
@@ -437,5 +437,5 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     coord_flip() +
     theme_bw(base_size=22) +
     theme(strip.text.y =  element_text(angle=0))
-    
+
 }

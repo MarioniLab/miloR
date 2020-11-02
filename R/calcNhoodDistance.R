@@ -21,7 +21,7 @@
 #' @author
 #' Mike Morgan
 #'
-#' #' @examples
+#' @examples
 #' library(SingleCellExperiment)
 #' ux <- matrix(rpois(12000, 5), ncol=200)
 #' vx <- log2(ux + 1)
