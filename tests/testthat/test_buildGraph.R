@@ -97,6 +97,10 @@ test_that("buildGraph can take different inputs", {
     expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.pca$x, transposed=TRUE, k=21)), sim1.graph))
 
     # input are expression values
-    expect_true(igraph::identical_graphs(miloR::graph(buildGraph(sim1.gex, transposed=FALSE, k=21)), sim1.graph))
+    graph.diff <- graph.difference(miloR::graph(buildGraph(sim1.gex, transposed=FALSE, k=21)), sim1.graph)
+
+    expect_true(length(E(graph.diff)) == 0)
+    expect_true(length(V(graph.diff)) == length(V(sim1.graph)))
+    expect_true(length(V(graph.diff)) == length(V(miloR::graph(buildGraph(sim1.gex, transposed=FALSE, k=21)))))
 })
 

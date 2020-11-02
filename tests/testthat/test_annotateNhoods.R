@@ -1,4 +1,4 @@
-context("Testing testNhoods function")
+context("Testing annotateNhoods function")
 library(miloR)
 
 ### Set up a mock data set using simulated data
@@ -121,6 +121,6 @@ test_that("The DA testing results are not modified", {
 })
 
 test_that("The fractions are right", {
-    da_anno <- annotateNhoods(sim1.mylo, da_df, "Replicate")
+    da_anno <- annotateNhoods(sim1.mylo, da_df, "Block")
     expect_true(all(da_anno[,"Block_fraction"] == 1 ))
 })

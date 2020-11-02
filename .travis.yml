@@ -3,8 +3,6 @@ cache: packages
 warnings_are_errors: false
 
 r:
-  - release
-  - devel
   - bioc-release
   - bioc-devel
 
