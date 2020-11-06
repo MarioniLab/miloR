@@ -147,6 +147,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                                   da.res=da.res,
                                                   is.da=da.res$SpatialFDR < da.fdr,
                                                   merge.discord=merge.discord,
+                                                  lfc.threshold=lfc.threshold,
                                                   overlap=overlap,
                                                   subset.nhoods=subset.nhoods)
     } else{
@@ -155,6 +156,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                               is.da=da.res$SpatialFDR < da.fdr,
                                               merge.discord=merge.discord,
                                               overlap=overlap,
+                                              lfc.threshold=lfc.threshold,
                                               subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     }
 
