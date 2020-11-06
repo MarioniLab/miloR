@@ -107,7 +107,8 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
                              return.groups=FALSE, subset.nhoods=NULL,
-                             na.function="na.pass", compute.new=FALSE){
+                             na.function="na.pass", compute.new=FALSE,
+                             bits=FALSE){
 
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
@@ -155,6 +156,8 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                               is.da=da.res$SpatialFDR < da.fdr,
                                               merge.discord=merge.discord,
                                               overlap=overlap,
+                                              bits=bits,
+                                              cells=seq_len(ncol(x)),
                                               subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     }
 
@@ -165,9 +168,24 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
+    # do we want to allow cells to be members of multiple groups? This will create
+    # chaos for the LM as there will be a dependency structure comparing 2 different
+    # groups that contain overlapping cells.
+    # this approach means that the latter group takes precedent.
+    # maybe exclude the cells that fall into separate groups?
     for(i in seq_along(nhood.gr)){
         nhood.x <- nhs.da.gr == nhood.gr[i]
-        fake.meta[unlist(nhoods(x)[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        # get the nhoods
+        nhs <- nhoods(x)
+        if(!is.null(subset.nhoods)){
+            nhs <- nhs[subset.nhoods]
+        }
+
+        if(!any(is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group))){
+            fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
+            } else{
+                fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+            }
     }
 
     # only compare against the other DA neighbourhoods
