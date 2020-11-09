@@ -60,7 +60,8 @@ plotNhoodSizeHist <- function(milo, bins=50){
   is_not_empty <- n_neigh > 0
   if (is_not_empty) {
     is_igraph_vx <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "igraph.vs")
-    if (isTRUE(is_igraph_vx)){
+    is_numeric_vc <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "numeric")
+    if (isTRUE(is_igraph_vx) | isTRUE(is_numeric_vc)){
       TRUE
     } else {
         FALSE

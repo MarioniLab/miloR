@@ -85,8 +85,10 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         sapply(
             1:length(sampled_vertices),
             FUN = function(X)
-                neighbors(graph, v = sampled_vertices[X])
+                c(sampled_vertices[X], neighbors(graph, v = sampled_vertices[X]))
         )
+
+    # need to add the index cells.
     nh_list <- setNames(nh_list, sampled_vertices)
     if(is(x, "Milo")){
         nhoodIndex(x) <- as(sampled_vertices, "list")

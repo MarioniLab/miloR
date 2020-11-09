@@ -70,10 +70,15 @@
 #' @importFrom igraph graph_from_adjacency_matrix components
 .group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
                                      lfc.threshold=NULL, merge.discord=FALSE,
-                                     subset.nhoods=NULL){
+                                     subset.nhoods=NULL, bits=FALSE, cells=NULL){
 
     ## Build adjacency matrix for nhoods
-    nhood.adj <- .build_nhood_adjacency(nhs)
+    if(isFALSE(bits)){
+        nhood.adj <- .build_nhood_adjacency(nhs)
+    }else if(isTRUE(bits)){
+        nhood.adj <- .build_nhood_adjacency_bits(cells=cells, nhoods=nhs, overlap=1)
+    }
+
     groups <- .group_nhoods_from_adjacency(nhs=nhs, nhood.adj=nhood.adj,
                                            is.da=is.da, da.res=da.res,
                                            subset.nhoods=subset.nhoods,
@@ -217,3 +222,14 @@
     return(nh_intersect_mat)
 }
 
+
+#' @importFrom bit as.bit
+.build_nhood_adjacency_bits <- function(cells, nhoods, overlap=1){
+    # each neighbourhood is a bit-vector with length(cells)
+    # cell sharing is then determined using bit-wise operations
+    bit.list <- sapply(1:length(nhoods), FUN=function(B) cells %in% c(as.numeric(nhoods[[B]]), names(nhoods)[B]))
+    bit.adj.list <- lapply(bit.list, FUN=function(BX) unlist(lapply(bit.list, FUN=function(BK) sum(BX & BK))))
+    bit.mat <- do.call(cbind, bit.adj.list)
+
+    return(bit.mat)
+}
