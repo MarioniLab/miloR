@@ -136,6 +136,10 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         }, finally={
         })
     }
+    
+    if (isTRUE(aggregate.samples) & is.null(sample_col)) {
+        stop("if aggregate.samples is TRUE, the column storing sample information must be specified by setting 'sample_col'")
+    }
 
     n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
     if(!is.na(n.da) & n.da == 0){
@@ -174,7 +178,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     # perform DGE _within_ each group of cells using the input design matrix
     message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
 
-    fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)), "sample_id" = colData(x)[[sample_col]])
+    fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
     # do we want to allow cells to be members of multiple groups? This will create
@@ -222,6 +226,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     ## Aggregate expression by sample
     # To avoid treating cells as independent replicates
     if (isTRUE(aggregate.samples)) {
+        fake.meta[,"sample_id"] <- colData(x)[[sample_col]]
         fake.meta[,'sample_group'] <- paste(fake.meta[,"sample_id"], fake.meta[,"Nhood.Group"], sep="_")
         
         sample_gr_mat <- matrix(0, nrow=nrow(fake.meta), ncol=length(unique(fake.meta$sample_group)))
@@ -279,6 +284,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         } else if(assay == "counts"){
             i.res <- .perform_counts_dge(exprs, i.model, model.contrasts=i.contrast,
                                          gene.offset=gene.offset)
+            colnames(i.res)[ncol(i.res)] <- "adj.P.Val"
         } else{
             warning("Assay type is not counts or logcounts - assuming (log)-normal distribution. Use these results at your peril")
             i.res <- .perform_lognormal_dge(exprs, i.model,

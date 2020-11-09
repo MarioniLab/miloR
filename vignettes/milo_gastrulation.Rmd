@@ -1,5 +1,5 @@
 ---
-title: "Differential abundance testing with _Milo_"
+title: "Differential abundance testing with _Milo_ - Mouse gastrulation example"
 author:
   - Emma Dann
   - Mike Morgan
@@ -9,7 +9,7 @@ output:
   BiocStyle::pdf_document: default
 package: miloR
 vignette: |
-  %\VignetteIndexEntry{Differential abundance testing with Milo}
+  %\VignetteIndexEntry{Differential abundance testing with Milo - Mouse gastrulation example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -17,7 +17,8 @@ vignette: |
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = FALSE,
-  message=FALSE
+  message=FALSE,
+  cache=TRUE
 )
 ```
 
@@ -192,7 +193,7 @@ umap_pl <- plotReducedDim(embryo_milo, dimred = "umap", colour_by="celltype", te
   guides(fill="none")
 
 ## Plot neighbourhood graph
-nh_graph_pl <- plotNhoodGraphDA(embryo_milo, da_results, alpha=0.05) 
+nh_graph_pl <- plotNhoodGraphDA(embryo_milo, da_results, layout="umap",alpha=0.05) 
   
 umap_pl + nh_graph_pl +
   plot_layout(guides="collect")
@@ -231,13 +232,30 @@ Here the analyst might get creative, depending on the specific characteristics o
 In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. Here, for example, we focus on identifying signatures of DA subpopulations in the epiblast cells. 
 
 ```{r}
-dge_epiblast_smp <- findNhoodMarkers(embryo_milo, da_results, assay = "counts", 
-                                 aggregate.samples = TRUE, sample_col = "sample",
-                                 subset.nhoods = da_results$celltype=="Epiblast")
+dge_epiblast_smp <- findNhoodMarkers(embryo_milo, da_results, 
+                                     assay = "counts", gene.offset = FALSE,
+                                     aggregate.samples = TRUE, sample_col = "sample",
+                                     subset.nhoods = da_results$celltype=="Epiblast"
+                                     )
+
+head(dge_epiblast_smp)
 ```
 
+This identifies n marker genes at FDR 10% that distinguish two main groups within the epiblast neighbourhoods, one significantly depleted in the early stage and one significantly enriched. We can visualize expression of the detected marker genes using the function `plotNhoodExpressionDA`. This shows the average expression in each neighbourhood, ranked by log-Fold Change in the DA test. Note that the gene x nhood expression matrix can be pre-computed and stored using the `calcNhoodExpression` function, to avoid repeating the computation every time you need to plot.
 
+In this case we mainly identified negative markers of the epiblast neighbourhoods enriched with age.
 
+```{r, fig.height=7, fig.width=9}
+markers <- dge_epiblast_smp[which(dge_epiblast_smp$adj.P.Val_1 < 0.1), "GeneID"]
+
+logcounts(embryo_milo) <- log1p(counts(embryo_milo))
+embryo_milo <- calcNhoodExpression(embryo_milo, subset.row=markers)
+
+plotNhoodExpressionDA(embryo_milo, da_results, features = markers,
+                      subset.nhoods = da_results$celltype=="Epiblast",
+                      assay="logcounts", scale_to_1 = TRUE
+                      )
+```
 
 
 <details>
