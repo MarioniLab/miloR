@@ -17,8 +17,8 @@ vignette: |
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = FALSE,
-  message=FALSE,
-  cache=TRUE
+  message=FALSE
+  # cache=TRUE
 )
 ```
 
@@ -32,13 +32,18 @@ library(patchwork)
 
 # Load data
 
-For this vignette we will use the mouse gastrulation single-cell data from [Pijuan-Sala et al. 2019](https://www.nature.com/articles/s41586-019-0933-9). The dataset can be downloaded as a `SingleCellExperiment` object from the [`MouseGastrulationData`](https://bioconductor.org/packages/3.12/data/experiment/html/MouseGastrulationData.html) package on Bioconductor. To make computations faster, here we will download just a subset of samples, 6 samples at stage E7 and 6 samples at stage E7.5. 
+For this vignette we will use the mouse gastrulation single-cell data from [Pijuan-Sala et al. 2019](https://www.nature.com/articles/s41586-019-0933-9). The dataset can be downloaded as a `SingleCellExperiment` object from the [`MouseGastrulationData`](https://bioconductor.org/packages/3.12/data/experiment/html/MouseGastrulationData.html) package on Bioconductor. To make computations faster, here we will download just a subset of samples, 4 samples at stage E7 and 4 samples at stage E7.5. 
 
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
 library(MouseGastrulationData)        
-embryo_data = EmbryoAtlasData(samples = c(2,  3,  4,  6, 10, 14, 15, 19, 20, 30, 31, 32))
+select_samples <- c(2,  3,  6, 15,
+                    # 4, 19, 
+                    10, 14, 20, 30
+                    #31, 32
+                    )
+embryo_data = EmbryoAtlasData(samples = select_samples)
 embryo_data
 ```
 
@@ -50,7 +55,7 @@ We recompute PCA and UMAP embedding for this subset of cells to visualize the da
 embryo_data <- embryo_data[,apply(reducedDim(embryo_data, "pca.corrected"), 1, function(x) !all(is.na(x)))]
 embryo_data <- runUMAP(embryo_data, dimred = "pca.corrected", name = 'umap')
 
-plotReducedDim(embryo_data, colour_by="stage", dimred = "umap")
+plotReducedDim(embryo_data, colour_by="stage", dimred = "umap") 
 ```
 
 We will test for significant differences in abundance of cells between these stages of development, and the associated gene signatures.
@@ -197,7 +202,6 @@ nh_graph_pl <- plotNhoodGraphDA(embryo_milo, da_results, layout="umap",alpha=0.0
   
 umap_pl + nh_graph_pl +
   plot_layout(guides="collect")
-umap_pl
 ```
 
 We might also be interested in visualizing wheather DA is particularly evident in certain cell types. To do this, we assign a cell type label to each neighbourhood by finding the most abundant cell type within cells in each neighbourhood. We can label neighbourhoods in the results `data.frame` using the function `annotateNhoods`. This also saves the fraction of cells harbouring the label.
@@ -229,16 +233,17 @@ This is already quite informative: we can see that certain early development cel
 Once we have identified neighbourhoods with significant DA, we might be interested in learning more about the gene expression signatures that define these subpopulations. 
 Here the analyst might get creative, depending on the specific characteristics of their dataset and the biological question of interest. In the `miloR` package, we provide functionality to explore neighbourhood markers through the function `findNhoodMarkers`. This groups significantly DA neighbourhoods that show concordant Fold-Change and performs a test for differential expression between cells in those neighbourhoods. 
 
-In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. Here, for example, we focus on identifying signatures of DA subpopulations in the epiblast cells. 
+In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. For the sake of demonstration, here we focus on identifying signatures of DA subpopulations in the endoderm development lineage. 
 
 ```{r}
-dge_epiblast_smp <- findNhoodMarkers(embryo_milo, da_results, 
-                                     assay = "counts", gene.offset = FALSE,
+logcounts(embryo_milo) <- log1p(counts(embryo_milo))
+dge_smp <- findNhoodMarkers(embryo_milo, da_results, 
+                                     assay = "counts", gene.offset = FALSE, da.fdr = 0.1,
                                      aggregate.samples = TRUE, sample_col = "sample",
-                                     subset.nhoods = da_results$celltype=="Epiblast"
+                                     subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm")
                                      )
 
-head(dge_epiblast_smp)
+head(dge_smp)
 ```
 
 This identifies n marker genes at FDR 10% that distinguish two main groups within the epiblast neighbourhoods, one significantly depleted in the early stage and one significantly enriched. We can visualize expression of the detected marker genes using the function `plotNhoodExpressionDA`. This shows the average expression in each neighbourhood, ranked by log-Fold Change in the DA test. Note that the gene x nhood expression matrix can be pre-computed and stored using the `calcNhoodExpression` function, to avoid repeating the computation every time you need to plot.
@@ -246,14 +251,14 @@ This identifies n marker genes at FDR 10% that distinguish two main groups withi
 In this case we mainly identified negative markers of the epiblast neighbourhoods enriched with age.
 
 ```{r, fig.height=7, fig.width=9}
-markers <- dge_epiblast_smp[which(dge_epiblast_smp$adj.P.Val_1 < 0.1), "GeneID"]
-
+markers <- dge_smp[which(dge_smp$adj.P.Val_1 < 0.1 ), "GeneID"]
 logcounts(embryo_milo) <- log1p(counts(embryo_milo))
 embryo_milo <- calcNhoodExpression(embryo_milo, subset.row=markers)
 
 plotNhoodExpressionDA(embryo_milo, da_results, features = markers,
-                      subset.nhoods = da_results$celltype=="Epiblast",
-                      assay="logcounts", scale_to_1 = TRUE
+                      subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm"),
+                      assay="logcounts", 
+                      scale_to_1 = TRUE, cluster_features = TRUE
                       )
 ```
 
