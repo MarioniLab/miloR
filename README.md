@@ -1,15 +1,14 @@
 # miloR
 R package implementation of milo for testing differentially abundant neighbourhoods
 
-![](./milo_schematic.png)
-Format: ![Alt Text](url)
+![](./milo_schematic.png|width=100px)
+
 
 [![Build Status](https://travis-ci.com/MikeDMorgan/miloR.svg?branch=master)](https://travis-ci.com/MikeDMorgan/miloR)
 
 [![Coverage](https://codecov.io/gh/MikeDMorgan/miloR/branch/master/graph/badge.svg)](https://codecov.io/gh/MikeDMorgan/miloR)
 
 
----
 ### Installation
 
 ```
@@ -19,7 +18,6 @@ devtools::install_github("MikeDMorgan/miloR")
 
 Examples on how to use `miloR` can be found in the [vignettes directory](https://github.com/MikeDMorgan/miloR/tree/master/vignettes).
 
----
 ### Example work flow
 An example of the `Milo` work flow to get started:
 
@@ -49,7 +47,7 @@ milo.design <- milo.design[milo.design$Freq > 0, ]
 milo.res <- testNhoods(milo.obj, design=~Condition, design.df=milo.design)
 head(milo.res)
 ```
----
+
 ### Support
 
 For any question or bug report please create a new issue in this repository.
