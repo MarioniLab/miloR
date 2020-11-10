@@ -1,7 +1,7 @@
 # miloR
 R package implementation of milo for testing differentially abundant neighbourhoods
 
-![](./milo_schematic.png|width=1000px)
+<img src="https://github.com/MarioniLab/miloR/blob/master/milo_schematic.png" width="200">
 
 
 [![Build Status](https://travis-ci.com/MikeDMorgan/miloR.svg?branch=master)](https://travis-ci.com/MikeDMorgan/miloR)
