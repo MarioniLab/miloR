@@ -16,12 +16,10 @@ _Milo_ is a method for differential abundance analysis on KNN graph from single-
 devtools::install_github("MikeDMorgan/miloR") 
 ```
 
-Examples on how to use `miloR` can be found in the [vignettes directory](https://github.com/MikeDMorgan/miloR/tree/master/vignettes).
-
 ### Tutorials
 
-1. [Basic Milo example on simulated dataset](docs/articles/milo_demo.html)
-2. [Milo example on mouse gastrulation dataset](docs/articles/milo_demo.html) (Includes demo for downstream analysis functions)
+1. [Basic Milo example on simulated dataset](https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_demo.html)
+2. [Milo example on mouse gastrulation dataset](https://github.com/MarioniLab/miloR/blob/master/vignettes/milo_gastrulation.Rmd) (Includes demo for downstream analysis functions)
 3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo/blob/master/notebooks/milo_in_python.ipynb)
 
 ### Example work flow
@@ -56,7 +54,7 @@ head(milo.res)
 
 ### Support
 
-For any question or bug report please create a new issue in this repository.
+For any question, feature request or bug report please create a new issue in this repository.
 
 
 
