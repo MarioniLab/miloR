@@ -14,6 +14,12 @@
 #' DA for the purposes of aggregating across concorantly DA neighbourhoods.
 #' @param assay A character scalar determining which \code{assays} slot to extract from the
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
+#' @param aggregate.samples logical indicating wheather the expression values for cells in the same sample 
+#' and neighbourhood group should be merged for DGE testing. This allows to perform testing exploiting the replication structure
+#' in the experimental design, rather than treating single-cells as independent replicates. The function used for aggregation depends on the 
+#' selected gene expression assay: if \code{assay="counts"} the expression values are summed, otherwise we take the mean.
+#' @param sample_col a character scalar indicating the column in the colData storing sample information
+#' (only relevant if \code{aggregate.samples==TRUE})
 #' @param overlap A scalar integer that determines the number of cells that must
 #' overlap between adjacent neighbourhoods for merging.
 #' @param lfc.threshold A scalar that determines the absolute log fold change above
@@ -104,6 +110,7 @@ NULL
 #' @importFrom stats model.matrix as.formula
 #' @importFrom Matrix colSums
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
+                             aggregate.samples=FALSE, sample_col=NULL,
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
                              return.groups=FALSE, subset.nhoods=NULL,
@@ -128,6 +135,10 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             stop(paste0("NA function ", na.function, " not recognised"))
         }, finally={
         })
+    }
+    
+    if (isTRUE(aggregate.samples) & is.null(sample_col)) {
+        stop("if aggregate.samples is TRUE, the column storing sample information must be specified by setting 'sample_col'")
     }
 
     n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
@@ -211,7 +222,47 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             return(NULL)
         }
     }
-
+    
+    ## Aggregate expression by sample
+    # To avoid treating cells as independent replicates
+    if (isTRUE(aggregate.samples)) {
+        fake.meta[,"sample_id"] <- colData(x)[[sample_col]]
+        fake.meta[,'sample_group'] <- paste(fake.meta[,"sample_id"], fake.meta[,"Nhood.Group"], sep="_")
+        
+        sample_gr_mat <- matrix(0, nrow=nrow(fake.meta), ncol=length(unique(fake.meta$sample_group)))
+        colnames(sample_gr_mat) <- unique(fake.meta$sample_group)
+        rownames(sample_gr_mat) <- rownames(fake.meta)
+        
+        for (s in colnames(sample_gr_mat)) {
+            sample_gr_mat[which(fake.meta$sample_group == s),s] <- 1  
+        }
+        
+        ## Summarise expression by sample
+        exprs_smp <- matrix(0, nrow=nrow(exprs), ncol=ncol(sample_gr_mat))
+        if (assay=='counts') {
+            summFunc <- rowSums
+        } else {
+            summFunc <- rowMeans
+        }
+        
+        for (i in 1:ncol(sample_gr_mat)){
+            if (sum(sample_gr_mat[,i]) > 1) {
+                exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])  
+            } else {
+                exprs_smp[,i] <- exprs[,which(sample_gr_mat[,i] > 0)]
+            }
+        }
+        rownames(exprs_smp) <- rownames(exprs)
+        colnames(exprs_smp) <- colnames(sample_gr_mat)
+        
+        smp_meta <- distinct(fake.meta, sample_group, Nhood.Group)
+        rownames(smp_meta) <- smp_meta[,"sample_group"]
+        
+        fake.meta <- smp_meta
+        exprs <- exprs_smp
+    }
+    
+    
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
         i.meta$Test <- "Ref"
@@ -233,6 +284,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         } else if(assay == "counts"){
             i.res <- .perform_counts_dge(exprs, i.model, model.contrasts=i.contrast,
                                          gene.offset=gene.offset)
+            colnames(i.res)[ncol(i.res)] <- "adj.P.Val"
         } else{
             warning("Assay type is not counts or logcounts - assuming (log)-normal distribution. Use these results at your peril")
             i.res <- .perform_lognormal_dge(exprs, i.model,

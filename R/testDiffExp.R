@@ -286,7 +286,8 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
         test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
         colnames(test.model) <- c(colnames(test.model)[1], "NGenes", colnames(test.model[, c(2:ncol(test.model))]))
     }
-
+    
+    i.dge <- estimateDisp(i.dge, test.model)
     i.fit <- glmQLFit(i.dge, test.model, robust=TRUE)
 
     if(!is.null(model.contrasts)){
