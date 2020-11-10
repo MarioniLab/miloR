@@ -78,16 +78,25 @@
 <div id="milor" class="section level1">
 <div class="page-header"><h1 class="hasAnchor">
 <a href="#milor" class="anchor"></a>miloR</h1></div>
-<p>R package implementation of milo for testing differentially abundant neighbourhoods</p>
+<p><em>Milo</em> is a method for differential abundance analysis on KNN graph from single-cell datasets.</p>
 <p align="center">
-<img src="./milo_schematic.png" width="500"></p>
+<img src="docs/milo_schematic.png" width="500"></p>
 <p><a href="https://travis-ci.com/MikeDMorgan/miloR"><img src="https://travis-ci.com/MikeDMorgan/miloR.svg?branch=master" alt="Build Status"></a> <a href="https://codecov.io/gh/MikeDMorgan/miloR"><img src="https://codecov.io/gh/MikeDMorgan/miloR/branch/master/graph/badge.svg" alt="Coverage"></a></p>
 <div id="installation" class="section level3">
 <h3 class="hasAnchor">
 <a href="#installation" class="anchor"></a>Installation</h3>
 <pre><code><a href="https://devtools.r-lib.org//reference/remote-reexports.html">## Install development version
 devtools::install_github("MikeDMorgan/miloR") </a></code></pre>
-<p>Examples on how to use <code>miloR</code> can be found in the <a href="https://github.com/MikeDMorgan/miloR/tree/master/vignettes">vignettes directory</a>.</p>
+</div>
+<div id="tutorials" class="section level3">
+<h3 class="hasAnchor">
+<a href="#tutorials" class="anchor"></a>Tutorials</h3>
+<ol>
+<li><a href="https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_demo.html">Basic Milo example on simulated dataset</a></li>
+<li>
+<a href="https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_gastrulation.html">Milo example on mouse gastrulation dataset</a>: this includes a demo for downstream analysis functions.</li>
+<li><a href="https://github.com/MarioniLab/milo/blob/master/notebooks/milo_in_python.ipynb">Integrating Milo in scanpy/anndata workflow</a></li>
+</ol>
 </div>
 <div id="example-work-flow" class="section level3">
 <h3 class="hasAnchor">
@@ -113,7 +122,7 @@ head(milo.res)</code></pre>
 <div id="support" class="section level3">
 <h3 class="hasAnchor">
 <a href="#support" class="anchor"></a>Support</h3>
-<p>For any question or bug report please create a new issue in this repository.</p>
+<p>For any question, feature request or bug report please create a new issue in this repository.</p>
 </div>
 </div>
   </div>

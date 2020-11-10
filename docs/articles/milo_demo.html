@@ -237,12 +237,12 @@
 <div class="sourceCode" id="cb18"><html><body><pre class="r"><span class="fu"><a href="https://rdrr.io/r/utils/head.html">head</a></span>(<span class="fu"><a href="../reference/methods.html">nhoodCounts</a></span>(<span class="no">traj_milo</span>))</pre></body></html></div>
 <pre><code>## 6 x 6 sparse Matrix of class "dgCMatrix"
 ##   B_R1 A_R1 A_R2 B_R2 B_R3 A_R3
-## 1    9    6    7    7    6   10
-## 2    8    .    1    8    7    .
-## 3    2    6    4    5    7    4
-## 4   15    .    1   22   29    1
-## 5    9    3    3   11   11    8
-## 6   12    1    .   11   10    2</code></pre>
+## 1   13    5    3   14   16    1
+## 2    8    .    .    8    9    .
+## 3    4    .    .    2    8    .
+## 4    5    5    5    4    8    9
+## 5   13    2    1   19   21    1
+## 6    9    3    3   11   11    9</code></pre>
 </div>
 <div id="differential-abundance-testing" class="section level1">
 <h1 class="hasAnchor">
@@ -269,13 +269,13 @@
 <div class="sourceCode" id="cb25"><html><body><pre class="r"><span class="no">da_results</span> <span class="kw">%&gt;%</span>
   <span class="fu"><a href="https://dplyr.tidyverse.org/reference/arrange.html">arrange</a></span>(- <span class="no">SpatialFDR</span>) <span class="kw">%&gt;%</span>
   <span class="fu"><a href="https://rdrr.io/r/utils/head.html">head</a></span>()</pre></body></html></div>
-<pre><code>##         logFC   logCPM          F    PValue       FDR Nhood SpatialFDR
-## 28 -0.1541258 19.21708 0.04956701 0.8241847 0.8241847    28  0.8241847
-## 10 -0.1336973 19.75795 0.09796918 0.7763087 0.8203000    10  0.8200386
-## 20 -0.1423422 19.81628 0.10814755 0.7565693 0.8203000    20  0.8200386
-## 30 -0.1169845 20.10334 0.06858778 0.7938387 0.8203000    30  0.8200386
-## 8  -0.2044485 19.66498 0.20008193 0.6763820 0.7765867     8  0.7692130
-## 3  -0.2903268 19.49538 0.24309160 0.6228541 0.7426337     3  0.7322328</code></pre>
+<pre><code>##          logFC   logCPM            F    PValue       FDR Nhood SpatialFDR
+## 30  0.01055354 19.24510 0.0005007052 0.9859200 0.9859200    30  0.9859200
+## 18 -0.05802949 19.54995 0.0089953250 0.9245921 0.9554118    18  0.9579504
+## 11 -0.09819637 19.80149 0.0464511018 0.8309567 0.9148304    11  0.9140236
+## 13 -0.07411337 20.08837 0.0336252092 0.8554856 0.9148304    13  0.9140236
+## 21 -0.11068239 19.20204 0.0525573237 0.8558091 0.9148304    21  0.9140236
+## 15  0.15861365 19.47956 0.0967035960 0.7669226 0.9144077    15  0.9124625</code></pre>
 </div>
 <div id="visualize-neighbourhoods-displaying-da" class="section level1">
 <h1 class="hasAnchor">
