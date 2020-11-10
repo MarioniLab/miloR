@@ -1,5 +1,5 @@
 ---
-title: "Differential abundance testing with _Milo_ - Mouse gastrulation example"
+title: "Differential abundance testing with Milo - Mouse gastrulation example"
 author:
   - Emma Dann
   - Mike Morgan
