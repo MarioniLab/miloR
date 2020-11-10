@@ -1,8 +1,8 @@
 # miloR
-R package implementation of milo for testing differentially abundant neighbourhoods
+_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets.
 
 <p align="center">
-  <img src="./milo_schematic.png" width="500">
+  <img src="docs/milo_schematic.png" width="500">
 </p>
 
 [![Build Status](https://travis-ci.com/MikeDMorgan/miloR.svg?branch=master)](https://travis-ci.com/MikeDMorgan/miloR)
@@ -17,6 +17,12 @@ devtools::install_github("MikeDMorgan/miloR")
 ```
 
 Examples on how to use `miloR` can be found in the [vignettes directory](https://github.com/MikeDMorgan/miloR/tree/master/vignettes).
+
+### Tutorials
+
+1. [Basic Milo example on simulated dataset](docs/articles/milo_demo.html)
+2. [Milo example on mouse gastrulation dataset](docs/articles/milo_demo.html) (Includes demo for downstream analysis functions)
+3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo/blob/master/notebooks/milo_in_python.ipynb)
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
