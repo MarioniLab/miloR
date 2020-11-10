@@ -1,5 +1,5 @@
 ---
-title: "Differential abundance testing with _Milo_"
+title: "Differential abundance testing with Milo"
 author:
   - Emma Dann
   - Mike Morgan
