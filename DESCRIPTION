@@ -9,6 +9,7 @@ Description: This package performs single-cell differential abundance testing by
     modelling cell states as neighbourhoods on a nearest neighbour graph.
 License: GPL-3
 Encoding: UTF-8
+URL: https://marionilab.github.io/miloR
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: edgeR
