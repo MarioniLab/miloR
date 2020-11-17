@@ -285,7 +285,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
         n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
         if(ncol(test.model) == 2){
             test.model <- cbind(test.model, n.gene)
-            colnames(test.model) <- c(colnames(test.model), "NGenes")
+            colnames(test.model) <- c(colnames(test.model)[1:2], "NGenes")
         } else if (ncol(test.model) > 2){
             test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
             colnames(test.model) <- c(colnames(test.model)[1], "NGenes", colnames(test.model[, c(2:ncol(test.model))]))
