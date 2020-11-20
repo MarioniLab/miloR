@@ -20,7 +20,9 @@ devtools::install_github("MarioniLab/miloR")
 
 1. [Basic Milo example on simulated dataset](https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_demo.html)
 2. [Milo example on mouse gastrulation dataset](https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_gastrulation.html): this includes a demo for downstream analysis functions.
-3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo/blob/master/notebooks/milo_in_python.ipynb)
+3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb)
+
+The vignettes and the reference manual can be browsed at https://marionilab.github.io/miloR/.
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
