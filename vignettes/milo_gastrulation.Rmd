@@ -208,7 +208,7 @@ We might also be interested in visualizing wheather DA is particularly evident i
 
 ```{r}
 da_results <- annotateNhoods(embryo_milo, da_results, coldata_col = "celltype")
-da_results
+head(da_results)
 ```
 
 While neighbourhoods tend to be homogeneous, we can define a threshold for `celltype_fraction` to exclude neighbourhoods that are a mix of cell types. 
