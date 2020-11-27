@@ -1,5 +1,5 @@
 # miloR
-_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets.
+_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets. For more details, read [our preprint](https://www.biorxiv.org/content/10.1101/2020.11.23.393769v1). 
 
 <p align="center">
   <img src="docs/milo_schematic.png" width="500">
