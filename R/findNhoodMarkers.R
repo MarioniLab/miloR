@@ -223,6 +223,11 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             return(NULL)
         }
     }
+    
+    if (isTRUE(return.groups)) {
+        group.meta <- fake.meta
+    }
+    
 
     ## Aggregate expression by sample
     # To avoid treating cells as independent replicates
@@ -306,7 +311,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     marker.df$GeneID <- rownames(i.res)
 
     if(isTRUE(return.groups)){
-        out.list <- list("groups"=fake.meta, "dge"=marker.df)
+        out.list <- list("groups"=group.meta, "dge"=marker.df)
         return(out.list)
     }else{
         return(marker.df)
