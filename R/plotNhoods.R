@@ -149,7 +149,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
 
   if(colour_by %in% c("logFC")){
     plot.g <- simplify(nh_graph)
-    print(head(plot.g))
+
     pl <- ggraph(simplify(nh_graph), layout = layout) +
       geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
       geom_node_point(aes(fill = colour_by, size = size), shape=21) +
@@ -160,18 +160,6 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
             axis.ticks = element_blank(), axis.title = element_blank())
     # theme_graph()
 
-    # pl <- ggraph(simplify(nh_graph), layout = layout) +
-    #   geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
-    #   geom_node_point(data=plot.g[V(plot.g)$logFC == 0],
-    #                   aes(size = size), shape=21, fill='white') +
-    #   geom_node_point(data=plot.g[V(plot.g)$logFC != 0],
-    #                   aes(fill = colour_by, size = size), shape=21) +
-    #   scale_size(range = c(1,6), name="Nhood size") +
-    #   scale_edge_width(range = c(0.2,3), name="overlap size") +
-    #   theme_classic(base_size=14) +
-    #   theme(axis.line = element_blank(), axis.text = element_blank(),
-    #         axis.ticks = element_blank(), axis.title = element_blank())
-    # # theme_graph()
   } else{
     pl <- ggraph(simplify(nh_graph), layout = layout) +
       geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
