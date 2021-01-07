@@ -153,7 +153,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
-    if((ncol(nhoodAdjacency(x)) == length(nhoods(x))) & isFALSE(compute.new)){
+    if((ncol(nhoodAdjacency(x)) == ncol(nhoods(x))) & isFALSE(compute.new)){
         message("nhoodAdjacency found - using for nhood grouping")
         nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
                                                   nhood.adj=nhoodAdjacency(x),
@@ -178,7 +178,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
     message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
-
+    
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
@@ -188,18 +188,22 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     # this approach means that the latter group takes precedent.
     # maybe exclude the cells that fall into separate groups?
     for(i in seq_along(nhood.gr)){
-        nhood.x <- nhs.da.gr == nhood.gr[i]
+        nhood.x <- names(which(nhs.da.gr == nhood.gr[i]))
         # get the nhoods
         nhs <- nhoods(x)
         if(!is.null(subset.nhoods)){
-            nhs <- nhs[subset.nhoods]
+            nhs <- nhs[,subset.nhoods]
         }
-
-        if(!any(is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group))){
-            fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
-            } else{
-                fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group <- nhood.gr[i]
-            }
+        
+        nhood.gr.cells <- rowSums(nhs[,nhood.x]) > 0
+        ## set group to NA if a cell was already assigned to a group
+        fake.meta[nhood.gr.cells,"Nhood.Group"] <- ifelse(is.na(fake.meta[nhood.gr.cells,"Nhood.Group"]), nhood.gr[i], NA)
+        # 
+        # if(!any(is.na(fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group))){
+        #     fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
+        #     } else{
+        #         fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        #     }
     }
 
     # only compare against the other DA neighbourhoods

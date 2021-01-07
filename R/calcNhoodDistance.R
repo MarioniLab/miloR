@@ -32,6 +32,7 @@
 #'
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, d=30, transposed=TRUE)
+#' milo <- makeNhoods(milo)
 #' milo <- calcNhoodDistance(milo, d=30)
 #'
 #' milo

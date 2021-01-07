@@ -244,7 +244,7 @@ setMethod("nhoodAdjacency", "Milo", function(x) {
 
 #' @export
 setMethod("nhoodAdjacency<-", "Milo", function(x, value){
-    if(!is(value, "matrix")){
+    if(!is(value, "matrixORMatrix")){
         stop("nhoodAdjacency must be a matrix class")
     } else{
         x@nhoodAdjacency <- value
@@ -268,7 +268,7 @@ setMethod("nhoodAdjacency<-", "Milo", function(x, value){
     coolcat("nhoodExpression dimension(%d): %s\n", dim(object@nhoodExpression))
     coolcat("nhoodReducedDim names(%d): %s\n", names(object@nhoodReducedDim))
     coolcat("nhoodGraph names(%d): %s\n", names(object@nhoodGraph))
-    coolcat("nhoodAdjacency dimension(%d): %s\n", dim(object@nhoodGraph))
+    coolcat("nhoodAdjacency dimension(%d): %s\n", dim(object@nhoodAdjacency))
 
     sink(file="/dev/null")
     gc()
