@@ -19,7 +19,7 @@
 #' @return A \code{\linkS4class{Milo}} object with the distance slots populated.
 #'
 #' @author
-#' Mike Morgan
+#' Mike Morgan, Emma Dann
 #'
 #' @examples
 #' library(SingleCellExperiment)
@@ -59,13 +59,14 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     }
 
     if(any(names(reducedDims(x)) %in% c("PCA"))){
-        nhood.dists <- sapply(names(nhoods(x)),
-                              function(X) .calc_distance(reducedDim(x, "PCA")[c(as.numeric(X), unlist(nhoods(x)[[X]])), c(1:d),drop=FALSE]))
+        non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = T)
+        nhood.dists <- sapply(1:ncol(nhoods(x)),
+                              function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
 
     } else if(is.character(reduced.dim)){
-        nhood.dists <- sapply(names(nhoods(x)),
-                              function(X) .calc_distance(reducedDim(x, reduced.dim)[c(as.numeric(X), unlist(nhoods(x)[[X]])), c(1:d),drop=FALSE]))
+        nhood.dists <- sapply(1:ncol(nhoods(x)),
+                              function(X) .calc_distance(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
     }
 
