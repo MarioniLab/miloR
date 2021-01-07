@@ -109,7 +109,6 @@ NULL
 #' @export
 #' @importFrom stats model.matrix as.formula
 #' @importFrom Matrix colSums
-#' @importFrom dplyr distinct
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              aggregate.samples=FALSE, sample_col=NULL,
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
@@ -265,7 +264,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         rownames(exprs_smp) <- rownames(exprs)
         colnames(exprs_smp) <- colnames(sample_gr_mat)
 
-        smp_meta <- distinct(fake.meta, sample_group, Nhood.Group)
+        smp_meta <- unique(fake.meta[,c("sample_group","Nhood.Group")])
         rownames(smp_meta) <- smp_meta[,"sample_group"]
 
         fake.meta <- smp_meta

@@ -155,7 +155,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
 
     for(i in seq_along(nhood.gr)){
         nhood.x <- nhs.da.gr %in% nhood.gr[i]
-        copy.meta[unlist((nhoods(x)[names(nhs.da.gr)])[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        copy.meta[rowSums(nhoods(x)[,names(nhs.da.gr)])[nhood.x] > 0,]$Nhood.Group <- nhood.gr[i]
     }
 
     # subset to non-NA group cells

@@ -198,7 +198,7 @@ umap_pl <- plotReducedDim(embryo_milo, dimred = "umap", colour_by="celltype", te
   guides(fill="none")
 
 ## Plot neighbourhood graph
-nh_graph_pl <- plotNhoodGraphDA(embryo_milo, da_results, layout="umap",alpha=0.05) 
+nh_graph_pl <- plotNhoodGraphDA(embryo_milo, da_results, layout="umap",alpha=0.1) 
   
 umap_pl + nh_graph_pl +
   plot_layout(guides="collect")

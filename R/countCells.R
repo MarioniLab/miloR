@@ -79,7 +79,7 @@ countCells <- function(x, samples, meta.data=NULL){
     rownames(dummy.meta.data) <- rownames(meta.data)
     for (s in samp.ids){
         s.ixs <- which(meta.data[samples]==s)
-        dummy.meta.data[s.ixs, s] <- 1
+        dummy.meta.data[s.ixs, as.character(s)] <- 1
     }
     
     message("Counting cells in neighbourhoods")

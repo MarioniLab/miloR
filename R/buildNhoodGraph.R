@@ -43,7 +43,7 @@ buildNhoodGraph <- function(x, overlap=1){
 
     ## Make igraph object
     ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
-    nhood_sizes <- ncol(nhoods(x))
+    nhood_sizes <- colSums(nhoods(x))
     ig <- set_vertex_attr(ig, name = 'size', value = nhood_sizes[vertex.attributes(ig)$name])
     ## Add to nhoodGraph slot in milo object
     nhoodGraph(x) <- ig

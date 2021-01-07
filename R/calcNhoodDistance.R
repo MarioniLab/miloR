@@ -59,8 +59,8 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
         stop("Input is not a valid Milo object")
     }
 
+    non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = T)
     if(any(names(reducedDims(x)) %in% c("PCA"))){
-        non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = T)
         nhood.dists <- sapply(1:ncol(nhoods(x)),
                               function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
