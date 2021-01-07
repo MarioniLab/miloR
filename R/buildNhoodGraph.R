@@ -31,8 +31,8 @@ buildNhoodGraph <- function(x, overlap=1){
     }
 
     # are neighbourhoods calculated?
-    if(length(nhoods(x)) == 0){
-    stop("No neighbourhoods found - run makeNhoods first")
+    if(ncol(nhoods(x)) == 0){
+      stop("No neighbourhoods found - run makeNhoods first")
     }
 
     ## Build adjacency matrix for nhoods
@@ -43,7 +43,7 @@ buildNhoodGraph <- function(x, overlap=1){
 
     ## Make igraph object
     ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
-    nhood_sizes <- sapply(nhoods(x), length)
+    nhood_sizes <- ncol(nhoods(x))
     ig <- set_vertex_attr(ig, name = 'size', value = nhood_sizes[vertex.attributes(ig)$name])
     ## Add to nhoodGraph slot in milo object
     nhoodGraph(x) <- ig

@@ -206,19 +206,11 @@
 #### nhood adjacency matrix function
 # Build adjacency matrix of overlap between neighbourhoods
 #' @importFrom gtools permutations
+#' @importFrom Matrix crossprod
 .build_nhood_adjacency <- function(nhoods, overlap=1){
-    nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = TRUE)
-    # keep_pairs <- sapply( 1:nrow(nms) , function(x) any(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]))
-    keep_pairs <- sapply( 1:nrow(nms), function(x) sum(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]) > overlap)
-
-    message("Calculating nhood adjacency")
-    pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) )
-    out <- rep(0, nrow(nms))
-    out[which(keep_pairs)] <- pairs_int
-
-    nh_intersect_mat <- matrix(out, nrow = length(nhoods), byrow = TRUE)
-    rownames(nh_intersect_mat) <- unique(nms[,1])
-    colnames(nh_intersect_mat) <- unique(nms[,2])
+    nh_intersect_mat <- crossprod(nhoods, nhoods)
+    rownames(nh_intersect_mat) <- colnames(nhoods)
+    colnames(nh_intersect_mat) <- colnames(nhoods)
     return(nh_intersect_mat)
 }
 
