@@ -16,7 +16,7 @@
 #'
 
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
-setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix",
+setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix",
                                   "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 setClassUnion("listORNULL", c("list", "NULL"))
