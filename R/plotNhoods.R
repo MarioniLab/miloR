@@ -45,7 +45,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
   if (! isTRUE(.valid_nhood(milo))){
     stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
   }
-  df <- data.frame(nh_size=sapply(nhoods(milo), function(x) length(x)))
+  df <- data.frame(nh_size=colSums(nhoods(milo)))
 
   ggplot(data=df, aes(nh_size)) + geom_histogram(bins=bins) +
     xlab("Neighbourhood size") +
@@ -56,16 +56,16 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @importFrom igraph is_igraph
 .valid_nhood <- function(milo){
   # check for a valid nhood slot
-  n_neigh <- length(nhoods(milo))
+  n_neigh <- ncol(nhoods(milo))
   is_not_empty <- n_neigh > 0
   if (is_not_empty) {
-    is_igraph_vx <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "igraph.vs")
-    is_numeric_vc <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "numeric")
-    if (isTRUE(is_igraph_vx) | isTRUE(is_numeric_vc)){
+    # is_graph_vx <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "igraph.vs")
+    # is_numeric_vc <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "numeric")
+    # if (isTRUE(is_igraph_vx) | isTRUE(is_numeric_vc)){
       TRUE
-    } else {
-        FALSE
-      }
+    # } else {
+    #     FALSE
+    #   }
   } else {
     FALSE
   }
@@ -153,7 +153,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
     pl <- ggraph(simplify(nh_graph), layout = layout) +
       geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
       geom_node_point(aes(fill = colour_by, size = size), shape=21) +
-      scale_size(range = c(1,6), name="Nhood size") +
+      scale_size(range = c(0.3,3), name="Nhood size") +
       scale_edge_width(range = c(0.2,3), name="overlap size") +
       theme_classic(base_size=14) +
       theme(axis.line = element_blank(), axis.text = element_blank(),
@@ -286,7 +286,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   }
 
   expr_mat <- nhoodExpression(x)[features, ]
-  colnames(expr_mat) <- 1:length(nhoods(x))
+  colnames(expr_mat) <- 1:ncol(nhoods(x))
 
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {

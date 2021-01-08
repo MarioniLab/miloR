@@ -46,7 +46,7 @@
 #' @export
 #' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN
-#' @importFrom igraph neighbors
+#' @importFrom igraph neighbors as_ids
 #' @importFrom stats setNames
 makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
     if(is(x, "Milo")){
@@ -80,22 +80,21 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
 
     sampled_vertices <- unique(sampled_vertices)
-
-    nh_list <-
-        sapply(
-            1:length(sampled_vertices),
-            FUN = function(X)
-                c(sampled_vertices[X], neighbors(graph, v = sampled_vertices[X]))
-        )
+    
+    nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    # Is there an alternative to using a for loop to populate the sparseMatrix here?
+    for (X in 1:length(sampled_vertices)){
+        nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
+    }
 
     # need to add the index cells.
-    nh_list <- setNames(nh_list, sampled_vertices)
+    colnames(nh_mat) <- as.character(sampled_vertices)
     if(is(x, "Milo")){
         nhoodIndex(x) <- as(sampled_vertices, "list")
-        nhoods(x) <- nh_list
+        nhoods(x) <- nh_mat
         return(x)
     } else {
-        return(nh_list)
+        return(nh_mat)
     }
 }
 
