@@ -43,6 +43,7 @@ NULL
 #' @rdname calcNhoodDistance
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
+#' @importFrom Matrix which
 calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     if(is(x, "Milo")){
         # check for reducedDims
@@ -60,6 +61,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     }
 
     non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = T)
+    
     if(any(names(reducedDims(x)) %in% c("PCA"))){
         nhood.dists <- sapply(1:ncol(nhoods(x)),
                               function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
