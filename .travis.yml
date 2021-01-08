@@ -1,6 +1,8 @@
 language: r
 cache: packages
 warnings_are_errors: false
+r_build_args: "--no-build-vignettes"
+r_check_args: "--no-build-vignettes --ignore-vignettes"
 
 r:
   - bioc-release
@@ -25,4 +27,4 @@ after_success:
   - Rscript -e 'covr::codecov()'
   - R CMD BiocCheck .
 
-bioc_check: true
+#bioc_check: true

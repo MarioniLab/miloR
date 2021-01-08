@@ -40,7 +40,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 
     if(is(x, "Milo")){
         # are neighbourhoods calculated?
-        if(length(nhoods(x)) == 0){
+        if(ncol(nhoods(x)) == 0){
             stop("No neighbourhoods found - run makeNhoods first")
         }
 
@@ -66,20 +66,20 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 }
 
 
-#' @import Matrix
+#' @importFrom Matrix Matrix crossprod
 .calc_expression <- function(nhoods, data.set, subset.row=NULL){
-    neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
-
-    for(x in seq_along(1:length(nhoods))){
-        neighbour.model[nhoods[[x]], x] <- 1
-    }
+    # neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
+    # 
+    # for(x in seq_along(1:length(nhoods))){
+    #     neighbour.model[nhoods[[x]], x] <- 1
+    # }
 
     if(!is.null(subset.row)){
-        neigh.exprs <- t(neighbour.model) %*% t(data.set[subset.row, , drop=FALSE])
+        neigh.exprs <- crossprod(nhoods, t(data.set[subset.row,]))
     } else{
-        neigh.exprs <- t(neighbour.model) %*% t(data.set)
+        neigh.exprs <- crossprod(nhoods, t(data.set))
     }
-    neigh.exprs <- t(apply(neigh.exprs, 2, FUN=function(XP) XP/colSums(neighbour.model)))
+    neigh.exprs <- t(apply(neigh.exprs, 2, FUN=function(XP) XP/colSums(nhoods)))
 
     if(is.null(subset.row)){
         rownames(neigh.exprs) <- rownames(data.set)

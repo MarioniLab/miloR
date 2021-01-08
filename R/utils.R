@@ -96,9 +96,9 @@
                                          lfc.threshold=NULL,
                                          overlap=1, subset.nhoods=NULL){
 
-    if(is.null(names(nhs))){
+    if(is.null(colnames(nhs))){
         warning("No names attributed to nhoods. Converting indices to names")
-        names(nhs) <- as.character(c(1:length(nhs)))
+        colnames(nhs) <- as.character(c(1:ncol(nhs)))
     }
 
     # assume order of nhs is the same as nhood.adj
@@ -106,14 +106,14 @@
         if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
             # force use of logicals for consistency
             if(mode(subset.nhoods) %in% c("character", "numeric")){
-                sub.log <- names(nhs) %in% subset.nhoods
+                sub.log <- colnames(nhs) %in% subset.nhoods
             } else{
                 sub.log <- subset.nhoods
             }
 
             nhood.adj <- nhood.adj[sub.log, sub.log]
 
-            if(length(is.da) == length(nhs)){
+            if(length(is.da) == ncol(nhs)){
                 nhs <- nhs[sub.log]
                 is.da <- is.da[sub.log]
                 da.res <- da.res[sub.log, ]
@@ -131,54 +131,18 @@
 
     ## check for concordant signs - assume order is the same as nhoods
     if(isFALSE(merge.discord)){
-        nonz.nhs <- colSums(nhood.adj) > 0
-        ll_names <- expand.grid(c(1:length(nhs[nonz.nhs])), c(1:length(nhs[nonz.nhs])))
-
-        concord.sign <- sapply(1:nrow(ll_names), function(x) sign(da.res[nonz.nhs, ][as.numeric(ll_names[x, 1]), ]$logFC) ==
-                                   sign(da.res[nonz.nhs,][as.numeric(ll_names[x, 2]), ]$logFC))
-        pairs_int <- sapply(which(concord.sign), function(x) length(intersect(nhs[nonz.nhs][[ll_names[x, 1]]], nhs[nonz.nhs][[ll_names[x, 2]]])))
-        lintersect <- rep(0, nrow(ll_names))
-        lintersect[concord.sign] <- pairs_int
-
-        ## Count as connected only nhoods with at least n shared cells
-        lintersect_filt <- ifelse(!concord.sign, 0, lintersect)
-        ll_names <- cbind(ll_names, lintersect_filt)
-
-        nhood.adj[nonz.nhs, nonz.nhs] <- ll_names[, 3]
+        # nonz.nhs <- colSums(nhood.adj) > 0
+        discord.sign <- sign(da.res[, 'logFC'] %*% t(da.res[, 'logFC'])) < 0
+        nhood.adj[discord.sign] <- 0
     }
 
     if(overlap > 1){
-        # loop over adj dimensions and mask out cells with insufficient overlapping cells
-        nonz.nhs <- colSums(nhood.adj) > 0
-        ll_names <- expand.grid(c(1:length(nhs[nonz.nhs])), c(1:length(nhs[nonz.nhs])))
-
-        keep_pairs <- sapply(1:nrow(ll_names) , function(x) any(nhs[nonz.nhs][[ll_names[x, 1]]] %in% nhs[nonz.nhs][[ll_names[x, 2]]]))
-        pairs_int <- sapply(which(keep_pairs), function(x) length(intersect(nhs[nonz.nhs][[ll_names[x, 1]]], nhs[nonz.nhs][[ll_names[x, 2]]])))
-        lintersect <- rep(0, nrow(ll_names))
-        lintersect[keep_pairs] <- pairs_int
-
-        ## Count as connected only nhoods with at least n shared cells
-        lintersect_filt <- ifelse(lintersect < overlap, 0, lintersect)
-        ll_names <- cbind(ll_names, lintersect_filt)
-
-        nhood.adj[nonz.nhs, nonz.nhs] <- ll_names[, 3]
+        nhood.adj@x[nhood.adj@x < overlap] <- 0
     }
 
     if(!is.null(lfc.threshold)){
-        nonz.nhs <- colSums(nhood.adj) > 0
-        ll_names <- expand.grid(c(1:length(nhs[nonz.nhs])), c(1:length(nhs[nonz.nhs])))
-
-        # set adjacency to 0 for nhoods with lfc < threshold
-        lfc.pass <- sapply(1:nrow(ll_names), function(x) (abs(da.res[nonz.nhs, ][as.numeric(ll_names[x, 1]), ]$logFC) >= lfc.threshold) &
-                               (abs(da.res[nonz.nhs, ][as.numeric(ll_names[x, 2]), ]$logFC) >= lfc.threshold))
-        pairs_int <- sapply(which(lfc.pass), function(x) length(intersect(nhs[nonz.nhs][[ll_names[x, 1]]], nhs[nonz.nhs][[ll_names[x, 2]]])))
-        lintersect[lfc.pass] <- pairs_int
-
-        ## Count as connected only nhoods with at least n shared cells
-        lintersect_filt <- ifelse(!lfc.pass, 0, lintersect)
-        ll_names <- cbind(ll_names, lintersect_filt)
-
-        nhood.adj[nonz.nhs, nonz.nhs] <- ll_names[, 3]
+        nhood.adj[,which(da.res$logFC < lfc.threshold)] <- 0
+        nhood.adj[which(da.res$logFC < lfc.threshold),] <- 0
     }
 
     # binarise
@@ -206,19 +170,11 @@
 #### nhood adjacency matrix function
 # Build adjacency matrix of overlap between neighbourhoods
 #' @importFrom gtools permutations
+#' @importFrom Matrix crossprod
 .build_nhood_adjacency <- function(nhoods, overlap=1){
-    nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = TRUE)
-    # keep_pairs <- sapply( 1:nrow(nms) , function(x) any(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]))
-    keep_pairs <- sapply( 1:nrow(nms), function(x) sum(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]) > overlap)
-
-    message("Calculating nhood adjacency")
-    pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) )
-    out <- rep(0, nrow(nms))
-    out[which(keep_pairs)] <- pairs_int
-
-    nh_intersect_mat <- matrix(out, nrow = length(nhoods), byrow = TRUE)
-    rownames(nh_intersect_mat) <- unique(nms[,1])
-    colnames(nh_intersect_mat) <- unique(nms[,2])
+    nh_intersect_mat <- crossprod(nhoods, nhoods)
+    rownames(nh_intersect_mat) <- colnames(nhoods)
+    colnames(nh_intersect_mat) <- colnames(nhoods)
     return(nh_intersect_mat)
 }
 
