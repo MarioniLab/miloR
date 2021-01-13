@@ -66,18 +66,23 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 }
 
 
-#' @importFrom Matrix Matrix crossprod
+#' @importFrom Matrix tcrossprod colSums t
 .calc_expression <- function(nhoods, data.set, subset.row=NULL){
     # neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
-    # 
+    #
     # for(x in seq_along(1:length(nhoods))){
     #     neighbour.model[nhoods[[x]], x] <- 1
     # }
 
     if(!is.null(subset.row)){
-        neigh.exprs <- crossprod(nhoods, t(data.set[subset.row,]))
+        if(is(data.set[subset.row,], "Matrix")){
+            neigh.exprs <- Matrix::tcrossprod(Matrix::t(nhoods), data.set[subset.row,])
+        }else{
+            print("now here")
+            neigh.exprs <- Matrix::tcrossprod(Matrix::t(nhoods), as(data.set[subset.row,], "dgeMatrix"))
+        }
     } else{
-        neigh.exprs <- crossprod(nhoods, t(data.set))
+        neigh.exprs <- tcrossprod(t(nhoods), data.set)
     }
     neigh.exprs <- t(apply(neigh.exprs, 2, FUN=function(XP) XP/colSums(nhoods)))
 
