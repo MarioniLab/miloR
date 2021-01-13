@@ -26,7 +26,7 @@
 #'
 #' library(igraph)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- buildGraph(m, k=20, d=10)
+#' milo <- buildGraph(t(m), k=20, d=10)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))

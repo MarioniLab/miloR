@@ -119,7 +119,7 @@ plotNhoodSizeHist(embryo_milo)
 _Milo_ leverages the variation in cell numbers between replicates for the same experimental condition to test for differential abundance. Therefore we have to count how many cells from each sample are in each neighbourhood. We need to use the cell metadata and specify which column contains the sample information.
 
 ```{r}
-embryo_milo <- countCells(embryo_milo, meta.data = data.frame(colData(embryo_milo)), sample="sample")
+embryo_milo <- countCells(embryo_milo, meta.data = as.data.frame(colData(embryo_milo)), sample="sample")
 ```
 
 This adds to the `Milo` object a $n \times m$ matrix, where $n$ is the number of neighbourhoods and $m$ is the number of experimental samples. Values indicate the number of cells from each sample counted in a neighbourhood. This count matrix will be used for DA testing.
