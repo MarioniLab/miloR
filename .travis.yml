@@ -3,13 +3,13 @@ cache: packages
 warnings_are_errors: false
 r_build_args: "--no-build-vignettes"
 r_check_args: "--no-build-vignettes --ignore-vignettes"
-install: travis_wait 20 R CMD check "${PKG_TARBALL}" --as-cran; CHECK_RET=$?
 
 r:
   - bioc-release
 
 r_packages:
     - covr
+    - knitr
 
 bioc_packages:
     - BiocCheck
