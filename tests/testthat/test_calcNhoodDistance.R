@@ -109,9 +109,9 @@ test_that("The list of matrices correspond to the same sizes as the neighbourhoo
                           function(X) nrow(X))
     expect_identical(return.cols, return.rows)
 
-    nhood.sizes <- lapply(nhoods(sim1.mylo), function(Q) length(Q) + 1)
-    expect_equal(nhood.sizes, return.cols)
-    expect_equal(nhood.sizes, return.rows)
+    nhood.sizes <- colSums(nhoods(sim1.mylo))
+    expect_equal(nhood.sizes, unlist(return.cols))
+    expect_equal(nhood.sizes, unlist(return.rows))
 })
 
 test_that("calcNhoodDistance produces identical output", {
@@ -132,9 +132,9 @@ test_that("calcNhoodDistance produces identical output", {
         return(out.dist)
     }
 
-    nhood.dists <- sapply(names(nhoods(sim1.mylo)),
-                          function(X) .test_calc_distance(reducedDim(sim1.mylo, "PCA")[c(as.numeric(X),
-                                                                                         unlist(nhoods(sim1.mylo)[[X]])), c(1:30),drop=FALSE]))
+    nhood.dists <- sapply(colnames(nhoods(sim1.mylo)),
+                          function(X) .test_calc_distance(reducedDim(sim1.mylo, "PCA")[nhoods(sim1.mylo)[, X] > 0,
+                                                                                       c(1:30),drop=FALSE]))
     names(nhood.dists) <- nhoodIndex(sim1.mylo)
     return.obj  <- nhoodDistances(calcNhoodDistance(sim1.mylo, d=30))
     expect_identical(length(nhood.dists), length(return.obj))
