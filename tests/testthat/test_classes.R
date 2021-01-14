@@ -98,7 +98,7 @@ test_that("Milo getters working as expected", {
     sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                     d=30,
                                     reduced_dims="PCA")
-    expect_type(nhoods(sim1.mylo), "sparseMatrix")
+    expect_s4_class(nhoods(sim1.mylo), "sparseMatrix")
 
     sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
     expect_equal(class(nhoodDistances(sim1.mylo)), "list")
@@ -107,7 +107,7 @@ test_that("Milo getters working as expected", {
     expect_s4_class(nhoodCounts(sim1.mylo), "Matrix")
 
     # check concordant dimensions for nhoods
-    expect_identical(length(nhoods(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
+    expect_identical(ncol(nhoods(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
 
     sim1.mylo <- calcNhoodExpression(sim1.mylo)
     expect_identical(ncol(nhoodExpression(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
@@ -122,8 +122,8 @@ test_that("Milo setters working as expected", {
     nhoodDistances(sim1.mylo) <- list()
     expect_equal(class(nhoodDistances(sim1.mylo)), "list")
 
-    nhoods(sim1.mylo) <- Matrix(sparse = TRUE)
-    expect_identical(nhoods(sim1.mylo), Matrix(sparse = TRUE))
+    nhoods(sim1.mylo) <- Matrix(0L, sparse = TRUE)
+    expect_identical(nhoods(sim1.mylo), Matrix(0L, sparse = TRUE))
 
     nhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(nhoodCounts(sim1.mylo)),
                                      nrow=nrow(nhoodCounts(sim1.mylo)))

@@ -60,7 +60,7 @@ countCells <- function(x, samples, meta.data=NULL){
     }
 
     # check the nhoods slot is populated
-    if(ncol(nhoods(x)) == 0){
+    if(ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1){
         stop("No neighbourhoods found. Please run makeNhoods() first.")
     }
 
