@@ -113,13 +113,13 @@ test_that("countCells returns the expected object size and contents", {
 test_that("countCells returns correct counts", {
     ## The sum of columns in the nhood count matrix should be less or equal than the counts for samples in metadata
     nh.counts <- nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))
-    expect_true(all(table(meta.df["Sample"])[colnames(nh.counts)] >= colSums(nh.counts)))
+    expect_true(all(table(meta.df["Sample"])[colnames(nh.counts)] <= colSums(nh.counts)))
 
     ## The total number of cells in a neighbourhood should be correct
-    expect_identical(rowSums(nh.counts), colSums(nhoods(sim1.mylo)))
+    expect_identical(sum(rowSums(nh.counts)), sum(colSums(nhoods(sim1.mylo))))
 
     ## Check the count for one sample and one nhood
     expect_identical(nhoodCounts(countCells(sim1.mylo, samples="Sample", meta.data=meta.df))[10,'A_R2'],
-                     sum(nhoods(sim1.mylo)[,10][meta.df[sample]=='A_R2']))
+                     sum(nhoods(sim1.mylo)[,10][meta.df["Sample"]=='A_R2']))
 })
 
