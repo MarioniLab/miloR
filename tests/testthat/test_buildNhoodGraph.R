@@ -36,6 +36,7 @@ test_that("Expected errors on missing input", {
 
 test_that("Code produced identical output", {
     library(igraph)
+    library(gtools)
     set.seed(42)
     overlap <- 1
     traj_milo <- suppressWarnings(makeNhoods(traj_milo, prop = 0.1, k = 10, d=30, refined = TRUE))
@@ -45,18 +46,14 @@ test_that("Code produced identical output", {
     nhoods <- nhoods(traj_milo)
 
     ## Make igraph object
-    nms <- permutations(n = length(nhoods), v = names(nhoods), r = 2, repeats.allowed = TRUE)
+    nms <- permutations(n = ncol(nhoods), v = colnames(nhoods), r = 2, repeats.allowed = TRUE)
     # keep_pairs <- sapply( 1:nrow(nms) , function(x) any(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]))
-    keep_pairs <- sapply( 1:nrow(nms), function(x) sum(nhoods[[nms[x,1]]] %in% nhoods[[ nms[x,2] ]]) > overlap)
+    nh_intersect_mat <- Matrix::crossprod(nhoods)
+    nh_intersect_mat[nh_intersect_mat < overlap] <- 0
 
     message("Calculating nhood adjacency....")
-    pairs_int <- sapply( which(keep_pairs), function(x) length( intersect( nhoods[[nms[x,1]]], nhoods[[ nms[x,2] ]]) ) )
-    out <- rep(0, nrow(nms))
-    out[which(keep_pairs)] <- pairs_int
-
-    nh_intersect_mat <- matrix(out, nrow = length(nhoods), byrow = TRUE)
-    rownames(nh_intersect_mat) <- unique(nms[,1])
-    colnames(nh_intersect_mat) <- unique(nms[,2])
+    rownames(nh_intersect_mat) <- colnames(nhoods)
+    colnames(nh_intersect_mat) <- colnames(nhoods)
 
     ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
     nhood_sizes <- sapply(nhoods(traj_milo), length)
@@ -93,8 +90,12 @@ test_that("Overlap reduces edge connections", {
     traj_milo <- buildGraph(traj_milo, k = 10, d = 30)
     traj_milo <- suppressWarnings(makeNhoods(traj_milo, prop = 0.3, k = 10, d=30, refined = TRUE))
 
+    overlap <- 1
     full.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=overlap))
-    sub.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=1500))
+    sub.graph <- nhoodGraph(buildNhoodGraph(traj_milo, overlap=150))
+
+    expect_true(length(E(full.graph)) > length(E(sub.graph)))
+    expect_equal(length(V(full.graph)), length(V(sub.graph)))
 })
 
 

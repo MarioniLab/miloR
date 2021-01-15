@@ -24,8 +24,7 @@
 #' Only used for the k-distance weighting.
 #'
 #' @details Each neighbourhood is weighted according to the weighting scheme
-#' defined. Vertex and edge use the respective graph connectivity measures
-#' of the neighbourhoods, k-distance uses the distance to the kth nearest neighbour
+#' defined. k-distance uses the distance to the kth nearest neighbour
 #' of the index vertex, while neighbour-distance uses the average within-neighbourhood
 #' Euclidean distance in reduced dimensional space. The frequency-weighted version of the
 #' BH method is then applied to the p-values, as in \code{cydar}.
@@ -41,10 +40,10 @@ NULL
 
 
 #' @export
-#' @importFrom igraph induced_subgraph vertex_connectivity edge_connectivity
+#' @importFrom igraph induced_subgraph
 #' @importFrom Matrix rowMeans
 #' @importFrom stats dist
-graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
+graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='k-distance', reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
     # Discarding NA pvalues.
     haspval <- !is.na(pvalues)
@@ -62,22 +61,11 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
         weighting <- weighting[1]
     }
 
-    if(weighting %in% c("vertex", "edge")){
-        # define the subgraph for each neighborhood then calculate the connectivity for each
-        # this latter computation is quite slow - can it be sped up?
-        # then loop over these sub-graphs to calculate the connectivity
-        subgraphs <- lapply(1:length(x.nhoods[haspval]),
-                            FUN=function(X) induced_subgraph(graph, x.nhoods[haspval][[X]]))
-        if(weighting == "vertex"){
-            t.connect <- lapply(subgraphs, FUN=function(EG) vertex_connectivity(EG))
-        } else{
-            t.connect <- lapply(subgraphs, FUN=function(EG) edge_connectivity(EG))
-        }
-    } else if(weighting == "neighbour-distance"){
+    if(weighting == "neighbour-distance"){
         if(!is.null(reduced.dimensions)){
-            t.connect <- lapply(1:length(x.nhoods[haspval]),
+            t.connect <- sapply(colnames(x.nhoods)[haspval],
                                 FUN=function(PG) {
-                                    x.pcs <- reduced.dimensions[x.nhoods[haspval][[PG]], ]
+                                    x.pcs <- reduced.dimensions[x.nhoods[, PG] > 0, ]
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})

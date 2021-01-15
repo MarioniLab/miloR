@@ -172,20 +172,11 @@
 #' @importFrom gtools permutations
 #' @importFrom Matrix crossprod
 .build_nhood_adjacency <- function(nhoods, overlap=1){
-    nh_intersect_mat <- crossprod(nhoods, nhoods)
+    nh_intersect_mat <- Matrix::crossprod(nhoods)
+    nh_intersect_mat[nh_intersect_mat < overlap] <- 0
+
     rownames(nh_intersect_mat) <- colnames(nhoods)
     colnames(nh_intersect_mat) <- colnames(nhoods)
     return(nh_intersect_mat)
 }
 
-
-#' @importFrom bit as.bit
-.build_nhood_adjacency_bits <- function(cells, nhoods, overlap=1){
-    # each neighbourhood is a bit-vector with length(cells)
-    # cell sharing is then determined using bit-wise operations
-    bit.list <- sapply(1:length(nhoods), FUN=function(B) cells %in% c(as.numeric(nhoods[[B]]), names(nhoods)[B]))
-    bit.adj.list <- lapply(bit.list, FUN=function(BX) unlist(lapply(bit.list, FUN=function(BK) sum(BX & BK))))
-    bit.mat <- do.call(cbind, bit.adj.list)
-
-    return(bit.mat)
-}

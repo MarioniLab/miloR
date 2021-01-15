@@ -26,7 +26,7 @@
 #'
 #' library(igraph)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- buildGraph(m, k=20, d=10)
+#' milo <- buildGraph(t(m), k=20, d=10)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
@@ -43,7 +43,7 @@ NULL
 
 #' @export
 #' @rdname countCells
-#' @importFrom Matrix Matrix crossprod
+#' @importFrom Matrix Matrix
 #' @importClassesFrom S4Vectors DataFrame
 countCells <- function(x, samples, meta.data=NULL){
 
@@ -60,7 +60,7 @@ countCells <- function(x, samples, meta.data=NULL){
     }
 
     # check the nhoods slot is populated
-    if(ncol(nhoods(x)) == 0){
+    if(ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1){
         stop("No neighbourhoods found. Please run makeNhoods() first.")
     }
 
@@ -71,23 +71,24 @@ countCells <- function(x, samples, meta.data=NULL){
         samp.ids <- unique(samples)
     }
 
-    n.hoods <- ncol(nhoods(x))
-    
+    num.hoods <- ncol(nhoods(x))
+
     ## Convert meta data to binary dummies in sparse matrix
     dummy.meta.data <- Matrix(data=0, nrow=nrow(meta.data), ncol = length(samp.ids), sparse = TRUE)
     colnames(dummy.meta.data) <- samp.ids
     rownames(dummy.meta.data) <- rownames(meta.data)
-    for (s in samp.ids){
-        s.ixs <- which(meta.data[samples]==s)
-        dummy.meta.data[s.ixs, as.character(s)] <- 1
+    for (s in seq_along(samp.ids)){
+        i.s <- samp.ids[s]
+        s.ixs <- which(meta.data[samples]==i.s)
+        dummy.meta.data[s.ixs, as.character(i.s)] <- 1
     }
-    
+
     message("Counting cells in neighbourhoods")
-    count.matrix <- crossprod(nhoods(x), dummy.meta.data)
-    
+    count.matrix <- Matrix::t(nhoods(x)) %*% dummy.meta.data
+
     # add to the object
-    rownames(count.matrix) <- c(1:n.hoods)
+    rownames(count.matrix) <- c(1:num.hoods)
     nhoodCounts(x) <- count.matrix
-    
+
     return(x)
 }

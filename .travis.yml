@@ -9,6 +9,7 @@ r:
 
 r_packages:
     - covr
+    - knitr
 
 bioc_packages:
     - BiocCheck

@@ -167,8 +167,9 @@ test_that("Row subsetting returns expected number of results", {
 })
 
 test_that("Nhood subsetting returns without error", {
-    all.nhoods <- nhoodIndex(sim1.mylo)
+    all.nhoods <- as.character(nhoodIndex(sim1.mylo))
     n.nhoods <- length(all.nhoods)
+    set.seed(42)
     sub.nhoods <- sample(unlist(all.nhoods), size=floor(n.nhoods/1.75))
 
     expect_error(suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res,

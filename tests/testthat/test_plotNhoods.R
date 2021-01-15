@@ -130,7 +130,7 @@ test_that("Subsetting produces the expected number of neighbourhoods", {
 
 test_that("Different input types produce the same subsetting", {
   subset_numeric <- 1:10
-  subset_logical <- c(rep(TRUE, 10), rep(FALSE, length(nhoods(sim1.mylo))-10))
+  subset_logical <- c(rep(TRUE, 10), rep(FALSE, ncol(nhoods(sim1.mylo))-10))
   p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
                              subset.nhoods = subset_numeric)
   p1 <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),

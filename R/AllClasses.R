@@ -14,7 +14,7 @@
 #' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
 #'
 
-#' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
+#' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix ddiMatrix sparseMatrix
 setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix",
                                   "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
