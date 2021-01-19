@@ -14,6 +14,12 @@
 #' DA for the purposes of aggregating across concorantly DA neighbourhoods.
 #' @param assay A character scalar determining which \code{assays} slot to extract from the
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
+#' @param aggregate.samples logical indicating wheather the expression values for cells in the same sample
+#' and neighbourhood group should be merged for DGE testing. This allows to perform testing exploiting the replication structure
+#' in the experimental design, rather than treating single-cells as independent replicates. The function used for aggregation depends on the
+#' selected gene expression assay: if \code{assay="counts"} the expression values are summed, otherwise we take the mean.
+#' @param sample_col a character scalar indicating the column in the colData storing sample information
+#' (only relevant if \code{aggregate.samples==TRUE})
 #' @param overlap A scalar integer that determines the number of cells that must
 #' overlap between adjacent neighbourhoods for merging.
 #' @param lfc.threshold A scalar that determines the absolute log fold change above
@@ -38,12 +44,13 @@
 #' adjacency matrix if already present.
 #'
 #' @details
-#' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
-#' least \code{overlap} number of cells, and 2) the DA log fold change sign is concordant.
+#' Louvain clustering is applied to the neighbourhood graph. This graph is first modified
+#' based on two criteria: 1) neighbourhoods share at least \code{overlap} number of cells,
+#' and 2) the DA log fold change sign is concordant.
 #' This behaviour can be modulated by setting \code{overlap} to be more or less stringent.
 #' Additionally, a threshold on the log fold-changes can be set, such that \code{lfc.threshold}
-#' is required to merge adjacent neighbourhoods. Note: adjacent neighbourhoods will never be
-#' merged with opposite signs.
+#' is required to retain edges between adjacent neighbourhoods. Note: adjacent neighbourhoods will
+#' never be merged with opposite signs.
 #'
 #' Using a one vs. all approach, each aggregated group of cells is compared to all others
 #' using the single-cell log normalized gene expression with a GLM
@@ -59,8 +66,8 @@
 #' aggregated neighbourhood groups per single-cell and marker gene results, respectively.
 #'
 #' \emph{Warning}: If all neighbourhoods are grouped together, then it is impossible to
-#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will spit
-#' out a warning and return \code{NULL}.
+#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will return
+#' a warning and return \code{NULL}.
 #'
 #' @author Mike Morgan & Emma Dann
 #'
@@ -104,6 +111,7 @@ NULL
 #' @importFrom stats model.matrix as.formula
 #' @importFrom Matrix colSums
 findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
+                             aggregate.samples=FALSE, sample_col=NULL,
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
                              return.groups=FALSE, subset.nhoods=NULL,
@@ -129,6 +137,10 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         })
     }
 
+    if (isTRUE(aggregate.samples) & is.null(sample_col)) {
+        stop("if aggregate.samples is TRUE, the column storing sample information must be specified by setting 'sample_col'")
+    }
+
     n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
     if(!is.na(n.da) & n.da == 0){
         stop("No DA neighbourhoods found")
@@ -140,7 +152,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
 
-    if((ncol(nhoodAdjacency(x)) == length(nhoods(x))) & isFALSE(compute.new)){
+    if((ncol(nhoodAdjacency(x)) == ncol(nhoods(x))) & isFALSE(compute.new)){
         message("nhoodAdjacency found - using for nhood grouping")
         nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
                                                   nhood.adj=nhoodAdjacency(x),
@@ -151,12 +163,14 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                                   overlap=overlap,
                                                   subset.nhoods=subset.nhoods)
     } else{
+        message("Computing nhood adjacency")
         nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                               da.res=da.res,
                                               is.da=da.res$SpatialFDR < da.fdr,
                                               merge.discord=merge.discord,
-                                              overlap=overlap,
                                               lfc.threshold=lfc.threshold,
+                                              overlap=overlap,
+                                              cells=seq_len(ncol(x)),
                                               subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     }
 
@@ -167,9 +181,30 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
+    # do we want to allow cells to be members of multiple groups? This will create
+    # chaos for the LM as there will be a dependency structure comparing 2 different
+    # groups that contain overlapping cells.
+    # this approach means that the latter group takes precedent.
+    # maybe exclude the cells that fall into separate groups?
+
     for(i in seq_along(nhood.gr)){
-        nhood.x <- nhs.da.gr == nhood.gr[i]
-        fake.meta[unlist(nhoods(x)[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        nhood.x <- names(which(nhs.da.gr == nhood.gr[i]))
+
+        # get the nhoods
+        nhs <- nhoods(x)
+        if(!is.null(subset.nhoods)){
+            nhs <- nhs[,subset.nhoods]
+        }
+
+        nhood.gr.cells <- rowSums(nhs[, nhood.x, drop=FALSE]) > 0
+        ## set group to NA if a cell was already assigned to a group
+        fake.meta[nhood.gr.cells,"Nhood.Group"] <- ifelse(is.na(fake.meta[nhood.gr.cells,"Nhood.Group"]), nhood.gr[i], NA)
+        #
+        # if(!any(is.na(fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group))){
+        #     fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
+        #     } else{
+        #         fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group <- nhood.gr[i]
+        #     }
     }
 
     # only compare against the other DA neighbourhoods
@@ -194,6 +229,51 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         }
     }
 
+    if (isTRUE(return.groups)) {
+        group.meta <- fake.meta
+    }
+
+
+    ## Aggregate expression by sample
+    # To avoid treating cells as independent replicates
+    if (isTRUE(aggregate.samples)) {
+        fake.meta[,"sample_id"] <- colData(x)[[sample_col]]
+        fake.meta[,'sample_group'] <- paste(fake.meta[,"sample_id"], fake.meta[,"Nhood.Group"], sep="_")
+
+        sample_gr_mat <- matrix(0, nrow=nrow(fake.meta), ncol=length(unique(fake.meta$sample_group)))
+        colnames(sample_gr_mat) <- unique(fake.meta$sample_group)
+        rownames(sample_gr_mat) <- rownames(fake.meta)
+
+        for (s in colnames(sample_gr_mat)) {
+            sample_gr_mat[which(fake.meta$sample_group == s),s] <- 1
+        }
+
+        ## Summarise expression by sample
+        exprs_smp <- matrix(0, nrow=nrow(exprs), ncol=ncol(sample_gr_mat))
+        if (assay=='counts') {
+            summFunc <- rowSums
+        } else {
+            summFunc <- rowMeans
+        }
+
+        for (i in 1:ncol(sample_gr_mat)){
+            if (sum(sample_gr_mat[,i]) > 1) {
+                exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])
+            } else {
+                exprs_smp[,i] <- exprs[,which(sample_gr_mat[,i] > 0)]
+            }
+        }
+        rownames(exprs_smp) <- rownames(exprs)
+        colnames(exprs_smp) <- colnames(sample_gr_mat)
+
+        smp_meta <- unique(fake.meta[,c("sample_group","Nhood.Group")])
+        rownames(smp_meta) <- smp_meta[,"sample_group"]
+
+        fake.meta <- smp_meta
+        exprs <- exprs_smp
+    }
+
+
     for(i in seq_along(nhood.gr)){
         i.meta <- fake.meta
         i.meta$Test <- "Ref"
@@ -215,6 +295,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         } else if(assay == "counts"){
             i.res <- .perform_counts_dge(exprs, i.model, model.contrasts=i.contrast,
                                          gene.offset=gene.offset)
+            colnames(i.res)[ncol(i.res)] <- "adj.P.Val"
         } else{
             warning("Assay type is not counts or logcounts - assuming (log)-normal distribution. Use these results at your peril")
             i.res <- .perform_lognormal_dge(exprs, i.model,
@@ -235,7 +316,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     marker.df$GeneID <- rownames(i.res)
 
     if(isTRUE(return.groups)){
-        out.list <- list("groups"=fake.meta, "dge"=marker.df)
+        out.list <- list("groups"=group.meta, "dge"=marker.df)
         return(out.list)
     }else{
         return(marker.df)

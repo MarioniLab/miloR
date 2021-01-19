@@ -1,8 +1,7 @@
 #' The Milo container class
 #'
 #' @slot graph An igraph object that represents the kNN graph
-#' @slot nhoods A list of neighbourhoods as graph indices and their constituent
-#' single cells
+#' @slot nhoods A CxN binary sparse matrix mapping cells to the neighbourhoods they belong to
 #' @slot nhoodDistances An list of PxN sparse matrices of Euclidean distances
 #' between vertices in each neighbourhood, one matrix per neighbourhood
 #' @slot nhoodCounts An NxM sparse matrix of cells counts in each neighourhood
@@ -15,8 +14,8 @@
 #' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
 #'
 
-#' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix sparseMatrix
-setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix",
+#' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix ddiMatrix sparseMatrix
+setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix",
                                   "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 setClassUnion("listORNULL", c("list", "NULL"))
@@ -29,7 +28,7 @@ setClass("Milo",
     contains = "SingleCellExperiment",
     slots=c(
         graph = "list", # this should be a list or an igraph object
-        nhoods = "list", # this should be a list
+        nhoods = "matrixORMatrix", # this should be a matrix
         nhoodDistances = "listORNULL", # this should be a matrix
         nhoodCounts = "matrixORMatrix", # this should be a matrix
         nhoodIndex = "list", # used to store nhood indices
@@ -40,7 +39,7 @@ setClass("Milo",
         ),
     prototype = list(
         graph = list(),
-        nhoods = list(),
+        nhoods = Matrix::Matrix(0L, sparse=TRUE),
         nhoodDistances = NULL,
         nhoodCounts = Matrix::Matrix(0L, sparse=TRUE),
         nhoodIndex = list(),

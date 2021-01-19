@@ -20,13 +20,13 @@
 #' @return A \code{\linkS4class{Milo}} object containing a counts matrix in the
 #' \code{nhoodCounts} slot.
 #'
-#' @author Mike Morgan
+#' @author Mike Morgan, Emma Dann
 #'
 #' @examples
 #'
 #' library(igraph)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- buildGraph(m, k=20, d=10)
+#' milo <- buildGraph(t(m), k=20, d=10)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
@@ -60,7 +60,7 @@ countCells <- function(x, samples, meta.data=NULL){
     }
 
     # check the nhoods slot is populated
-    if(length(nhoods(x)) == 0){
+    if(ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1){
         stop("No neighbourhoods found. Please run makeNhoods() first.")
     }
 
@@ -71,29 +71,24 @@ countCells <- function(x, samples, meta.data=NULL){
         samp.ids <- unique(samples)
     }
 
-    n.hoods <- length(nhoods(x))
-    message(paste0("Setting up matrix with ", n.hoods, " neighbourhoods"))
-    count.matrix <- Matrix(0L, ncol=length(samp.ids), nrow=n.hoods, sparse=TRUE)
-    colnames(count.matrix) <- samp.ids
+    num.hoods <- ncol(nhoods(x))
 
-    message("Counting cells in neighbourhoods")
-    for(i in seq_along(1:n.hoods)){
-        v.i <- nhoods(x)[[i]]
-        for(j in seq_along(1:length(samp.ids))){
-            j.s <- samp.ids[j]
-
-            if(is.null(meta.data)){
-                # samples is a vector of N cells
-                j.s.vertices <- intersect(v.i, names(samples[samples == j.s]))
-            } else{
-                j.s.vertices <- intersect(v.i, which(meta.data[, samples] == j.s))
-            }
-            count.matrix[i, j] <- length(j.s.vertices)
-        }
+    ## Convert meta data to binary dummies in sparse matrix
+    dummy.meta.data <- Matrix(data=0, nrow=nrow(meta.data), ncol = length(samp.ids), sparse = TRUE)
+    colnames(dummy.meta.data) <- samp.ids
+    rownames(dummy.meta.data) <- rownames(meta.data)
+    for (s in seq_along(samp.ids)){
+        i.s <- samp.ids[s]
+        s.ixs <- which(meta.data[samples]==i.s)
+        dummy.meta.data[s.ixs, as.character(i.s)] <- 1
     }
 
+    message("Counting cells in neighbourhoods")
+    count.matrix <- Matrix::t(nhoods(x)) %*% dummy.meta.data
+
     # add to the object
-    rownames(count.matrix) <- c(1:n.hoods)
+    rownames(count.matrix) <- c(1:num.hoods)
     nhoodCounts(x) <- count.matrix
+
     return(x)
 }

@@ -78,6 +78,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
         } else if(!any(reducedDimNames(x) %in% c(reduced.dim))){
             # assume logcounts is present?
             message("Computing PCA - name not in slot")
@@ -85,6 +86,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
         }
     } else if(is.matrix(x) & isTRUE(transposed)){
         # assume input are PCs - the expression data is non-sensical here
@@ -110,12 +112,13 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
         }
 
         x <- Milo(x)
     }
 
-    .buildGraph(x, k=k, d=d, get.distance=get.distance,
+    .buildGraph(x, k=k, d=d, get.distance=get.distance, reduced.dim=reduced.dim,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 

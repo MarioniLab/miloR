@@ -9,13 +9,14 @@ Description: This package performs single-cell differential abundance testing by
     modelling cell states as neighbourhoods on a nearest neighbour graph.
 License: GPL-3
 Encoding: UTF-8
+URL: https://marionilab.github.io/miloR
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: edgeR
 Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats, stringr,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
         matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr,
-        ggrepel, ggbeeswarm
+        ggrepel, ggbeeswarm, bit, BiocGenerics
 Suggests: 
     testthat,
     MASS,
@@ -27,8 +28,9 @@ Suggests:
     rmarkdown,
     uwot,
     Seurat,
-    BiocStyle
-RoxygenNote: 7.1.1
+    BiocStyle,
+    MouseGastrulationData
+RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
 Collate: 

@@ -154,101 +154,6 @@ test_that("Input 'none' produces NAs", {
     expect_true(sum(is.na(out.p)) == length(out.p))
 })
 
-test_that("graphSpatialFDR produces reproducible results for vertex connectivity weighting", {
-    # calculate spatial FDR here using the actual code
-    da.ref <- testNhoods(sim1.mylo, design=~Condition,
-                                 fdr.weighting="none",
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-
-    nhoods <- nhoods(sim1.mylo)
-    graph <- graph(sim1.mylo)
-
-    pvalues <- da.ref[order(da.ref$Nhood), ]$PValue
-    haspval <- !is.na(pvalues)
-    if (!all(haspval)) {
-        coords <- coords[haspval, , drop=FALSE]
-        pvalues <- pvalues[haspval]
-    }
-    subgraphs <- lapply(1:length(nhoods[haspval]),
-                        FUN=function(X) induced_subgraph(graph, nhoods[haspval][[X]]))
-    t.connect <- lapply(subgraphs, FUN=function(EG) vertex_connectivity(EG))
-    w <- 1/unlist(t.connect)
-    w[is.infinite(w)] <- 0
-
-    # Computing a density-weighted q-value.
-    o <- order(pvalues)
-    pvalues <- pvalues[o]
-    w <- w[o]
-
-    adjp <- numeric(length(o))
-    adjp[o] <- rev(cummin(rev(sum(w)*pvalues/cumsum(w))))
-    adjp <- pmin(adjp, 1)
-
-    if (!all(haspval)) {
-        refp <- rep(NA_real_, length(haspval))
-        refp[haspval] <- adjp
-        adjp <- refp
-    }
-
-    func.fdr <- graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
-                                graph=graph(sim1.mylo),
-                                weighting="vertex",
-                                pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
-                                indices=nhoodIndex(sim1.mylo),
-                                distances=nhoodDistances(sim1.mylo),
-                                reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
-
-    expect_equal(func.fdr, adjp)
-})
-
-
-test_that("graphSpatialFDR produces reproducible results for edge connectivity weighting", {
-    # calculate spatial FDR here using the actual code
-    da.ref <- testNhoods(sim1.mylo, design=~Condition,
-                                 fdr.weighting="none",
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-
-    nhoods <- nhoods(sim1.mylo)
-    graph <- graph(sim1.mylo)
-
-    pvalues <- da.ref[order(da.ref$Nhood), ]$PValue
-    haspval <- !is.na(pvalues)
-    if (!all(haspval)) {
-        coords <- coords[haspval, , drop=FALSE]
-        pvalues <- pvalues[haspval]
-    }
-    subgraphs <- lapply(1:length(nhoods[haspval]),
-                        FUN=function(X) induced_subgraph(graph, nhoods[haspval][[X]]))
-    t.connect <- lapply(subgraphs, FUN=function(EG) edge_connectivity(EG))
-    w <- 1/unlist(t.connect)
-    w[is.infinite(w)] <- 0
-
-    # Computing a density-weighted q-value.
-    o <- order(pvalues)
-    pvalues <- pvalues[o]
-    w <- w[o]
-
-    adjp <- numeric(length(o))
-    adjp[o] <- rev(cummin(rev(sum(w)*pvalues/cumsum(w))))
-    adjp <- pmin(adjp, 1)
-
-    if (!all(haspval)) {
-        refp <- rep(NA_real_, length(haspval))
-        refp[haspval] <- adjp
-        adjp <- refp
-    }
-
-    func.fdr <- graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
-                                graph=graph(sim1.mylo),
-                                weighting="edge",
-                                pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
-                                indices=nhoodIndex(sim1.mylo),
-                                distances=nhoodDistances(sim1.mylo),
-                                reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
-
-    expect_equal(func.fdr, adjp)
-})
-
 
 test_that("graphSpatialFDR produces reproducible results for neighbour-distance weighting", {
     # calculate spatial FDR here using the actual code
@@ -266,9 +171,9 @@ test_that("graphSpatialFDR produces reproducible results for neighbour-distance 
         coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
     }
-    t.connect <- lapply(1:length(nhoods[haspval]),
+    t.connect <- sapply(colnames(nhoods)[haspval],
                         FUN=function(PG) {
-                            x.pcs <- reduced.dimensions[nhoods[haspval][[PG]], ]
+                            x.pcs <- reduced.dimensions[nhoods[, PG] > 0, ]
                             x.euclid <- as.matrix(dist(x.pcs))
                             x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                             return(x.distdens)})

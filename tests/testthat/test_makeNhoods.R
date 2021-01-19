@@ -118,7 +118,7 @@ test_that("Refined sampling strictly returns equal to or fewer neighbourhoods th
     sim1.mylo <- buildGraph(sim1.mylo, k=21)
     set.seed(101)
     random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE))
-    expect_true(length(nhoods(makeNhoods(sim1.mylo, refined=FALSE))) <= length(random.vertices))
+    expect_true(ncol(nhoods(makeNhoods(sim1.mylo, refined=TRUE))) <= ncol(random.vertices))
 })
 
 

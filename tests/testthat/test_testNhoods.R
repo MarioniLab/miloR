@@ -147,21 +147,6 @@ test_that("Identical results are produced with identical input", {
     nd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
                           design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(nd.ref1, nd.ref2)
-
-    #edge
-    ec.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    ec.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    expect_identical(ec.ref1, ec.ref2)
-
-    #vertex
-    vc.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    vc.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-
-    expect_identical(vc.ref1, vc.ref2)
 })
 
 test_that("testNhoods produces reproducible results with equivalent input", {

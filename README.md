@@ -1,18 +1,28 @@
 # miloR
-R package implementation of milo for testing differentially abundant neighbourhoods
+_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets. For more details, read [our preprint](https://www.biorxiv.org/content/10.1101/2020.11.23.393769v1). 
 
-[![Build Status](https://travis-ci.com/MikeDMorgan/miloR.svg?branch=master)](https://travis-ci.com/MikeDMorgan/miloR)
+<p align="center">
+  <img src="docs/milo_schematic.png" width="500">
+</p>
 
-[![Coverage](https://codecov.io/gh/MikeDMorgan/miloR/branch/master/graph/badge.svg)](https://codecov.io/gh/MikeDMorgan/miloR)
+[![Build Status](https://travis-ci.com/MarioniLab/miloR.svg?branch=master)](https://travis-ci.com/MarioniLab/miloR)
+[![Coverage](https://codecov.io/gh/MarioniLab/miloR/branch/master/graph/badge.svg)](https://codecov.io/gh/MarioniLab/miloR)
 
 
-To install `miloR` directly from GitHub:
+### Installation
 
-```devtools::install_github("MikeDMorgan/miloR") ```
+```
+## Install development version
+devtools::install_github("MarioniLab/miloR") 
+```
 
-For questions please create a new issue in this repository.
+### Tutorials
 
-Examples on how to use `miloR` can be found in the [vignettes directory](https://github.com/MikeDMorgan/miloR/tree/master/vignettes).
+1. [Basic Milo example on simulated dataset](https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_demo.html)
+2. [Milo example on mouse gastrulation dataset](https://raw.githack.com/MarioniLab/miloR/use_pkgdown/docs/articles/milo_gastrulation.html): this includes a demo for downstream analysis functions.
+3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb)
+
+The vignettes and the reference manual can be browsed at https://marionilab.github.io/miloR/.
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
@@ -44,6 +54,9 @@ milo.res <- testNhoods(milo.obj, design=~Condition, design.df=milo.design)
 head(milo.res)
 ```
 
+### Support
+
+For any question, feature request or bug report please create a new issue in this repository.
 
 
 

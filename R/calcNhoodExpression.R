@@ -4,8 +4,8 @@
 #' Milo object stored in the assays slot. Neighbourhood expression data are
 #' stored in a new slot \code{nhoodExpression}.
 #'
-#' @param x A \code{Milo} object with \code{nhoods} slot populated, alternatively a list
-#' containing a vector of cell indices; one per neighbourhood.
+#' @param x A \code{Milo} object with \code{nhoods} slot populated, alternatively a NxM indicator matrix
+#' of N cells and M nhoods.
 #' @param assay A character scalar that describes the assay slot to use for calculating neighbourhood expression.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
@@ -40,7 +40,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 
     if(is(x, "Milo")){
         # are neighbourhoods calculated?
-        if(length(nhoods(x)) == 0){
+        if(ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1){
             stop("No neighbourhoods found - run makeNhoods first")
         }
 
@@ -51,7 +51,7 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
             nhoodExpression(x) <- n.exprs
             return(x)
         }
-    } else if(is.list(x)){
+    } else if(is(x, "Matrix")){
         if(is.null(exprs)){
             stop("No expression data found. Please specific a gene expression matrix to exprs")
         } else{
@@ -66,20 +66,24 @@ calcNhoodExpression <- function(x, assay="logcounts", subset.row=NULL, exprs=NUL
 }
 
 
-#' @import Matrix
+#' @importFrom Matrix tcrossprod colSums t
 .calc_expression <- function(nhoods, data.set, subset.row=NULL){
-    neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
-
-    for(x in seq_along(1:length(nhoods))){
-        neighbour.model[nhoods[[x]], x] <- 1
-    }
+    # neighbour.model <- matrix(0L, ncol=length(nhoods), nrow=ncol(data.set))
+    #
+    # for(x in seq_along(1:length(nhoods))){
+    #     neighbour.model[nhoods[[x]], x] <- 1
+    # }
 
     if(!is.null(subset.row)){
-        neigh.exprs <- t(neighbour.model) %*% t(data.set[subset.row, , drop=FALSE])
+        if(is(data.set[subset.row,], "Matrix")){
+            neigh.exprs <- Matrix::tcrossprod(Matrix::t(nhoods), data.set[subset.row,])
+        }else{
+            neigh.exprs <- Matrix::tcrossprod(Matrix::t(nhoods), as(data.set[subset.row,], "dgeMatrix"))
+        }
     } else{
-        neigh.exprs <- t(neighbour.model) %*% t(data.set)
+        neigh.exprs <- Matrix::tcrossprod(Matrix::t(nhoods), data.set)
     }
-    neigh.exprs <- t(apply(neigh.exprs, 2, FUN=function(XP) XP/colSums(neighbour.model)))
+    neigh.exprs <- t(apply(neigh.exprs, 2, FUN=function(XP) XP/colSums(nhoods)))
 
     if(is.null(subset.row)){
         rownames(neigh.exprs) <- rownames(data.set)

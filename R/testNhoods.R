@@ -32,7 +32,24 @@
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
 #'
-#' @return A \code{data.frame} of model results.
+#' @return A \code{data.frame} of model results, which contain:
+#' \describe{
+#' \item{\code{logFC}:}{Numeric, the log fold change between conditions, or for
+#' an ordered/continous variable the per-unit
+#' change in (normalized) cell counts per unit-change in experimental variable.}
+#' \item{\code{logCPM}:}{Numeric, the log counts per million (CPM), which equates
+#' to the average log normalized cell counts
+#' across all samples.}
+#' \item{\code{F}:}{Numeric, the F-test statistic from the quali-likelihood F-test
+#' implemented in \code{edgeR}.}
+#' \item{\code{PValue}:}{Numeric, the unadjusted p-value from the quasi-likelihood F-test.}
+#' \item{\code{FDR}:}{Numeric, the Benjamini & Hochberg false discovery weight
+#' computed from \code{p.adjust}.}
+#' \item{\code{Nhood}:}{Numeric, a unique identifier corresponding to the specific
+#' graph neighbourhood.}
+#' \item{\code{SpatialFDR}:}{Numeric, the weighted FDR, computed to adjust for spatial
+#' graph overlaps between neighbourhoods. For details see \link{graphSpatialFDR}.}
+#' }
 #'
 #' @author Mike Morgan
 #'

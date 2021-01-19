@@ -1,5 +1,5 @@
 ---
-title: "Differential abundance testing with _Milo_"
+title: "Differential abundance testing with Milo"
 author:
   - Emma Dann
   - Mike Morgan
@@ -157,7 +157,7 @@ plotNhoodSizeHist(traj_milo)
 Now we have to count how many cells from each sample are in each neighbourhood. We need to use the cell metadata and specify which column contains the sample information.
 
 ```{r}
-traj_milo <- countCells(traj_milo, meta.data = data.frame(colData(traj_milo)), sample="Sample")
+traj_milo <- countCells(traj_milo, meta.data = data.frame(colData(traj_milo)), samples="Sample")
 ```
 
 This adds to the `Milo` object a `n \times m` matrix, where n is the number of neighbourhoods and $m$ is the number of experimental samples. Values indicate the number of cells from each sample counted in a neighbourhood. This count matrix will be used for DA testing.

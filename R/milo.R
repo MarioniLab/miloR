@@ -57,7 +57,7 @@ NULL
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom Matrix Matrix
 Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
-                 nhoods=list(),
+                 nhoods=Matrix(0L, sparse=TRUE),
                  nhoodCounts=Matrix(0L, sparse=TRUE),
                  nhoodIndex=list(),
                  nhoodExpression=Matrix(0L, sparse=TRUE)){
@@ -84,7 +84,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     # make the distance and adjacency matrices the correct size
     out <- new("Milo", sce,
                graph=list(),
-               nhoods=list(),
+               nhoods=Matrix(0L, sparse=TRUE),
                nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
@@ -101,14 +101,19 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     # return an empty Milo object
     out <- new("Milo",
                graph=list(),
-               nhoods=list(),
+               nhoods=Matrix(0L, sparse=TRUE),
                nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE))
 
-    reducedDims(out) <- list()
-    altExps(out) <- list()
+    reducedDims(out) <- SimpleList()
+    altExps(out) <- SimpleList()
+
+    if (objectVersion(out) >= "1.11.3"){
+        colPairs(out) <- SimpleList()
+        rowPairs(out) <- SimpleList()
+    }
 
     out
 }
