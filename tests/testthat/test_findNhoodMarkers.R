@@ -202,12 +202,12 @@ test_that("Neighbourhoods in a single group returns NULL", {
                                 reducedDims=SimpleList(PCA=pca$x))
     colnames(sce) <- paste0("Cell", 1:ncol(sce))
     milo <- Milo(sce)
-    milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
-    milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+    milo <- buildGraph(milo, k=50, d=10, transposed=TRUE)
+    milo <- makeNhoods(milo, k=50, d=10, prop=0.3)
     milo <- calcNhoodDistance(milo, d=10)
     milo <- buildNhoodGraph(milo)
     cond <- rep("A", ncol(milo))
-    cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.1))
+    cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.3))
     cond.b <- setdiff(1:ncol(milo), cond.a)
     cond[cond.b] <- "B"
     meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
@@ -219,10 +219,10 @@ test_that("Neighbourhoods in a single group returns NULL", {
     rownames(test.meta) <- test.meta$Sample
     da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 
-    expect_warning(findNhoodMarkers(milo, da.res, overlap=10),
+    expect_warning(findNhoodMarkers(milo, da.res, overlap=1),
                    "All graph neighbourhoods are in the same group")
 
-    nhood.dge <- suppressWarnings(findNhoodMarkers(milo, da.res, overlap=10))
+    nhood.dge <- suppressWarnings(findNhoodMarkers(milo, da.res, overlap=1))
     expect_identical(nhood.dge, NULL)
 })
 

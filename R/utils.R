@@ -70,15 +70,10 @@
 #' @importFrom igraph graph_from_adjacency_matrix components
 .group_nhoods_by_overlap <- function(nhs, da.res, is.da, overlap=1,
                                      lfc.threshold=NULL, merge.discord=FALSE,
-                                     subset.nhoods=NULL, bits=FALSE, cells=NULL){
+                                     subset.nhoods=NULL, cells=NULL){
 
     ## Build adjacency matrix for nhoods
-    if(isFALSE(bits)){
-        nhood.adj <- .build_nhood_adjacency(nhs)
-    }else if(isTRUE(bits)){
-        nhood.adj <- .build_nhood_adjacency_bits(cells=cells, nhoods=nhs, overlap=1)
-    }
-
+    nhood.adj <- .build_nhood_adjacency(nhs)
     groups <- .group_nhoods_from_adjacency(nhs=nhs, nhood.adj=nhood.adj,
                                            is.da=is.da, da.res=da.res,
                                            subset.nhoods=subset.nhoods,
@@ -90,7 +85,7 @@
 }
 
 
-#' @importFrom igraph graph_from_adjacency_matrix components
+#' @importFrom igraph graph_from_adjacency_matrix components cluster_louvain
 .group_nhoods_from_adjacency <- function(nhs, nhood.adj, da.res, is.da,
                                          merge.discord=FALSE,
                                          lfc.threshold=NULL,
@@ -137,7 +132,7 @@
     }
 
     if(overlap > 1){
-        nhood.adj@x[nhood.adj@x < overlap] <- 0
+        nhood.adj[nhood.adj < overlap] <- 0
     }
 
     if(!is.null(lfc.threshold)){
@@ -158,7 +153,9 @@
     }
 
     g <- graph_from_adjacency_matrix(nhood.adj, mode="undirected", diag=FALSE)
-    groups <- components(g)$membership
+    groups <- cluster_louvain(g)$membership
+    names(groups) <- colnames(nhood.adj)
+    # groups <- components(g)$membership
 
     # only keep the groups that contain >= 1 DA neighbourhoods
     keep.groups <- intersect(unique(groups[is.da]), unique(groups))
