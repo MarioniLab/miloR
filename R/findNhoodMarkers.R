@@ -177,7 +177,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
     message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
-    
+
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
@@ -186,6 +186,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     # groups that contain overlapping cells.
     # this approach means that the latter group takes precedent.
     # maybe exclude the cells that fall into separate groups?
+
     for(i in seq_along(nhood.gr)){
         nhood.x <- names(which(nhs.da.gr == nhood.gr[i]))
         # get the nhoods
@@ -193,11 +194,11 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         if(!is.null(subset.nhoods)){
             nhs <- nhs[,subset.nhoods]
         }
-        
-        nhood.gr.cells <- rowSums(nhs[,nhood.x]) > 0
+
+        nhood.gr.cells <- rowSums(nhs[,nhood.x, drop=FALSE]) > 0
         ## set group to NA if a cell was already assigned to a group
         fake.meta[nhood.gr.cells,"Nhood.Group"] <- ifelse(is.na(fake.meta[nhood.gr.cells,"Nhood.Group"]), nhood.gr[i], NA)
-        # 
+        #
         # if(!any(is.na(fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group))){
         #     fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
         #     } else{
@@ -226,11 +227,11 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             return(NULL)
         }
     }
-    
+
     if (isTRUE(return.groups)) {
         group.meta <- fake.meta
     }
-    
+
 
     ## Aggregate expression by sample
     # To avoid treating cells as independent replicates
