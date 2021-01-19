@@ -44,12 +44,13 @@
 #' adjacency matrix if already present.
 #'
 #' @details
-#' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
-#' least \code{overlap} number of cells, and 2) the DA log fold change sign is concordant.
+#' Louvain clustering is applied to the neighbourhood graph. This graph is first modified
+#' based on two criteria: 1) neighbourhoods share at least \code{overlap} number of cells,
+#' and 2) the DA log fold change sign is concordant.
 #' This behaviour can be modulated by setting \code{overlap} to be more or less stringent.
 #' Additionally, a threshold on the log fold-changes can be set, such that \code{lfc.threshold}
-#' is required to merge adjacent neighbourhoods. Note: adjacent neighbourhoods will never be
-#' merged with opposite signs.
+#' is required to retain edges between adjacent neighbourhoods. Note: adjacent neighbourhoods will
+#' never be merged with opposite signs.
 #'
 #' Using a one vs. all approach, each aggregated group of cells is compared to all others
 #' using the single-cell log normalized gene expression with a GLM
@@ -65,8 +66,8 @@
 #' aggregated neighbourhood groups per single-cell and marker gene results, respectively.
 #'
 #' \emph{Warning}: If all neighbourhoods are grouped together, then it is impossible to
-#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will spit
-#' out a warning and return \code{NULL}.
+#' run \code{findNhoodMarkers}. In this (hopefully rare) instance, this function will return
+#' a warning and return \code{NULL}.
 #'
 #' @author Mike Morgan & Emma Dann
 #'
@@ -114,8 +115,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              overlap=1, lfc.threshold=NULL, merge.discord=FALSE,
                              subset.row=NULL, gene.offset=TRUE,
                              return.groups=FALSE, subset.nhoods=NULL,
-                             na.function="na.pass", compute.new=FALSE,
-                             bits=FALSE){
+                             na.function="na.pass", compute.new=FALSE){
 
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
@@ -163,13 +163,13 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                                   overlap=overlap,
                                                   subset.nhoods=subset.nhoods)
     } else{
+        message("Computing nhood adjacency")
         nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
                                               da.res=da.res,
                                               is.da=da.res$SpatialFDR < da.fdr,
                                               merge.discord=merge.discord,
                                               lfc.threshold=lfc.threshold,
                                               overlap=overlap,
-                                              bits=bits,
                                               cells=seq_len(ncol(x)),
                                               subset.nhoods=subset.nhoods) # returns a vector group values for each nhood
     }
@@ -177,7 +177,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
     message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
-    
+
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
 
@@ -186,18 +186,20 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     # groups that contain overlapping cells.
     # this approach means that the latter group takes precedent.
     # maybe exclude the cells that fall into separate groups?
+
     for(i in seq_along(nhood.gr)){
         nhood.x <- names(which(nhs.da.gr == nhood.gr[i]))
+
         # get the nhoods
         nhs <- nhoods(x)
         if(!is.null(subset.nhoods)){
             nhs <- nhs[,subset.nhoods]
         }
-        
-        nhood.gr.cells <- rowSums(nhs[,nhood.x]) > 0
+
+        nhood.gr.cells <- rowSums(nhs[, nhood.x, drop=FALSE]) > 0
         ## set group to NA if a cell was already assigned to a group
         fake.meta[nhood.gr.cells,"Nhood.Group"] <- ifelse(is.na(fake.meta[nhood.gr.cells,"Nhood.Group"]), nhood.gr[i], NA)
-        # 
+        #
         # if(!any(is.na(fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group))){
         #     fake.meta[unlist(nhs[,nhood.x]),]$Nhood.Group[!is.na(fake.meta[unlist(nhs[nhood.x]),]$Nhood.Group)] <- NA
         #     } else{
@@ -226,11 +228,11 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             return(NULL)
         }
     }
-    
+
     if (isTRUE(return.groups)) {
         group.meta <- fake.meta
     }
-    
+
 
     ## Aggregate expression by sample
     # To avoid treating cells as independent replicates
