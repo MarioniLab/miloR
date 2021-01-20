@@ -292,6 +292,7 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
         } else{
             if(ncol(test.model) < 2){
                 warning("Only one column in model matrix - must have at least 2. gene.offset forced to  FALSE")
+                gene.offset <- FALSE
             }
         }
     }
