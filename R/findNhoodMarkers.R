@@ -309,6 +309,10 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         i.res <- i.res[, c("logFC", "adj.P.Val")]
         colnames(i.res) <- paste(colnames(i.res), nhood.gr[i], sep="_")
         marker.list[[paste0(nhood.gr[i])]] <- i.res
+
+        sink(file="/dev/null")
+        gc()
+        sink(file=NULL)
     }
 
     marker.df <- do.call(cbind.data.frame, marker.list)
