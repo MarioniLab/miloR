@@ -66,9 +66,17 @@ countCells <- function(x, samples, meta.data=NULL){
 
     message("Checking meta.data validity")
     if(!is.null(meta.data)){
-        samp.ids <- unique(meta.data[, samples])
-    } else{
-        samp.ids <- unique(samples)
+        if (is.factor(data[, samples])){
+            samp.ids <- levels(meta.data[, samples])
+        } else {
+            samp.ids <- unique(as.character(meta.data[, samples]))
+        }        
+    } else {
+        if (is.factor(samples)){
+            samp.ids <- levels(samples)
+        } else {
+            samp.ids <- unique(as.character(samples))
+        }   
     }
 
     num.hoods <- ncol(nhoods(x))
