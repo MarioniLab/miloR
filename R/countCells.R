@@ -66,7 +66,7 @@ countCells <- function(x, samples, meta.data=NULL){
 
     message("Checking meta.data validity")
     if(!is.null(meta.data)){
-        if (is.factor(data[, samples])){
+        if (is.factor(meta.data[, samples])){
             samp.ids <- levels(meta.data[, samples])
         } else {
             samp.ids <- unique(as.character(meta.data[, samples]))
