@@ -10,7 +10,7 @@
         return(length(x.slot[[1]]) > 0)
     } else if(is.list(x.slot) & is.null(names(x.slot))){
         return(length(x.slot))
-    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix", "matrix"))){
+    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix", "ddiMatrix", "matrix"))){
         return(sum(rowSums(x.slot)) == 0)
     }
 }

@@ -94,8 +94,8 @@ NULL
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
-                               fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
-                               min.mean=0, model.contrasts=NULL, robust=TRUE){
+                       fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
+                       min.mean=0, model.contrasts=NULL, robust=TRUE){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
@@ -112,18 +112,34 @@ testNhoods <- function(x, design, design.df,
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
+    subset.counts <- FALSE
     if(ncol(nhoodCounts(x)) != nrow(model)){
-        stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
-                    ncol(nhoodCounts(x)), ") are not the same dimension"))
+        # need to allow for design.df with a subset of samples only
+        if(all(rownames(model) %in% colnames(nhoodCounts(x)))){
+            message("Design matrix is a strict subset of the nhood counts")
+            subset.counts <- TRUE
+        } else{
+            stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
+                        ncol(nhoodCounts(x)), ") are not the same dimension"))
+        }
     }
+
 
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
     if(min.mean > 0){
-        keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
+        if(isTRUE(subset.counts)){
+            keep.nh <- rowMeans(nhoodCounts(x)[, rownames(model)]) >= min.mean
+        } else{
+            keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
+        }
     } else{
-        keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
+        if(isTRUE(subset.counts)){
+            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(model)]))
+        }else{
+            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
+        }
     }
 
     dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
