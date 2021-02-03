@@ -102,7 +102,7 @@ test_that("Wrong input gives errors", {
     # count cells
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_error(testNhoods(nhoodCounts(sim1.mylo), design=~Condition,
-                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
+                            design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
                  "Unrecognised input type - must be of class Milo")
 
 })
@@ -118,8 +118,11 @@ test_that("Discordant dimension names gives a warning", {
 })
 
 test_that("Discordant dimensions between input and design gives and error", {
-    design.matrix <- model.matrix(~Condition, data=sim1.meta)
-    design.matrix <- design.matrix[-1, ]
+    add.meta <- sim1.meta[c(1:5), ]
+    rownames(add.meta) <- paste0(rownames(add.meta), "_add")
+    big.meta <- rbind.data.frame(sim1.meta, add.meta)
+    design.matrix <- model.matrix(~Condition, data=big.meta)
+
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                      design.df=sim1.meta)),
                  "not the same dimension")
@@ -196,3 +199,23 @@ test_that("Model contrasts provide expected results", {
     expect_equal(cont.ref$`F`, form.ref$`F`)
     expect_equal(cont.ref$FDR, form.ref$FDR)
 })
+
+test_that("Providing a subset model.matrix is reproducible", {
+    require(Matrix)
+    set.seed(42)
+    subset.samples <- sample(rownames(sim1.meta))
+    exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
+    out.da <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                         min.mean=1,
+                         design.df=sim1.meta[subset.samples, ])
+    expect_identical(nrow(out.da), exp.nh)
+
+    kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                          min.mean=1,
+                          design.df=sim1.meta[subset.samples, ])
+    kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                          min.mean=1,
+                          design.df=sim1.meta[subset.samples, ])
+    expect_identical(kd.ref1, kd.ref2)
+})
+

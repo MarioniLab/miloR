@@ -61,7 +61,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     }
 
     non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
-    
+
     if(any(names(reducedDims(x)) %in% c("PCA"))){
         nhood.dists <- sapply(1:ncol(nhoods(x)),
                               function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
@@ -99,7 +99,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     dist.df <- do.call(rbind.data.frame, dist.list)
     out.dist <- sparseMatrix(i=dist.df$rowIndex, j=dist.df$colIndex, x=dist.df$dist,
                              dimnames=list(rownames(in.x), rownames(in.x)),
-                             giveCsparse=FALSE)
+                             repr="T")
     return(out.dist)
 }
 
