@@ -19,6 +19,8 @@
 #' number of cells in each neighbourhood derived from the respective samples
 #' @param nhoodIndex A list of cells that are the neighborhood index cells.
 #' @param nhoodExpression A matrix of gene X neighbourhood expression.
+#' @param .k An integer value. The same value used to build the k-NN graph if
+#' already computed.
 #'
 #' @details
 #' In this class the underlying structure is the gene/feature X cell expression
@@ -60,7 +62,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                  nhoods=Matrix(0L, sparse=TRUE),
                  nhoodCounts=Matrix(0L, sparse=TRUE),
                  nhoodIndex=list(),
-                 nhoodExpression=Matrix(0L, sparse=TRUE)){
+                 nhoodExpression=Matrix(0L, sparse=TRUE), .k=NULL){
     old <- S4Vectors:::disableValidity()
     if (!isTRUE(old)) {
         S4Vectors:::disableValidity(TRUE)
@@ -88,7 +90,8 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
-               nhoodExpression=Matrix(0L, sparse=TRUE))
+               nhoodExpression=Matrix(0L, sparse=TRUE),
+               .k=NULL)
 
     reducedDims(out) <- reducedDims(sce)
     altExps(out) <- list()
@@ -105,7 +108,8 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodDistances=NULL,
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
-               nhoodExpression=Matrix(0L, sparse=TRUE))
+               nhoodExpression=Matrix(0L, sparse=TRUE),
+               .k=NULL)
 
     reducedDims(out) <- SimpleList()
     altExps(out) <- SimpleList()

@@ -128,7 +128,7 @@ test_that("calcNhoodDistance produces identical output", {
         dist.df <- do.call(rbind.data.frame, dist.list)
         out.dist <- sparseMatrix(i=dist.df$rowIndex, j=dist.df$colIndex, x=dist.df$dist,
                                  dimnames=list(rownames(in.x), rownames(in.x)),
-                                 giveCsparse=FALSE)
+                                 repr="T")
         return(out.dist)
     }
 

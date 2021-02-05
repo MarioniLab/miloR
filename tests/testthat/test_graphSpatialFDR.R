@@ -115,6 +115,7 @@ test_that("Incorrect parameter values produce errors", {
                                  weighting="k-distance",
                                  pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
                                  indices=NULL,
+                                 k=sim1.mylo@.k,
                                  distances=nhoodDistances(sim1.mylo),
                                  reduced.dimensions=NULL),
                  "No neighbourhood indices found")
@@ -124,6 +125,7 @@ test_that("Incorrect parameter values produce errors", {
                                  weighting="k-distance",
                                  pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
                                  indices=nhoodIndex(sim1.mylo),
+                                 k=sim1.mylo@.k,
                                  distances=NULL,
                                  reduced.dimensions=NULL),
                  "k-distance weighting requires")
@@ -224,7 +226,12 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
         coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
     }
-    t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
+    k <- sim1.mylo@.k
+    t.dists <- lapply(indices,
+                      FUN=function(X) as.numeric(tril(distances[[as.character(X)]])))
+    t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+
+    #t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
     w <- 1/unlist(t.connect)
     w[is.infinite(w)] <- 0
 
@@ -248,6 +255,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
                                 weighting="k-distance",
                                 pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
                                 indices=nhoodIndex(sim1.mylo),
+                                k=sim1.mylo@.k,
                                 distances=nhoodDistances(sim1.mylo),
                                 reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
 
@@ -265,7 +273,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
     t.connect <- unlist(lapply(indices,
                                FUN=function(X) max(findKNN(reduced.dimensions,
                                                            get.distance=TRUE,
-                                                           subset=X, k=21)[["distance"]])))
+                                                           subset=X, k=sim1.mylo@.k)[["distance"]])))
     w <- 1/unlist(t.connect)
     w[is.infinite(w)] <- 0
 
@@ -289,6 +297,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
                                 weighting="k-distance",
                                 pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
                                 indices=nhoodIndex(sim1.mylo),
+                                k=sim1.mylo@.k,
                                 distances=NULL,
                                 reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
 

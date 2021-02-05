@@ -150,7 +150,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     # need to fill in the blanks
     sp.out <- sparseMatrix(i=all.dists$i, j=all.dists$j, x=all.dists$x,
                            dimnames=list(cell.names, cell.names),
-                           giveCsparse=TRUE)
+                           repr="C")
     return(sp.out)
 
 }

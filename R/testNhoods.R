@@ -15,8 +15,8 @@
 #' average cell counts across samples.
 #' @param model.contrasts A string vector that defines the contrasts used to perform
 #' DA testing.
-#' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from edge,
-#' vertex, neighbour-distance or k-distance (default). If \code{none} is passed no
+#' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from max,
+#' neighbour-distance or k-distance (default). If \code{none} is passed no
 #' spatial FDR correction is performed and returns a vector of NAs.
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
 #' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
@@ -94,7 +94,7 @@ NULL
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
-                       fdr.weighting=c("k-distance", "neighbour-distance", "edge", "vertex", "none"),
+                       fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
@@ -123,7 +123,6 @@ testNhoods <- function(x, design, design.df,
                         ncol(nhoodCounts(x)), ") are not the same dimension"))
         }
     }
-
 
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
@@ -157,10 +156,11 @@ testNhoods <- function(x, design, design.df,
     }
 
     res$Nhood <- as.numeric(rownames(res))
-    message(paste0("Performing spatial FDR correction with", fdr.weighting, " weighting"))
+    message(paste0("Performing spatial FDR correction with", fdr.weighting[1], " weighting"))
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
+                                      k=x@.k,
                                       pvalues=res[order(res$Nhood), ]$PValue,
                                       indices=nhoodIndex(x),
                                       distances=nhoodDistances(x),
