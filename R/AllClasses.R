@@ -12,6 +12,7 @@
 #' @slot nhoodReducedDim a list of reduced dimensional representations of
 #' neighbourhoods, including projections into lower dimension space
 #' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
+#' @slot .k A hidden slot that stores the value of k used for graph building
 #'
 
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix ddiMatrix sparseMatrix
@@ -19,6 +20,7 @@ setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix
                                   "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
 setClassUnion("characterORNULL", c("character", "NULL"))
 setClassUnion("listORNULL", c("list", "NULL"))
+setClassUnion("numericORNULL", c("numeric", "NULL"))
 #' @aliases Milo
 #' @rdname Milo
 #' @export
@@ -35,7 +37,8 @@ setClass("Milo",
         nhoodExpression = "matrixORMatrix", # this should be NA or a matrix
         nhoodReducedDim = "list", # this should be a list
         nhoodGraph = "list", # this should be an igraph object (I'm copying from the graph slot)
-        nhoodAdjacency = "matrixORMatrix" # to save on computing adjacency multiple times
+        nhoodAdjacency = "matrixORMatrix", # to save on computing adjacency multiple times
+        .k = "numericORNULL" # must be an integer or not set
         ),
     prototype = list(
         graph = list(),
@@ -46,6 +49,7 @@ setClass("Milo",
         nhoodExpression = Matrix::Matrix(0L, sparse=TRUE),
         nhoodReducedDim = list(),
         nhoodGraph = list(),
-        nhoodAdjacency = Matrix::Matrix(0L, sparse=TRUE)
+        nhoodAdjacency = Matrix::Matrix(0L, sparse=TRUE),
+        .k = NULL
         )
 )

@@ -167,7 +167,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
         gc()
         sink(file=NULL)
     }
-
+    x@.k <- k
     x
 }
 
