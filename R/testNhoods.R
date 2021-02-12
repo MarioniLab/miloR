@@ -122,6 +122,10 @@ testNhoods <- function(x, design, design.df,
             stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
                         ncol(nhoodCounts(x)), ") are not the same dimension"))
         }
+    } 
+    if(colnames(nhoodCounts(x)) != rownames(model)){
+        stop(paste0("Sample names in design matrix and nhood counts are not matched. 
+                    Reorder rows in design matrix."))
     }
 
     # assume nhoodCounts and model are in the same order
