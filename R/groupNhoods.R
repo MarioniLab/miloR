@@ -13,8 +13,8 @@
 #' DA for the purposes of aggregating across concorantly DA neighbourhoods.
 #' @param overlap A scalar integer that determines the number of cells that must
 #' overlap between adjacent neighbourhoods for merging.
-#' @param lfc.threshold A scalar that determines the absolute log fold change above
-#' which neighbourhoods should be considerd 'DA' for merging. Default=NULL
+#' @param max.lfc.delta A scalar that determines the absolute difference in log fold change below
+#' which neighbourhoods should not be considered adjacent. Default=NULL
 #' @param merge.discord A logical scalar that overrides the default behaviour and allows
 #' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
 #' this argument is generally discouraged, but may be useful for constructing an empirical null
@@ -27,18 +27,26 @@
 #' @return A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
 #' group label for each neighbourhood
 #' 
+#' @details Louvain clustering is applied to the neighbourhood graph. This graph is first modified
+#' based on two criteria: 1) neighbourhoods share at least \code{overlap} number of cells,
+#' and 2) the DA log fold change sign is concordant.
+#' This behaviour can be modulated by setting \code{overlap} to be more or less stringent.
+#' Additionally, a threshold on the log fold-changes can be set, such that \code{max.lfc.delta}
+#' is required to retain edges between adjacent neighbourhoods. Note: adjacent neighbourhoods will
+#' never be merged with opposite signs.
+
+#' 
 #' @author Emma Dann & Mike Morgan
 #' 
 groupNhoods <- function(x, da.res, da.fdr=0.1, 
-                        overlap=1, lfc.threshold=NULL, 
+                        overlap=1, max.lfc.delta=NULL, 
                         merge.discord=FALSE,
-                        subset.nhoods=NULL
+                        subset.nhoods=NULL,
+                        compute.new=FALSE
                         ){
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
-  } else if(any(!assay %in% assayNames(x))){
-    stop(paste0("Unrecognised assay slot: ", assay))
-  }
+  } 
   
   n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
   
@@ -65,7 +73,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                                              da.res=da.res,
                                              is.da=da.res$SpatialFDR < da.fdr,
                                              merge.discord=merge.discord,
-                                             lfc.threshold=lfc.threshold,
+                                             max.lfc.delta=max.lfc.delta,
                                              overlap=overlap,
                                              subset.nhoods=subset.nhoods)  
   
@@ -77,7 +85,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
 #' @importFrom igraph graph_from_adjacency_matrix components cluster_louvain
 .group_nhoods_from_adjacency <- function(nhs, nhood.adj, da.res, is.da,
                                          merge.discord=FALSE,
-                                         lfc.threshold=NULL,
+                                         max.lfc.delta=NULL,
                                          overlap=1, subset.nhoods=NULL){
   
   if(is.null(colnames(nhs))){
@@ -123,9 +131,10 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
     nhood.adj[nhood.adj < overlap] <- 0
   }
   
-  if(!is.null(lfc.threshold)){
-    nhood.adj[,which(da.res$logFC < lfc.threshold)] <- 0
-    nhood.adj[which(da.res$logFC < lfc.threshold),] <- 0
+  ## Remove edges if the difference is higher than max.lfc.delta
+  if(!is.null(max.lfc.delta)){
+    lfc.diff <- sapply(da.res[,"logFC"], "-", da.res[,"logFC"])
+    nhood.adj[abs(lfc.diff) > max.lfc.delta] <- 0
   }
   
   # binarise
