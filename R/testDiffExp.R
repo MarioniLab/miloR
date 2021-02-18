@@ -10,8 +10,6 @@
 #' and neighbourhoods.
 #' @param da.res A \code{data.frame} containing DA results, as expected from running
 #' \code{testNhoods}.
-#' @param da.fdr A numeric scalar that determines at what FDR neighbourhoods are declared
-#' DA for the purposes of aggregating across concorantly DA neighbourhoods.
 #' @param design A \code{formula} or \code{model.matrix} object describing the
 #' experimental design for differential gene expression testing. The last component
 #' of the formula or last column of the model matrix are by default the test
@@ -26,6 +24,8 @@
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
+#' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
+#' to subset before aggregation and DGE testing (default: NULL).
 #' @param gene.offset A logical scalar the determines whether a per-cell offset
 #' is provided in the DGE GLM to adjust for the number of detected genes with
 #' expression > 0.

@@ -54,4 +54,6 @@ Collate:
     'utils.R'
     'buildNhoodGraph.R'
     'annotateNhoods.R'
+    'groupNhoods.R'
+    'findNhoodGroupMarkers.R'
 VignetteBuilder: knitr

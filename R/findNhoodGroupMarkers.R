@@ -12,9 +12,7 @@
 #' @param da.res A \code{data.frame} containing DA results, as expected from running
 #' \code{testNhoods}, as a \code{NhoodGroup} column specifying the grouping of neighbourhoods,
 #' as expected from
-#' @param da.fdr A numeric scalar that determines at what FDR neighbourhoods are declared
-#' DA for the purposes of aggregating across concorantly DA neighbourhoods.
-#' @param assay A character scalar determining which \code{assays} slot to extract from the
+##' @param assay A character scalar determining which \code{assays} slot to extract from the
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
 #' @param aggregate.samples logical indicating wheather the expression values for cells in the same sample
 #' and neighbourhood group should be merged for DGE testing. This allows to perform testing exploiting the replication structure
@@ -24,27 +22,16 @@
 #' (only relevant if \code{aggregate.samples==TRUE})
 #' @param overlap A scalar integer that determines the number of cells that must
 #' overlap between adjacent neighbourhoods for merging.
-#' @param lfc.threshold A scalar that determines the absolute log fold change above
-#' which neighbourhoods should be considerd 'DA' for merging. Default=NULL
-#' @param merge.discord A logical scalar that overrides the default behaviour and allows
-#' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
-#' this argument is generally discouraged, but may be useful for constructing an empirical null
-#' group of cells, regardless of DA sign.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
 #' @param gene.offset A logical scalar the determines whether a per-cell offset
 #' is provided in the DGE GLM to adjust for the number of detected genes with
 #' expression > 0.
-#' @param return.groups A logical scalar that returns a \code{\link{data.frame}} of the
-#' aggregated groups per single-cell. Cells that are members of non-DA neighbourhoods contain
-#' \code{NA} values.
 #' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
 #' to subset before aggregation and DGE testing (default: NULL).
 #' @param subset.groups A character vector indicating which groups to test for markers (default: NULL)
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass}.
-#' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
-#' adjacency matrix if already present.
 #' 
 #' 
 #' @details
@@ -77,7 +64,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
                              aggregate.samples=FALSE, sample_col=NULL,
                              subset.row=NULL, gene.offset=TRUE,
                              subset.nhoods=NULL, subset.groups=NULL,
-                             na.function="na.pass", compute.new=FALSE){
+                             na.function="na.pass"){
   
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
