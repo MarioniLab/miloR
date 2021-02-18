@@ -129,6 +129,8 @@ sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 sim1.res <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                        design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
+sim1.res <- groupNhoods(sim1.mylo, sim1.res)
+
 test_that("Incorrect input gives the expected errors", {
     expect_error(testDiffExp(matrix(0L, nrow=nrow(sim1.mylo), ncol=ncol(sim1.mylo))),
                  "Unrecognised input type")
@@ -137,12 +139,6 @@ test_that("Incorrect input gives the expected errors", {
                              design=~Condition, assay="junk"),
                  "Unrecognised assay slot")
 
-    # set some FDR to NA to truncate the subsetting vector
-    na.res <- sim1.res
-    na.res$SpatialFDR[1:10] <- NA
-    expect_error(suppressWarnings(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
-                                              design=~Condition, na.function="na.omit")),
-                                  "Subsetting `is.da` vector length")
 
     expect_error(suppressWarnings(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
                                               design=~Condition, na.function="junk")),
@@ -167,28 +163,24 @@ test_that("Incorrect input gives the expected errors", {
 test_that("Less than optimal input gives the expected warnings", {
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
                                                 design=~Condition, na.function=NULL,
-                                                compute.new=TRUE,
-                                                overlap=1)),
+                                                )),
                                     "NULL passed to na.function, using na.pass")
 
     na.res <- sim1.res
     na.res$SpatialFDR[1:10] <- NA
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, na.res, meta.data=meta.df,
-                                                compute.new=TRUE,
                                                 design=~Condition)),
                    "NA values found in SpatialFDR vector")
 
     fake.meta <- meta.df
     rownames(fake.meta) <- paste0("X", c(1:nrow(meta.df)))
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=fake.meta,
-                                                compute.new=TRUE,
                                                 design=~Condition)),
                    "Column names of x are not the same as meta-data rownames")
 
     fake.model <- model.matrix(~Condition, data=meta.df)
     rownames(fake.model) <- paste0("X", c(1:nrow(fake.model)))
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
-                                                compute.new=TRUE,
                                                 design=fake.model)),
                    "Design matrix and meta-data dimnames are not the same")
 
@@ -202,7 +194,6 @@ test_that("Less than optimal input gives the expected warnings", {
 
     SingleCellExperiment::cpm(sim1.mylo) <- ux.cpm
     expect_warning(suppressMessages(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
-                                                compute.new=TRUE,
                                                 design=~Condition, assay="cpm")),
                    "Assay type is not counts or logcounts")
     })
@@ -210,8 +201,7 @@ test_that("Less than optimal input gives the expected warnings", {
 
 test_that("Output is correct type", {
     full.out <- suppressWarnings(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
-                                             compute.new=TRUE,
-                                             design=~Condition, overlap=5))
+                                             design=~Condition))
     expect_identical(class(full.out) , "list")
 })
 
@@ -277,34 +267,28 @@ test_that("Contrasts can be passed without error" , {
     blockC.mylo <- countCells(blockC.mylo, samples="Sample", meta.data=meta.df)
     blockC.res <- testNhoods(blockC.mylo, design=~0 + Condition, fdr.weighting="k-distance",
                              design.df=blockC.meta[colnames(nhoodCounts(blockC.mylo)), ])
-
+    
+    blockC.res <- groupNhoods(blockC.mylo, blockC.res)
+    
     # works with estimable contrast levels
     expect_error(do.call(rbind.data.frame,
                          suppressWarnings(testDiffExp(blockC.mylo, blockC.res, meta.data=meta.df,
-                                                      da.fdr=0.1,
                                                       model.contrasts=c("ConditionC - ConditionB"),
                                                       design=~0 + Condition,
-                                                      gene.offset=FALSE,
-                                                      compute.new=TRUE,
-                                                      merge.discord=FALSE))),
+                                                      gene.offset=FALSE))),
                  NA)
     })
 
 
 test_that("Row subsetting returns expected number of results", {
     full.out <- suppressWarnings(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
-                                             da.fdr=0.2,
-                                             design=~0 + Condition,
-                                             compute.new=TRUE,
-                                             merge.discord=FALSE))
+                                             design=~0 + Condition
+                                             ))
     full.lengths <- lapply(full.out, nrow)
 
     subset.out <- suppressWarnings(testDiffExp(sim1.mylo, sim1.res, meta.data=meta.df,
-                                               da.fdr=0.2,
                                                subset.row=sample(1:nrow(sim1.mylo), size=100),
-                                               design=~0 + Condition,
-                                               compute.new=TRUE,
-                                               merge.discord=FALSE))
+                                               design=~0 + Condition))
     subset.lengths <- lapply(subset.out, nrow)
 
     expect_true(all(unlist(full.lengths) > unlist(subset.lengths)))
