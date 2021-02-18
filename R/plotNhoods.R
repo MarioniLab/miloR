@@ -84,6 +84,9 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
 #' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
 #' (default: NULL, no subsetting)
+#' @param size_range a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
+#' in the graph)
+#' @param node_stroke a numeric indicating the desired thickness of the border around each node
 #' @param ... arguments to pass to \code{ggraph}
 #'
 #' @return a \code{ggplot-class} object
@@ -98,7 +101,9 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @import igraph
 #' @import ggraph
 #' @importFrom SummarizedExperiment colData<-
-plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, ... ){
+#' @importFrom RColorBrewer brewer.pal
+plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, size_range=c(0.5,3), 
+                           node_stroke= 0.3, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
     stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
@@ -152,8 +157,8 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
 
     pl <- ggraph(simplify(nh_graph), layout = layout) +
       geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
-      geom_node_point(aes(fill = colour_by, size = size), shape=21) +
-      scale_size(range = c(0.3,3), name="Nhood size") +
+      geom_node_point(aes(fill = colour_by, size = size), shape=21, stroke=node_stroke) +
+      scale_size(range =size_range, name="Nhood size") +
       scale_edge_width(range = c(0.2,3), name="overlap size") +
       theme_classic(base_size=14) +
       theme(axis.line = element_blank(), axis.text = element_blank(),
@@ -163,8 +168,8 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
   } else{
     pl <- ggraph(simplify(nh_graph), layout = layout) +
       geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
-      geom_node_point(aes(fill = colour_by, size = size), shape=21) +
-      scale_size(range = c(1,6), name="Nhood size") +
+      geom_node_point(aes(fill = colour_by, size = size), shape=21, stroke=node_stroke) +
+      scale_size(range = size_range, name="Nhood size") +
       scale_edge_width(range = c(0.2,3), name="overlap size") +
       theme_classic(base_size=14) +
       theme(axis.line = element_blank(), axis.text = element_blank(),
@@ -175,9 +180,9 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
   } else {
-    pl <- pl + scale_fill_brewer(palette="Spectral", name=colour_by)
+    mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
+    pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
   }
-
   pl
   }
 
@@ -216,11 +221,61 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   signif_res <- milo_res
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
-  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),] <- signif_res[,res_column]
+  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
 
   ## Plot logFC
   plotNhoodGraph(x, colour_by = res_column, ... )
+}
+
+#' Plot graph of neighbourhoods coloring by nhoodGroups
+#'
+#' Visualize grouping of neighbourhoods obtained with \code{groupNhoods}
+#'
+#' @param x A \code{\linkS4class{Milo}} object
+#' @param milo_res a data.frame of milo results containing the \code{nhoodGroup} column
+#' @param show_groups a character vector indicating which groups to plot
+#' all other neighbourhoods will be gray
+#' @param ... arguments to pass to \code{plotNhoodGraph}
+#'
+#' @return a \code{ggplot} object
+#'
+#' @author Emma Dann
+#'
+#' @examples
+#' NULL
+#'
+#' @export
+#' @rdname plotNhoodGraphDA
+#' @import igraph
+plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
+  if(!.valid_graph(nhoodGraph(x))){
+    stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
   }
+  if (is.character(layout)) {
+    if (!layout %in% names(reducedDims(x))) {
+      stop(paste(layout, "is not in reducedDim(x) - choose a different layout"))
+    }
+  }
+  
+  if (!"NhoodGroup" %in% colnames(milo_res)) {
+    stop("'NhoodGroup' columns is missing from milo_res. Please run groupNhoods() or define neighbourhood groupings otherwise.")
+  }
+  
+  ## Add groups to colData
+  # signif_res <- milo_res
+  # signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
+  if (!is.null(show_groups)) {
+    plot_groups <- show_groups
+  } else {
+    plot_groups <- unique(milo_res$NhoodGroup)
+  }
+  colData(x)["NhoodGroup"] <- NA
+  groups_res <- milo_res[milo_res$NhoodGroup %in% plot_groups,]
+  colData(x)[unlist(nhoodIndex(x)[groups_res$Nhood]),"NhoodGroup"] <- groups_res$NhoodGroup
+  
+  ## Plot logFC
+  plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+}
 
 #' Visualize gene expression in neighbourhoods
 #'
