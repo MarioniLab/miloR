@@ -160,6 +160,18 @@ DA for the purposes of aggregating across concorantly DA neighbourhoods.</p></td
 <code><a href='Milo.html'>Milo</a></code> object to use for DGE testing.</p></td>
     </tr>
     <tr>
+      <th>aggregate.samples</th>
+      <td><p>logical indicating wheather the expression values for cells in the same sample 
+and neighbourhood group should be merged for DGE testing. This allows to perform testing exploiting the replication structure
+in the experimental design, rather than treating single-cells as independent replicates. The function used for aggregation depends on the 
+selected gene expression assay: if <code>assay="counts"</code> the expression values are summed, otherwise we take the mean.</p></td>
+    </tr>
+    <tr>
+      <th>sample_col</th>
+      <td><p>a character scalar indicating the column in the colData storing sample information
+(only relevant if <code>aggregate.samples==TRUE</code>)</p></td>
+    </tr>
+    <tr>
       <th>overlap</th>
       <td><p>A scalar integer that determines the number of cells that must
 overlap between adjacent neighbourhoods for merging.</p></td>

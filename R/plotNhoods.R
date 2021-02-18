@@ -189,6 +189,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
 #' @param x A \code{\linkS4class{Milo}} object
 #' @param milo_res a data.frame of milo results
 #' @param alpha significance level for Spatial FDR (default: 0.05)
+#' @param res_column which column of \code{milo_res} object to use for color (default: logFC)
 #' @param ... arguments to pass to \code{plotNhoodGraph}
 #'
 #' @return a \code{ggplot} object
@@ -201,7 +202,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, .
 #' @export
 #' @rdname plotNhoodGraphDA
 #' @import igraph
-plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
+plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... ){
   if(!.valid_graph(nhoodGraph(x))){
     stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
   }
@@ -211,14 +212,14 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, ... ){
     }
   }
 
-  ## Add milo results to colDataa
+  ## Add milo results to colData
   signif_res <- milo_res
-  signif_res[signif_res$SpatialFDR > alpha,"logFC"] <- 0
-  colData(x)["logFC"] <- NA
-  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),] <- signif_res$logFC
+  signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
+  colData(x)[res_column] <- NA
+  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),] <- signif_res[,res_column]
 
   ## Plot logFC
-  plotNhoodGraph(x, colour_by = "logFC", ... )
+  plotNhoodGraph(x, colour_by = res_column, ... )
   }
 
 #' Visualize gene expression in neighbourhoods
