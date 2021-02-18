@@ -16,7 +16,7 @@ Depends: edgeR
 Imports: BiocNeighbors, SingleCellExperiment, Matrix, S4Vectors, stats, stringr,
         methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
         matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr,
-        ggrepel, ggbeeswarm, bit, BiocGenerics
+        ggrepel, ggbeeswarm, bit, BiocGenerics, RColorBrewer
 Suggests: 
     testthat,
     MASS,
