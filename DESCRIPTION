@@ -13,11 +13,31 @@ URL: https://marionilab.github.io/miloR
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: edgeR,
-         R (>= 3.6.0)
-Imports: BiocNeighbors, SingleCellExperiment, Matrix (>= 1.3-0), S4Vectors, stats, stringr,
-        methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2, tibble,
-        matrixStats, ggraph, gtools, SummarizedExperiment, patchwork, tidyr, dplyr,
-        ggrepel, ggbeeswarm, bit, BiocGenerics
+         R (>= 3.6.2)
+Imports: BiocNeighbors,
+         SingleCellExperiment,
+         Matrix (>= 1.3-0),
+         S4Vectors,
+         stats,
+         stringr,
+         methods,
+         igraph,
+         irlba,
+         BiocParallel,
+         BiocSingular,
+         limma,
+         ggplot2,
+         tibble,
+         matrixStats,
+         ggraph,
+         gtools,
+         SummarizedExperiment,
+         patchwork,
+         tidyr,
+         dplyr,
+         ggrepel,
+         ggbeeswarm,
+         BiocGenerics
 Suggests: 
     testthat,
     MASS,
