@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-    runs-on: macOS-10.15, ubuntu-18.04
+    runs-on: macOS-10.15
     strategy:
       matrix:
         r-version: [3.5, 3.6, 4.0]
