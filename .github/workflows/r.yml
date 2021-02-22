@@ -19,7 +19,7 @@ jobs:
     runs-on: macOS-10.15
     strategy:
       matrix:
-        r-version: [ 3.6 ]
+        r-version: [ 3.6.3 ]
 
     steps:
       - uses: actions/checkout@v2
@@ -31,7 +31,7 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@v1
       - name: Install dependencies
         run: |
-          install.packages(c("remotes", "rcmdcheck", "BiocManager", "knitr", "codecov"))
+          install.packages(c("remotes", "rcmdcheck", "BiocManager", "knitr"))
           remotes::install_deps(dependencies = TRUE)
         shell: Rscript {0}
       - name: Check
