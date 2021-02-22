@@ -16,7 +16,7 @@ Depends: edgeR,
 	 R (>= 4.0.0)
 Imports: BiocNeighbors,
          SingleCellExperiment,
-         Matrix (>= '1.3-0'),
+         Matrix (>=1.3-0),
          S4Vectors,
          stats,
          stringr,
