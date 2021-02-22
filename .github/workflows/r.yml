@@ -26,8 +26,8 @@ jobs:
       - uses: 
       - uses: r-lib/actions/setup-r@v1
       - uses: r-lib/actions/setup-pandoc@v1
-      - name: install brew cask
-      - run: brew install k6
+      - name: Install k6 by homebrew
+        run: brew install caskroom/cask/brew-cask
       - name: Set up R ${{ matrix.r-version }}
         uses: r-lib/actions/setup-r@ffe45a39586f073cc2e9af79c4ba563b657dc6e3
         with:
