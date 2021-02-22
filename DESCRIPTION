@@ -12,11 +12,10 @@ Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
-Depends: edgeR,
-	 R (>= 4.0.0)
+Depends: edgeR
 Imports: BiocNeighbors,
          SingleCellExperiment,
-         Matrix (>=1.3-0),
+         Matrix (>= 1.3-0),
          S4Vectors,
          stats,
          stringr,
