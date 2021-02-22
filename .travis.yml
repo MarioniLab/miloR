@@ -1,4 +1,4 @@
-language: r >= 3.6.2
+language: r
 cache: packages
 warnings_are_errors: false
 r_build_args: "--no-build-vignettes"
@@ -6,10 +6,12 @@ r_check_args: "--no-build-vignettes --ignore-vignettes"
 
 r:
   - bioc-release
+  - release
 
 r_packages:
     - covr
     - knitr
+    - Matrix >= 1.3-0
 
 bioc_packages:
     - BiocCheck
