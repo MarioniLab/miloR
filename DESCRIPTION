@@ -48,7 +48,6 @@ Suggests:
     knitr,
     rmarkdown,
     uwot,
-    Seurat,
     BiocStyle,
     MouseGastrulationData
 RoxygenNote: 7.1.1.9000
