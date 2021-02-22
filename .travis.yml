@@ -11,7 +11,7 @@ r:
 r_packages:
     - covr
     - knitr
-    - Matrix >= 1.3-0
+    - Matrix (>= 1.3-0)
 
 bioc_packages:
     - BiocCheck
