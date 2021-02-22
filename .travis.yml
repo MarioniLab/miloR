@@ -1,4 +1,4 @@
-language: r
+language: r >= 3.6.2
 cache: packages
 warnings_are_errors: false
 r_build_args: "--no-build-vignettes"
