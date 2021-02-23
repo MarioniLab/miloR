@@ -188,6 +188,7 @@ traj_milo <- calcNhoodDistance(traj_milo, d=30)
 Now we can do the test, explicitly defining our experimental design. 
 
 ```{r}
+rownames(traj_design) <- traj_design$Sample
 da_results <- testNhoods(traj_milo, design = ~ Condition, design.df = traj_design)
 ```
 
