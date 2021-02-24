@@ -26,6 +26,7 @@ knitr::opts_chunk$set(
 library(miloR)
 library(SingleCellExperiment)
 library(scater)
+library(scran)
 library(dplyr)
 library(patchwork)
 library(MouseGastrulationData)
