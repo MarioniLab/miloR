@@ -122,10 +122,14 @@ testNhoods <- function(x, design, design.df,
             stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
                         ncol(nhoodCounts(x)), ") are not the same dimension"))
         }
-    } 
-    if(colnames(nhoodCounts(x)) != rownames(model)){
-        stop(paste0("Sample names in design matrix and nhood counts are not matched. 
-                    Reorder rows in design matrix."))
+    }
+
+    if((colnames(nhoodCounts(x)) != rownames(model)) & !any(colnames(nhoodCounts(x)) %in% rownames(model))){
+        stop(paste0("Sample names in design matrix and nhood counts are not matched.
+                    Set appropriate rownames in design matrix."))
+    } else if((colnames(nhoodCounts(x)) != rownames(model)) & any(colnames(nhoodCounts(x)) %in% rownames(model))){
+        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+        model <- model[colnames(nhoodCounts(x)), ]
     }
 
     # assume nhoodCounts and model are in the same order
