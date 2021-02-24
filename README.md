@@ -7,7 +7,7 @@ _Milo_ is a method for differential abundance analysis on KNN graph from single-
 
 [![Build Status](https://travis-ci.com/MarioniLab/miloR.svg?branch=master)](https://travis-ci.com/MarioniLab/miloR)
 [![Coverage](https://codecov.io/gh/MarioniLab/miloR/branch/master/graph/badge.svg)](https://codecov.io/gh/MarioniLab/miloR)
-
+[![R-CMD-check](https://github.com/MarioniLab/miloR/actions/workflows/RCMD_check.yml/badge.svg)](https://github.com/MarioniLab/miloR/actions/workflows/RCMD_check.yml)
 
 ### Installation
 
