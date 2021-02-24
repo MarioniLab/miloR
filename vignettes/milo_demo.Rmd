@@ -175,6 +175,9 @@ We first need to think about our experimental design. The design matrix should m
 ```{r}
 traj_design <- data.frame(colData(traj_milo))[,c("Sample", "Condition")]
 traj_design <- distinct(traj_design)
+traj_design <- column_to_rownames(traj_design, "Sample")
+## Reorder rownames to match columns of nhoodCounts(milo)
+traj_design <- traj_design[colnames(nhoodCounts(traj_milo)), , drop=FALSE]
 
 traj_design
 ```

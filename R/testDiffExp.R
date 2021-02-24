@@ -108,10 +108,10 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
         })
     }
 
-    n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
-    if(!is.na(n.da) & n.da == 0){
-        stop("No DA neighbourhoods found")
-    }
+    # n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
+    # if(!is.na(n.da) & n.da == 0){
+    #     stop("No DA neighbourhoods found")
+    # }
 
     if(any(is.na(da.res$SpatialFDR))){
         warning("NA values found in SpatialFDR vector")

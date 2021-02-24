@@ -28,6 +28,7 @@ library(SingleCellExperiment)
 library(scater)
 library(dplyr)
 library(patchwork)
+library(MouseGastrulationData)
 ```
 
 # Load data
@@ -37,7 +38,6 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-library(MouseGastrulationData)        
 select_samples <- c(2,  3,  6, 15,
                     # 4, 19, 
                     10, 14, 20, 30
@@ -49,7 +49,7 @@ embryo_data
 
 # Visualize the data
 
-We recompute PCA and UMAP embedding for this subset of cells to visualize the data.
+We recompute the UMAP embedding for this subset of cells to visualize the data.
 
 ```{r}
 embryo_data <- embryo_data[,apply(reducedDim(embryo_data, "pca.corrected"), 1, function(x) !all(is.na(x)))]
@@ -76,6 +76,11 @@ embryo_milo
 
 We need to add the KNN graph to the Milo object. This is stored in the `graph` slot, in [`igraph`](https://igraph.org/r/) format. The `miloR` package includes functionality to build and store the graph from the PCA dimensions stored in the `reducedDim` slot. In this case, we specify that we want to build the graph from the MNN corrected PCA dimensions.
 
+For graph building you need to define a few parameters:
+
+- `d`: the number of reduced dimensions to use for KNN refinement. We recommend using the same $d$ used for KNN graph building, or to select PCs by inspecting the [scree plot](http://bioconductor.org/books/release/OSCA/dimensionality-reduction.html#choosing-the-number-of-pcs).
+- `k`: this  affects the power of DA testing, since we need to have enough cells from each sample represented in a neighbourhood to estimate the variance between replicates. On the other side, increasing $k$ too much might lead to over-smoothing. We suggest to start by using the same value for $k$ used for KNN graph building for clustering and UMAP visualization. We will later use some heuristics to evaluate whether the value of $k$ should be increased.
+
 ```{r}
 embryo_milo <- buildGraph(embryo_milo, k = 30, d = 30, reduced.dim = "pca.corrected")
 ```
@@ -97,18 +102,18 @@ Alternatively, one can add a precomputed KNN graph (for example constructed with
 
 We define the neighbourhood of a cell, the index, as the group of cells connected by an edge in the KNN graph to the index cell. For efficiency, we don't test for DA in the neighbourhood of every cell, but we sample as indices a subset of representative cells, using a KNN sampling algorithm used by [Gut et al. 2015](https://www.nature.com/articles/nmeth.3545). 
 
-For sampling you need to define a few parameters:
+As well as $d$ and $k$, for sampling we need to define a few additional parameters:
 
-- `prop`: the proportion of cells to randomly sample to start with (usually 0.1 - 0.2 is sufficient)
-- `k`: the k to use for KNN refinement (we recommend using the same k used for KNN graph building)
-- `d`: the number of reduced dimensions to use for KNN refinement (we recommend using the same d used for KNN graph building)
+- `prop`: the proportion of cells to randomly sample to start with. We suggest using `prop=0.1` for datasets of less than 30k cells. For bigger datasets using `prop=0.05` should be sufficient (and makes computation faster).
 - `refined`: indicates whether you want to use the sampling refinement algorith, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using `random` instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
 
 ```{r}
 embryo_milo <- makeNhoods(embryo_milo, prop = 0.1, k = 30, d=30, refined = TRUE, reduced_dims = "pca.corrected")
 ```
 
-Once we have defined neighbourhoods, it's good to take a look at how big the neighbourhoods are (i.e. how many cells form each neighbourhood). This affects the power of DA testing. We can check this out using the `plotNhoodSizeHist` function. Empirically, we found it's best to have a distribution peaking above 20. Otherwise you might consider rerunning `makeNhoods` increasing `k` and/or `prop`.
+Once we have defined neighbourhoods, we plot the distribution of neighbourhood sizes (i.e. how many cells form each neighbourhood) to evaluate whether the value of $k$ used for graph building was appropriate. We can check this out using the `plotNhoodSizeHist` function. 
+
+As a rule of thumb we want to have an average neighbourhood size over 5 x N_samples. If the mean is lower, or if the distribution is 
 
 ```{r}
 plotNhoodSizeHist(embryo_milo)
@@ -136,6 +141,7 @@ We first need to think about our experimental design. The design matrix should m
 
 ```{r}
 embryo_design <- data.frame(colData(embryo_milo))[,c("sample", "stage", "sequencing.batch")]
+
 ## Convert batch info from integer to factor
 embryo_design$sequencing.batch <- as.factor(embryo_design$sequencing.batch) 
 embryo_design <- distinct(embryo_design)
@@ -146,7 +152,7 @@ embryo_design
 
 ## Computing neighbourhood connectivity
 
-Milo uses an adaptation of the Spatial FDR correction introduced by [cydar](https://bioconductor.org/packages/release/bioc/html/cydar.html), which accounts for the overlap between neighbourhoods. Specifically, each hypothesis test P-value is weighted by the reciprocal of the kth nearest neighbour distance. To use this statistic we first need to store the distances between nearest neighbors in the Milo object. This is done by the `calcNhoodDistance` function
+Milo uses an adaptation of the Spatial FDR correction introduced by [cydar](https://bioconductor.org/packages/release/bioc/html/cydar.html), where we correct p-values accounting for the amount of overlap between neighbourhoods. Specifically, each hypothesis test P-value is weighted by the reciprocal of the kth nearest neighbour distance. To use this statistic we first need to store the distances between nearest neighbors in the Milo object. This is done by the `calcNhoodDistance` function
 (N.B. this step is the most time consuming of the analysis workflow and might take a couple of minutes for large datasets).
 
 ```{r}
@@ -155,13 +161,18 @@ embryo_milo <- calcNhoodDistance(embryo_milo, d=30, reduced.dim = "pca.corrected
 
 ## Testing
 
-Now we can do the DA test, explicitly defining our experimental design. In this case, we want to dest for differences between experimental stages, while accounting for the variability between technical batches (You can find more info on how to use formulas to define a testing design in R [here](https://r4ds.had.co.nz/model-basics.html#formulas-and-model-families))
+Now we can do the DA test, explicitly defining our experimental design. In this case, we want to test for differences between experimental stages, while accounting for the variability between technical batches (You can find more info on how to use formulas to define a testing design in R [here](https://r4ds.had.co.nz/model-basics.html#formulas-and-model-families))
 
 ```{r}
 da_results <- testNhoods(embryo_milo, design = ~ sequencing.batch + stage, design.df = embryo_design)
+head(da_results)
 ```
 
-This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between developmental stages.
+This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between developmental stages. The main statistics we consider here are: 
+
+- `logFC`: indicates the log-Fold change in cell numbers between samples from E7.5 and samples from E7.0
+- `PValue`: reports P-values before FDR correction
+- `SpatialFDR`: reports P-values corrected for multiple testing accounting for overlap between neighbourhoods
 
 ```{r}
 da_results %>%
@@ -194,7 +205,8 @@ To visualize DA results relating them to the embedding of single cells, we can b
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Plot single-cell UMAP
-umap_pl <- plotReducedDim(embryo_milo, dimred = "umap", colour_by="celltype", text_by = "celltype", text_size = 3) +
+umap_pl <- plotReducedDim(embryo_milo, dimred = "umap", colour_by="stage", text_by = "celltype", 
+                          text_size = 3, point_size=0.5) +
   guides(fill="none")
 
 ## Plot neighbourhood graph
@@ -228,38 +240,215 @@ plotDAbeeswarm(da_results, group.by = "celltype")
 
 This is already quite informative: we can see that certain early development cell types, such as epiblast and primitive streak, are enriched in the earliest time stage, while others are enriched later in development, such as ectoderm cells. Interestingly, we also see plenty of DA neighbourhood with a mixed label. This could indicate that transitional states show changes in abundance in time. 
 
-# Identifying signatures of DA subpopulations
+<!-- # Identifying signatures of DA subpopulations -->
 
-Once we have identified neighbourhoods with significant DA, we might be interested in learning more about the gene expression signatures that define these subpopulations. 
-Here the analyst might get creative, depending on the specific characteristics of their dataset and the biological question of interest. In the `miloR` package, we provide functionality to explore neighbourhood markers through the function `findNhoodMarkers`. This groups significantly DA neighbourhoods that show concordant Fold-Change and performs a test for differential expression between cells in those neighbourhoods. 
+<!-- Once we have identified neighbourhoods with significant DA, we might be interested in learning more about the gene expression signatures that define these subpopulations.  -->
+<!-- Here the analyst might get creative, depending on the specific characteristics of their dataset and the biological question of interest. In the `miloR` package, we provide functionality to explore neighbourhood markers through the function `findNhoodMarkers`. This groups significantly DA neighbourhoods that show concordant Fold-Change and performs a test for differential expression between cells in those neighbourhoods.  -->
 
-In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. For the sake of demonstration, here we focus on identifying signatures of DA subpopulations in the endoderm development lineage. 
+<!-- In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. For the sake of demonstration, here we focus on identifying signatures of DA subpopulations in the endoderm development lineage.  -->
+
+<!-- ```{r} -->
+<!-- logcounts(embryo_milo) <- log1p(counts(embryo_milo)) -->
+<!-- dge_smp <- findNhoodMarkers(embryo_milo, da_results,  -->
+<!--                                      assay = "counts", gene.offset = FALSE, da.fdr = 0.1, -->
+<!--                                      aggregate.samples = TRUE, sample_col = "sample", -->
+<!--                                      subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm") -->
+<!--                                      ) -->
+
+<!-- head(dge_smp) -->
+<!-- ``` -->
+
+<!-- This identifies n marker genes at FDR 10% that distinguish two main groups within the epiblast neighbourhoods, one significantly depleted in the early stage and one significantly enriched. We can visualize expression of the detected marker genes using the function `plotNhoodExpressionDA`. This shows the average expression in each neighbourhood, ranked by log-Fold Change in the DA test. Note that the gene x nhood expression matrix can be pre-computed and stored using the `calcNhoodExpression` function, to avoid repeating the computation every time you need to plot. -->
+
+<!-- In this case we mainly identified negative markers of the epiblast neighbourhoods enriched with age. -->
+
+<!-- ```{r, fig.height=7, fig.width=9} -->
+<!-- markers <- dge_smp[which(dge_smp$adj.P.Val_1 < 0.1 ), "GeneID"] -->
+<!-- logcounts(embryo_milo) <- log1p(counts(embryo_milo)) -->
+<!-- embryo_milo <- calcNhoodExpression(embryo_milo, subset.row=markers) -->
+
+<!-- plotNhoodExpressionDA(embryo_milo, da_results, features = markers, -->
+<!--                       subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm"), -->
+<!--                       assay="logcounts",  -->
+<!--                       scale_to_1 = TRUE, cluster_features = TRUE -->
+<!--                       ) -->
+<!-- ``` -->
+
+# Finding markers of DA populations
+
+Once you have found your neighbourhoods showindg significant DA between conditions, you might want to find gene signatures specific to the cells in those neighbourhoods. The function `findNhoodGroupMarkers` runs a one-VS-all differential gene expression test to identify marker genes for a group of neighbourhoods of interest. Before running this function you will need to define your neighbourhood groups depending on your biological question, that need to be stored as a `NhoodGroup` column in the `da_results` data.frame.
+
+### Custom grouping 
+
+In a case where all the DA neighbourhoods seem to belong to the same region of the graph, you might just want to test the significant DA neighbourhoods with the same logFC against all the rest (N.B. for illustration purposes, here I am testing on a randomly selected set of 10 genes).
 
 ```{r}
-logcounts(embryo_milo) <- log1p(counts(embryo_milo))
-dge_smp <- findNhoodMarkers(embryo_milo, da_results, 
-                                     assay = "counts", gene.offset = FALSE, da.fdr = 0.1,
-                                     aggregate.samples = TRUE, sample_col = "sample",
-                                     subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm")
-                                     )
+## Add log normalized count to Milo object
+embryo_milo <- logNormCounts(embryo_milo)
 
-head(dge_smp)
+da_results$NhoodGroup <- as.numeric(da_results$SpatialFDR < 0.1 & da_results$logFC < 0)
+da_nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = rownames(embryo_milo)[1:10])
+
+head(da_nhood_markers)
 ```
 
-This identifies n marker genes at FDR 10% that distinguish two main groups within the epiblast neighbourhoods, one significantly depleted in the early stage and one significantly enriched. We can visualize expression of the detected marker genes using the function `plotNhoodExpressionDA`. This shows the average expression in each neighbourhood, ranked by log-Fold Change in the DA test. Note that the gene x nhood expression matrix can be pre-computed and stored using the `calcNhoodExpression` function, to avoid repeating the computation every time you need to plot.
+For this analysis we recommend aggregating the neighbourhood expression profiles by experimental samples (the same used for DA testing), by setting `aggregate.samples=TRUE`. This way single-cells will not be considered as "replicates" during DGE testing, and dispersion will be estimated between true biological replicates. Like so:
 
-In this case we mainly identified negative markers of the epiblast neighbourhoods enriched with age.
+```{r}
+da_nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = rownames(embryo_milo)[1:10], 
+                                          aggregate.samples = TRUE, sample_col = "sample")
 
-```{r, fig.height=7, fig.width=9}
-markers <- dge_smp[which(dge_smp$adj.P.Val_1 < 0.1 ), "GeneID"]
-logcounts(embryo_milo) <- log1p(counts(embryo_milo))
-embryo_milo <- calcNhoodExpression(embryo_milo, subset.row=markers)
+head(da_nhood_markers)
+```
 
-plotNhoodExpressionDA(embryo_milo, da_results, features = markers,
-                      subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm"),
-                      assay="logcounts", 
-                      scale_to_1 = TRUE, cluster_features = TRUE
-                      )
+(Notice the difference in p values)
+
+## Automatic grouping of neighbourhoods
+
+In many cases, such as this example, DA neighbourhoods are found in different areas of the KNN graph, and grouping together all significant DA populations might not be ideal, as they might include cells of very different celltypes. For this kind of scenario, we have implemented a neighbourhood function that uses community detection to partition neighbourhoods into groups on the basis of (1) the number of shared cells between 2 neighbourhoods; (2) the direction of fold-change for DA neighbourhoods; (3) the difference in fold change.
+
+```{r}
+## Run buildNhoodGraph to store nhood adjacency matrix
+embryo_milo <- buildNhoodGraph(embryo_milo)
+
+## Find groups
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)
+head(da_results)
+```
+
+Let's have a look at the detected groups 
+
+```{r, fig.height=7, fig.width=7}
+plotNhoodGroups(embryo_milo, da_results, layout="umap") 
+```
+
+```{r}
+plotDAbeeswarm(da_results, "NhoodGroup")
+```
+
+We can see that some groups are made up of single neighbourhoods.
+
+<!-- ```{r, fig.height=7, fig.width=7} -->
+<!-- singletons <- names(which(table(da_results$NhoodGroup)==1)) -->
+<!-- plotNhoodGroups(embryo_milo, da_results, layout="umap", show_groups = singletons,  size_range=c(0.2,4))  -->
+<!-- ``` -->
+
+Let's check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta...
+
+```{r}
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 0.5), group.by = "NhoodGroup") + ggtitle("max LFC delta=0.5")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
+```
+
+...and minimum overlap between neighbourhoods...
+
+```{r}
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=1), group.by = "NhoodGroup") + ggtitle("overlap=1")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=5) , group.by = "NhoodGroup") + ggtitle("overlap=5")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=20)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
+```
+
+Let's settle for `overlap=5` and `max.lfc.delta=3`
+
+```{r}
+set.seed(42)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=5)
+plotNhoodGroups(embryo_milo, da_results, layout="umap")
+plotDAbeeswarm(da_results, group.by = "NhoodGroup")
+```
+
+## Finding gene signatures for neighbourhoods
+
+Once we have grouped neighbourhoods using `groupNhoods` we are now all set to identifying gene signatures between neighbourhood groups.
+
+Let's restrict the testing to highly variable genes in this case
+
+```{r}
+## Exclude zero counts genes
+keep.rows <- rowSums(logcounts(embryo_milo)) != 0
+embryo_milo <- embryo_milo[keep.rows, ]
+
+## Find HVGs
+dec <- modelGeneVar(embryo_milo)
+hvgs <- getTopHVGs(dec, n=2000)
+head(hvgs)
+```
+
+We run `findNhoodGroupMarkers` to test for one-vs-all differential gene expression for each neighbourhood group
+
+```{r}
+nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs, 
+                                       aggregate.samples = TRUE, sample_col = "sample")
+
+head(nhood_markers)
+```
+
+Let's check out the markers for group 2 for example
+
+```{r}
+gr2_markers <- nhood_markers[c("logFC_2", "adj.P.Val_2")] 
+colnames(gr2_markers) <- c("logFC", "adj.P.Val")
+
+head(gr2_markers[order(gr2_markers$adj.P.Val), ])
+```
+
+If you already know you are interested only in the markers for group 2, you might want to test just 8-VS-all using the `subset.groups` parameter:
+
+```{r}
+nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs, 
+                                       aggregate.samples = TRUE, sample_col = "sample",
+                                       subset.groups = c("2")
+                                       )
+
+head(nhood_markers)
+```
+
+You might also want to compare a subset of neighbourhoods between each other. You can specify the neighbourhoods to use for testing by setting the parameter `subset.nhoods`.
+
+For example, you might want to compare just one pair of neighbourhood groups against each other:
+
+```{r}
+nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs,
+                                       subset.nhoods = da_results$NhoodGroup %in% c('11','2'),
+                                       aggregate.samples = TRUE, sample_col = "sample")
+
+head(nhood_markers)
+```
+
+or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subset to the neighbourhoods that show significant DA.
+
+## Visualize detected markers
+
+Lets select marker genes for group 2 at FDR 1% and log-fold-Change > 1.
+
+```{r}
+ggplot(nhood_markers, aes(logFC_2,-log10(adj.P.Val_2 ))) + 
+  geom_point(alpha=0.5, size=0.5) +
+  geom_hline(yintercept = 2)
+
+markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_2 < 0.01 & nhood_markers$logFC_2 > 1]
+```
+
+We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
+
+```{r, fig.width=12, fig.height=7}
+plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
+                          subset.nhoods = da_results$NhoodGroup %in% c('11','2'), scale=TRUE,
+                          grid.space = "fixed")
+```
+
+## DGE testing *within* a group
+
+In some cases you might want to test for differential expression between cells in different conditions *within* the same neighbourhood group. You can do that using `testDiffExp`:
+
+```{r}
+dge_9 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
+                     subset.row = rownames(embryo_milo)[1:10], subset.nhoods=da_results$NhoodGroup=="9")
+
+dge_9
 ```
 
 

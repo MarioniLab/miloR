@@ -19,10 +19,10 @@
 #' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
 #' this argument is generally discouraged, but may be useful for constructing an empirical null
 #' group of cells, regardless of DA sign.
-#' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
-#' to subset before aggregation.
 #' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
 #' adjacency matrix if already present.
+#' @param na.function A valid NA action function to apply, should be one of
+#' \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').
 #' 
 #' @return A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
 #' group label for each neighbourhood
@@ -37,16 +37,31 @@
 
 #' 
 #' @author Emma Dann & Mike Morgan
-#' 
+#' @export
 groupNhoods <- function(x, da.res, da.fdr=0.1, 
                         overlap=1, max.lfc.delta=NULL, 
                         merge.discord=FALSE,
                         subset.nhoods=NULL,
-                        compute.new=FALSE
+                        compute.new=FALSE,
+                        na.function="na.pass"
                         ){
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
   } 
+  
+  if(is.null(na.function)){
+    warning("NULL passed to na.function, using na.pass")
+    na.func <- get("na.pass")
+  } else{
+    tryCatch({
+      na.func <- get(na.function)
+    }, warning=function(warn){
+      warning(warn)
+    }, error=function(err){
+      stop(paste0("NA function ", na.function, " not recognised"))
+    }, finally={
+    })
+  }
   
   n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
   
@@ -74,8 +89,9 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                                              is.da=da.res$SpatialFDR < da.fdr,
                                              merge.discord=merge.discord,
                                              max.lfc.delta=max.lfc.delta,
-                                             overlap=overlap,
-                                             subset.nhoods=subset.nhoods)  
+                                             overlap=overlap
+                                             # subset.nhoods=subset.nhoods
+                                             )  
   
   ## Save in DAres data.frame
   da.res['NhoodGroup'] <- as.character(nhs_groups)
