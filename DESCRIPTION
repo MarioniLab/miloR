@@ -36,7 +36,8 @@ Imports: BiocNeighbors,
          dplyr,
          ggrepel,
          ggbeeswarm,
-         BiocGenerics
+         BiocGenerics,
+         RColorBrewer
 Suggests: 
     testthat,
     MASS,
