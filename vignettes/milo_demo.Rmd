@@ -24,6 +24,7 @@ knitr::opts_chunk$set(
 library(miloR)
 library(SingleCellExperiment)
 library(scater)
+library(scran)
 library(dplyr)
 library(patchwork)
 ```
@@ -175,6 +176,9 @@ We first need to think about our experimental design. The design matrix should m
 ```{r}
 traj_design <- data.frame(colData(traj_milo))[,c("Sample", "Condition")]
 traj_design <- distinct(traj_design)
+rownames(traj_design) <- traj_design$Sample
+## Reorder rownames to match columns of nhoodCounts(milo)
+traj_design <- traj_design[colnames(nhoodCounts(traj_milo)), , drop=FALSE]
 
 traj_design
 ```

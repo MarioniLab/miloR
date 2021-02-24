@@ -10,8 +10,6 @@
 #' and neighbourhoods.
 #' @param da.res A \code{data.frame} containing DA results, as expected from running
 #' \code{testNhoods}.
-#' @param da.fdr A numeric scalar that determines at what FDR neighbourhoods are declared
-#' DA for the purposes of aggregating across concorantly DA neighbourhoods.
 #' @param design A \code{formula} or \code{model.matrix} object describing the
 #' experimental design for differential gene expression testing. The last component
 #' of the formula or last column of the model matrix are by default the test
@@ -24,16 +22,10 @@
 #' DA testing. This should be the same as was used for DA testing.
 #' @param assay A character scalar determining which \code{assays} slot to extract from the
 #' \code{\linkS4class{Milo}} object to use for DGE testing.
-#' @param overlap A scalar integer that determines the number of cells that must
-#' overlap between adjacent neighbourhoods for merging.
-#' @param lfc.threshold A scalar that determines the absolute log fold change above
-#' which neighbourhoods should be considerd 'DA' for merging. Default=NULL
-#' @param merge.discord A logical scalar that overrides the default behaviour and allows
-#' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
-#' this argument is generally discouraged, but may be useful for constructing an empirical null
-#' group of cells, regardless of DA sign.
 #' @param subset.row A logical, integer or character vector indicating the rows
 #' of \code{x} to use for sumamrizing over cells in neighbourhoods.
+#' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
+#' to subset before aggregation and DGE testing (default: NULL).
 #' @param gene.offset A logical scalar the determines whether a per-cell offset
 #' is provided in the DGE GLM to adjust for the number of detected genes with
 #' expression > 0.
@@ -42,8 +34,6 @@
 #' only one specific type of effects are to be tested.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass}.
-#' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
-#' adjacency matrix if already present.
 #'
 #' @details
 #' Adjacent neighbourhoods are first merged based on two criteria: 1) they share at
@@ -87,18 +77,16 @@
 #' nhood.dge
 #'
 #' @name testDiffExp
-NULL
-
-
 #' @export
 #' @importFrom stats model.matrix
 #' @importFrom SummarizedExperiment assayNames
 #' @importFrom stats na.pass na.fail na.omit na.exclude
-testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrasts=NULL,
-                        overlap=1, lfc.threshold=NULL, assay="logcounts",
+testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
+                        assay="logcounts",
+                        subset.nhoods=NULL,
                         subset.row=NULL, gene.offset=TRUE, n.coef=NULL,
-                        merge.discord=FALSE, na.function="na.pass",
-                        compute.new=FALSE){
+                        na.function="na.pass"
+                        ){
 
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
@@ -120,42 +108,41 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
         })
     }
 
-    n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
-    if(!is.na(n.da) & n.da == 0){
-        stop("No DA neighbourhoods found")
-    }
+    # n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
+    # if(!is.na(n.da) & n.da == 0){
+    #     stop("No DA neighbourhoods found")
+    # }
 
     if(any(is.na(da.res$SpatialFDR))){
         warning("NA values found in SpatialFDR vector")
     }
 
-    message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
-    if(!is.null(nhoodAdjacency(x)) & isFALSE(compute.new)){
-        message("nhoodAdjacency found - using for nhood grouping")
-        nhs.da.gr <- .group_nhoods_from_adjacency(nhoods(x),
-                                                  nhood.adj=nhoodAdjacency(x),
-                                                  da.res=da.res,
-                                                  is.da=na.func(da.res$SpatialFDR < da.fdr),
-                                                  overlap=overlap)
-    } else{
-        nhs.da.gr <- .group_nhoods_by_overlap(nhoods(x),
-                                              da.res=da.res,
-                                              is.da=na.func(da.res$SpatialFDR < da.fdr),
-                                              overlap=overlap) # returns a vector group values for each nhood
-    }
     # assign this group level information to the consituent cells using the input meta.data
     copy.meta <- meta.data # make a copy assume the order is the same, just check the rownames are the same
 
     if(!all(rownames(copy.meta) == colnames(x))){
         warning("Column names of x are not the same as meta-data rownames")
     }
-
+    
     copy.meta$Nhood.Group <- NA
+    nhs.da.gr <- da.res$NhoodGroup
+    names(nhs.da.gr) <- da.res$Nhood
+    
+    if(!is.null(subset.nhoods)){
+        nhs.da.gr <- nhs.da.gr[subset.nhoods]
+    }
+    
     nhood.gr <- unique(nhs.da.gr)
 
     for(i in seq_along(nhood.gr)){
         nhood.x <- nhs.da.gr %in% nhood.gr[i]
-        copy.meta[rowSums(nhoods(x)[,names(nhs.da.gr)])[nhood.x] > 0,]$Nhood.Group <- nhood.gr[i]
+        # get the nhoods
+        nhs <- nhoods(x)
+        if(!is.null(subset.nhoods)){
+            nhs <- nhs[,subset.nhoods]
+        }
+        nhood.gr.cells <- rowSums(nhs[, nhood.x, drop=FALSE]) > 0
+        copy.meta[nhood.gr.cells,]$Nhood.Group <- nhood.gr[i]
     }
 
     # subset to non-NA group cells
@@ -195,7 +182,6 @@ testDiffExp <- function(x, da.res, design, meta.data, da.fdr=0.1, model.contrast
     sink(file=NULL)
 
     # perform DGE _within_ each group of cells using the input design matrix
-    message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
     dge.list <- list()
     for(i in seq_along(nhood.gr)){
         i.meta <- copy.meta[copy.meta$Nhood.Group == nhood.gr[i], ,drop=FALSE]

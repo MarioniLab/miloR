@@ -159,7 +159,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                                   da.res=da.res,
                                                   is.da=da.res$SpatialFDR < da.fdr,
                                                   merge.discord=merge.discord,
-                                                  lfc.threshold=lfc.threshold,
+                                                  max.lfc.delta=lfc.threshold,
                                                   overlap=overlap,
                                                   subset.nhoods=subset.nhoods)
     } else{

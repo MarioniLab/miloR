@@ -37,8 +37,6 @@
 #'
 #' milo
 #' @name calcNhoodDistance
-NULL
-
 #' @export
 #' @rdname calcNhoodDistance
 #' @importFrom irlba prcomp_irlba
