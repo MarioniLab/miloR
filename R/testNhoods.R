@@ -124,7 +124,7 @@ testNhoods <- function(x, design, design.df,
         }
     }
 
-    if((colnames(nhoodCounts(x)) != rownames(model)) & !any(colnames(nhoodCounts(x)) %in% rownames(model))){
+    if(any(colnames(nhoodCounts(x)) != rownames(model)) & !any(colnames(nhoodCounts(x)) %in% rownames(model))){
         stop(paste0("Sample names in design matrix and nhood counts are not matched.
                     Set appropriate rownames in design matrix."))
     } else if((colnames(nhoodCounts(x)) != rownames(model)) & any(colnames(nhoodCounts(x)) %in% rownames(model))){
