@@ -1,0 +1,5 @@
+navbar:
+  structure:
+    left:  [home, reference, vignettes]
+    right: [github]
+
