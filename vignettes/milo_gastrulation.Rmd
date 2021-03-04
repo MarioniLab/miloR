@@ -463,13 +463,6 @@ sessionInfo()
 </details>
 
 
-```{r, echo=FALSE}
-# cleaning biocache
-removebfc(bfc)
-```
-
-
-
 
 
 
