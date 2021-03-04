@@ -123,13 +123,28 @@ test_that("Output is correct type", {
     })
 
 
-test_that("Every nhood is assigned a group", {
+test_that("subsetting gives the expected result", {
     full.out <- suppressWarnings(groupNhoods(sim1.mylo, sim1.res,
-                                                  compute.new=TRUE))
+                                                  compute.new=TRUE, subset.nhoods = c(1:10)))
+    expect_true(any(is.na(full.out$NhoodGroup)))
+    expect_equal(sum(!is.na(full.out$NhoodGroup)), 10)
+    full.out <- suppressWarnings(groupNhoods(sim1.mylo, sim1.res,
+                                             compute.new=TRUE, subset.nhoods = sim1.res$logFC < 0.1))
+    expect_equal(sum(!is.na(full.out$NhoodGroup)), sum(sim1.res$logFC < 0.1))
+    full.out <- suppressWarnings(groupNhoods(sim1.mylo, sim1.res,
+                                             compute.new=TRUE, subset.nhoods = colnames(nhoods(sim1.mylo))[1:10]))
+    expect_equal(sum(!is.na(full.out$NhoodGroup)), 10)
     
-    
-    expect_false(any(is.na(full.out$NhoodGroup)))
 })
+
+
+# test_that("Every nhood is assigned a group", {
+#     full.out <- suppressWarnings(groupNhoods(sim1.mylo, sim1.res,
+#                                                   compute.new=TRUE))
+#     
+#     
+#     expect_false(any(is.na(full.out$NhoodGroup)))
+# })
 
 test_that("Setting max.lfc.delta increases the number of groups", {
     delta.out <- suppressWarnings(groupNhoods(sim1.mylo, sim1.res, max.lfc.delta = 0.3,
