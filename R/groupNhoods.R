@@ -19,13 +19,15 @@
 #' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
 #' this argument is generally discouraged, but may be useful for constructing an empirical null
 #' group of cells, regardless of DA sign.
+#' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
+#' to subset before grouping. All other neighbourhoods will be assigned NA   
 #' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
 #' adjacency matrix if already present.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').
 #' 
 #' @return A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
-#' group label for each neighbourhood
+#' group label for each neighbourhood (\code{NhoodGroup} column)
 #' 
 #' @details Louvain clustering is applied to the neighbourhood graph. This graph is first modified
 #' based on two criteria: 1) neighbourhoods share at least \code{overlap} number of cells,
