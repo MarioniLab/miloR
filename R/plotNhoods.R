@@ -102,7 +102,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @import ggraph
 #' @importFrom SummarizedExperiment colData<-
 #' @importFrom RColorBrewer brewer.pal
-plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, size_range=c(0.5,3), 
+plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, size_range=c(0.5,3),
                            node_stroke= 0.3, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
@@ -256,11 +256,11 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
       stop(paste(layout, "is not in reducedDim(x) - choose a different layout"))
     }
   }
-  
+
   if (!"NhoodGroup" %in% colnames(milo_res)) {
     stop("'NhoodGroup' columns is missing from milo_res. Please run groupNhoods() or define neighbourhood groupings otherwise.")
   }
-  
+
   ## Add groups to colData
   # signif_res <- milo_res
   # signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
@@ -272,7 +272,7 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   colData(x)["NhoodGroup"] <- NA
   groups_res <- milo_res[milo_res$NhoodGroup %in% plot_groups,]
   colData(x)[unlist(nhoodIndex(x)[groups_res$Nhood]),"NhoodGroup"] <- groups_res$NhoodGroup
-  
+
   ## Plot logFC
   plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
 }
@@ -470,7 +470,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 #' features
 #' @param grid.space a character setting the \code{space} parameter for \code{facet.grid} (\code{'fixed'} for equally sized facets,
 #' \code{'free'} to adapt the size of facent to number of neighbourhoods in group)
-#' 
+#'
 #' @return a \code{ggplot} object
 #'
 #' @author Emma Dann
@@ -481,7 +481,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
 #' @export
 #' @rdname plotNhoodExpressionDA
 #' @import ggplot2
-#' @importFrom dplyr mutate left_join filter first group_by summarise
+#' @importFrom dplyr mutate left_join filter first group_by summarise ungroup
 #' @importFrom ggrepel geom_text_repel
 #' @importFrom tidyr pivot_longer
 #' @importFrom stats hclust
@@ -510,15 +510,15 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
     warning("Not all features in nhoodExpression(x): recomputing for requested features...")
     x <- calcNhoodExpression(x, assay = assay, subset.row = features)
   }
-  
+
   expr_mat <- nhoodExpression(x)[features, ]
   colnames(expr_mat) <- 1:ncol(nhoods(x))
-  
+
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
     expr_mat <- expr_mat[,subset.nhoods, drop=FALSE]
   }
-  
+
   if (!isFALSE(scale_to_1)) {
     expr_mat <- t(apply(expr_mat, 1, function(X) (X - min(X))/(max(X)- min(X))))
     # force NAs to 0?
@@ -527,9 +527,9 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
       expr_mat[is.na(expr_mat)] <- 0
     }
   }
-  
+
   rownames(expr_mat) <- sub(pattern = "-", replacement = ".", rownames(expr_mat)) ## To avoid problems when converting to data.frame
-  
+
   pl_df <- data.frame(t(expr_mat)) %>%
     rownames_to_column("Nhood") %>%
     mutate(Nhood=as.double(Nhood)) %>%
@@ -537,7 +537,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
     group_by(NhoodGroup) %>%
     mutate(logFC_rank=rank(logFC, ties.method="random")) %>%
     ungroup()
-  
+
   ## plot: gene expression heatmap
   if (isTRUE(cluster_features)) {
     row.order <- hclust(dist(expr_mat))$order # clustering
@@ -545,15 +545,15 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
   } else {
     ordered_features <- rownames(expr_mat)
   }
-  
+
   # this code assumes that colnames do not begin with numeric values
   # add 'X' to feature names with numeric first characters
   rownames(expr_mat) <- str_replace(rownames(expr_mat), pattern="(^[0-9]+)", replacement="X\\1")
-  
+
   pl_df <- pl_df %>%
     pivot_longer(cols=rownames(expr_mat), names_to='feature', values_to="avg_expr") %>%
     mutate(feature=factor(feature, levels=ordered_features))
-  
+
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
@@ -562,7 +562,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
   }
-  
+
   pl_bottom <- pl_df %>%
     ggplot(aes(logFC_rank, feature, fill=avg_expr)) +
     geom_tile() +
@@ -578,7 +578,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
           legend.margin=margin(0,0,0,0),
           legend.box.margin=margin(10,10,10,10)
     )
-  
+
   if (!is.null(highlight_features)) {
     pl_bottom <- pl_bottom +
       geom_text_repel(data=. %>%
@@ -591,14 +591,14 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
                       min.segment.length = 0,
                       seed=42
       )
-    
+
   }
-  
+
   if(isFALSE(show_rownames)){
     pl_bottom <- pl_bottom +
       theme(axis.text.y=element_blank())
   }
-  
+
   pl_bottom
 }
 
