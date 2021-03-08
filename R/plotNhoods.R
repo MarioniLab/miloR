@@ -668,3 +668,68 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     theme(strip.text.y =  element_text(angle=0))
 
 }
+
+
+#' Visualize DA results as an MAplot
+#'
+#' @param da.res A data.frame of DA testing results
+#' @param null.mean A numeric scalar determining the expected value of the log fold change under the null
+#' hypothesis. \code{default=0}.
+#' @param alpha A numeric scalar that represents the Spatial FDR threshold for statistical significance.
+#'
+#' @return a \code{ggplot} object
+#'
+#' @details MA plots provide a useful means to evaluate the distribution of log fold changes after differential
+#' abundance testing. In particular, they can be used to diagnose global shifts that occur in the presence of
+#' confounding between the number of cells acquired and the experimental variable of interest. The expected null
+#' value for the log FC distribution (grey dashed line), along with the median observed log fold change (purple
+#' dashed line) are plotted for reference.
+#'
+#' @author Mike Morgan
+#'
+#' @examples
+#' NULL
+#'
+#' @export
+#' @rdname plotNhoodMA
+#' @import ggplot2
+#' @importFrom cowplot theme_cowplot
+plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
+  if(isFALSE(any(class(da.res) %in% c("tibble", "data.frame")))){
+    stop("Input `da.res` not recognised - please input the results data.frame from DA testing.")
+  }
+
+  if(!is.numeric(alpha)){
+    stop("alpha is not numeric - please provide a numeric value for the Spatial FDR threshold")
+  }
+
+  if(!is.numeric(null.mean)){
+    stop("typeof null.mean not recoginised, please provide a numeric value")
+  }
+
+  if(isFALSE(!all(colnames(da.res) %in% c("SpatialFDR", "logCPM", "logFC")))){
+    stop("Please provide a results data.frame containing the logCPM, logFC and SpatialFDR results")
+  }
+
+  sig.cols <- c("black", "red")
+  names(sig.cols) <- c("FALSE", "TRUE")
+  max.lfc <- max(abs(da.res$logFC))
+  max.eps <- max.lfc * 0.1
+
+  emp.null <- median(da.res$logFC)
+  min.x <- min(da.res$logCPM)
+  max.x <- max(da.res.logCPM)
+
+  ma.p <- ggplot(da.res, aes(x=logCPM, y=logFC, fill=SpatialFDR < alpha)) +
+    geom_hline(yintercept=null.mean, lty=2, colour='grey80') +
+    geom_hline(yintercept=emp.null, lty=2, colour='purple') +
+    geom_point() +
+    theme_cowplot() +
+    scale_colour_manual(values=sig.cols) +
+    scale_y_continuous(limits=c(-max.lfc - max.eps, max.lfc + max.eps)) +
+    scale_x_continuous(limits=c(min.x-(min.x*0.1), max.x + (max.x*0.1))) +
+    labs(x="Mean log scaled counts", y="Log fold-change") +
+    NULL
+
+  return(ma.p)
+}
