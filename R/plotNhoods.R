@@ -712,23 +712,27 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
   }
 
   sig.cols <- c("black", "red")
-  names(sig.cols) <- c("FALSE", "TRUE")
+  names(sig.cols) <- c(FALSE, TRUE)
   max.lfc <- max(abs(da.res$logFC))
   max.eps <- max.lfc * 0.1
 
   emp.null <- median(da.res$logFC)
   min.x <- min(da.res$logCPM)
-  max.x <- max(da.res.logCPM)
+  minx.eps <- min.x * 0.01
+  max.x <- max(da.res$logCPM)
+  maxx.eps <- max.x * 0.01
 
-  ma.p <- ggplot(da.res, aes(x=logCPM, y=logFC, fill=SpatialFDR < alpha)) +
+  da.res$Sig <- da.res$SpatialFDR < alpha
+  ma.p <- ggplot(da.res, aes(x=logCPM, y=logFC, colour=Sig)) +
     geom_hline(yintercept=null.mean, lty=2, colour='grey80') +
     geom_hline(yintercept=emp.null, lty=2, colour='purple') +
     geom_point() +
     theme_cowplot() +
     scale_colour_manual(values=sig.cols) +
     scale_y_continuous(limits=c(-max.lfc - max.eps, max.lfc + max.eps)) +
-    scale_x_continuous(limits=c(min.x-(min.x*0.1), max.x + (max.x*0.1))) +
+    scale_x_continuous(limits=c(min.x-minx.eps, max.x + maxx.eps)) +
     labs(x="Mean log scaled counts", y="Log fold-change") +
+    guides(colour=guide_legend(title=paste0("SpatialFDR < ", alpha))) +
     NULL
 
   return(ma.p)
