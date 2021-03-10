@@ -27,7 +27,7 @@
 #' This function wraps up several steps of differential abundance testing using
 #' the \code{edgeR} functions. These could be performed separately for users
 #' who want to exercise more contol over their DA testing. By default this
-#' function sets the \code{lib.sizes} to the log10(colSums(x)), and uses the
+#' function sets the \code{lib.sizes} to the colSums(x), and uses the
 #' Quasi-Likelihood F-test in \code{glmQLFTest} for DA testing. FDR correction
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
@@ -150,7 +150,7 @@ testNhoods <- function(x, design, design.df,
     }
 
     dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                   lib.size=log(colSums(nhoodCounts(x))))
+                   lib.size=colSums(nhoodCounts(x)))
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=robust)

@@ -123,15 +123,15 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
     if(!all(rownames(copy.meta) == colnames(x))){
         warning("Column names of x are not the same as meta-data rownames")
     }
-    
+
     copy.meta$Nhood.Group <- NA
     nhs.da.gr <- da.res$NhoodGroup
     names(nhs.da.gr) <- da.res$Nhood
-    
+
     if(!is.null(subset.nhoods)){
         nhs.da.gr <- nhs.da.gr[subset.nhoods]
     }
-    
+
     nhood.gr <- unique(nhs.da.gr)
 
     for(i in seq_along(nhood.gr)){
@@ -265,7 +265,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
                                 model.contrasts=NULL, n.coef=NULL){
 
     i.dge <- DGEList(counts=exprs.data,
-                     lib.size=log(colSums(exprs.data)))
+                     lib.size=colSums(exprs.data))
 
     if(isTRUE(gene.offset)){
         n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))

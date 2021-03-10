@@ -37,6 +37,9 @@ adjacent neighbourhoods to be merged if they have discordant log fold change sig
 this argument is generally discouraged, but may be useful for constructing an empirical null
 group of cells, regardless of DA sign.}
 
+\item{subset.nhoods}{A logical, integer or character vector indicating which neighbourhoods
+to subset before grouping. All other neighbourhoods will be assigned NA}
+
 \item{compute.new}{A logical scalar indicating whether to force computing a new neighbourhood
 adjacency matrix if already present.}
 
@@ -45,7 +48,7 @@ adjacency matrix if already present.}
 }
 \value{
 A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
-group label for each neighbourhood
+group label for each neighbourhood (\code{NhoodGroup} column)
 }
 \description{
 This function groups overlapping and concordantly DA neighbourhoods, using the louvain 
