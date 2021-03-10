@@ -19,13 +19,15 @@
 #' adjacent neighbourhoods to be merged if they have discordant log fold change signs. Using
 #' this argument is generally discouraged, but may be useful for constructing an empirical null
 #' group of cells, regardless of DA sign.
+#' @param subset.nhoods A logical, integer or character vector indicating which neighbourhoods
+#' to subset before grouping. All other neighbourhoods will be assigned NA   
 #' @param compute.new A logical scalar indicating whether to force computing a new neighbourhood
 #' adjacency matrix if already present.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').
 #' 
 #' @return A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
-#' group label for each neighbourhood
+#' group label for each neighbourhood (\code{NhoodGroup} column)
 #' 
 #' @details Louvain clustering is applied to the neighbourhood graph. This graph is first modified
 #' based on two criteria: 1) neighbourhoods share at least \code{overlap} number of cells,
@@ -89,12 +91,17 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                                              is.da=da.res$SpatialFDR < da.fdr,
                                              merge.discord=merge.discord,
                                              max.lfc.delta=max.lfc.delta,
-                                             overlap=overlap
-                                             # subset.nhoods=subset.nhoods
+                                             overlap=overlap,
+                                             subset.nhoods=subset.nhoods
                                              )  
   
   ## Save in DAres data.frame
-  da.res['NhoodGroup'] <- as.character(nhs_groups)
+  da.res['NhoodGroup'] <- NA
+  if (!is.null(subset.nhoods)) {
+    da.res[subset.nhoods,"NhoodGroup"] <- as.character(nhs_groups)
+  } else {
+    da.res['NhoodGroup'] <- as.character(nhs_groups)  
+  }
   return(da.res)
 }
 
@@ -102,8 +109,8 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
 .group_nhoods_from_adjacency <- function(nhs, nhood.adj, da.res, is.da,
                                          merge.discord=FALSE,
                                          max.lfc.delta=NULL,
-                                         overlap=1
-                                         # subset.nhoods=NULL
+                                         overlap=1,
+                                         subset.nhoods=NULL
                                          ){
   
   if(is.null(colnames(nhs))){
@@ -111,33 +118,35 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
     colnames(nhs) <- as.character(c(1:ncol(nhs)))
   }
   
-  # # assume order of nhs is the same as nhood.adj
-  # if(!is.null(subset.nhoods)){
-  #   if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
-  #     # force use of logicals for consistency
-  #     if(mode(subset.nhoods) %in% c("character", "numeric")){
-  #       sub.log <- colnames(nhs) %in% subset.nhoods
-  #     } else{
-  #       sub.log <- subset.nhoods
-  #     }
-  #     
-  #     nhood.adj <- nhood.adj[sub.log, sub.log]
-  #     
-  #     if(length(is.da) == ncol(nhs)){
-  #       nhs <- nhs[sub.log]
-  #       is.da <- is.da[sub.log]
-  #       da.res <- da.res[sub.log, ]
-  #     } else{
-  #       stop("Subsetting `is.da` vector length does not equal nhoods length")
-  #     }
-  #   } else{
-  #     stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
-  #   }
-  # } else{
-  #   if(length(is.da) != ncol(nhood.adj)){
-  #     stop("Subsetting `is.da` vector length is not the same dimension as adjacency")
-  #   }
-  # }
+  # assume order of nhs is the same as nhood.adj
+  if(!is.null(subset.nhoods)){
+    if(mode(subset.nhoods) %in% c("character", "logical", "numeric")){
+      # force use of logicals for consistency
+      if(mode(subset.nhoods) %in% c("character")){
+        sub.log <- colnames(nhs) %in% subset.nhoods
+      } else if (mode(subset.nhoods) %in% c("numeric")) {
+        sub.log <- colnames(nhs) %in% colnames(nhs)[subset.nhoods]
+      } else{
+        sub.log <- subset.nhoods
+      }
+
+      nhood.adj <- nhood.adj[sub.log, sub.log]
+
+      if(length(is.da) == ncol(nhs)){
+        nhs <- nhs[sub.log]
+        is.da <- is.da[sub.log]
+        da.res <- da.res[sub.log, ]
+      } else{
+        stop("Subsetting `is.da` vector length does not equal nhoods length")
+      }
+    } else{
+      stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
+    }
+  } else{
+    if(length(is.da) != ncol(nhood.adj)){
+      stop("Subsetting `is.da` vector length is not the same dimension as adjacency")
+    }
+  }
   
   ## check for concordant signs (only for significant DA) - assume order is the same as nhoods
   if(isFALSE(merge.discord)){

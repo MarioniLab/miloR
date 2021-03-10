@@ -59,7 +59,7 @@
 #' @name findNhoodGroupMarkers
 #' @export
 #' @importFrom stats model.matrix as.formula
-#' @importFrom Matrix colSums
+#' @importFrom Matrix colSums rowSums
 findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
                              aggregate.samples=FALSE, sample_col=NULL,
                              subset.row=NULL, gene.offset=TRUE,
@@ -102,8 +102,18 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   }
   
   nhood.gr <- unique(nhs.da.gr)
+  
+  # get the nhoods
+  nhs <- nhoods(x)
+  if(!is.null(subset.nhoods)){
+    nhs <- nhs[,subset.nhoods]
+    # ## Remove cells out of neighbourhoods of interest
+    # nhs <- nhs[rowSums(nhs) > 0,]
+  }
+  
   # perform DGE _within_ each group of cells using the input design matrix
-  fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
+  # Keep only cells in nhoods of interest
+  fake.meta <- data.frame("CellID"=colnames(x)[rowSums(nhs) > 0], "Nhood.Group"=rep(NA, sum(rowSums(nhs) > 0)))
   rownames(fake.meta) <- fake.meta$CellID
   
   # do we want to allow cells to be members of multiple groups? This will create
@@ -113,18 +123,15 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   # maybe exclude the cells that fall into separate groups?
   
   for(i in seq_along(nhood.gr)){
-    nhood.x <- da.res$Nhood[which(nhs.da.gr == nhood.gr[i])]
-    
-    # get the nhoods
-    nhs <- nhoods(x)
-    if(!is.null(subset.nhoods)){
-      nhs <- nhs[,subset.nhoods]
-    }
-    
+    nhood.x <- which(nhs.da.gr == nhood.gr[i])
+    nhs <- nhs[rowSums(nhs) > 0,]
     nhood.gr.cells <- rowSums(nhs[, nhood.x, drop=FALSE]) > 0
     ## set group to NA if a cell was already assigned to a group
     fake.meta[nhood.gr.cells,"Nhood.Group"] <- ifelse(is.na(fake.meta[nhood.gr.cells,"Nhood.Group"]), nhood.gr[i], NA)
   }
+  
+  ## Remove NA cells
+  fake.meta <- fake.meta[!is.na(fake.meta$Nhood.Group),]
   
   # # only compare against the other DA neighbourhoods
   # x <- x[, !is.na(fake.meta$Nhood.Group)]
@@ -134,7 +141,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     x <- x[subset.row, , drop=FALSE]
   }
   
-  exprs <- assay(x, assay)
+  exprs <- assay(x, assay)[,fake.meta$CellID]
   
   marker.list <- list()
   i.contrast <- c("TestTest - TestRef") # always use contrasts for this
@@ -151,7 +158,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   ## Aggregate expression by sample
   # To avoid treating cells as independent replicates
   if (isTRUE(aggregate.samples)) {
-    fake.meta[,"sample_id"] <- colData(x)[[sample_col]]
+    fake.meta[,"sample_id"] <- colData(x)[fake.meta$CellID,sample_col]
     fake.meta[,'sample_group'] <- paste(fake.meta[,"sample_id"], fake.meta[,"Nhood.Group"], sep="_")
     
     sample_gr_mat <- matrix(0, nrow=nrow(fake.meta), ncol=length(unique(fake.meta$sample_group)))
