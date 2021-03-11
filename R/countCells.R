@@ -70,13 +70,13 @@ countCells <- function(x, samples, meta.data=NULL){
             samp.ids <- levels(meta.data[, samples])
         } else {
             samp.ids <- unique(as.character(meta.data[, samples]))
-        }        
+        }
     } else {
         if (is.factor(samples)){
             samp.ids <- levels(samples)
         } else {
             samp.ids <- unique(as.character(samples))
-        }   
+        }
     }
 
     num.hoods <- ncol(nhoods(x))

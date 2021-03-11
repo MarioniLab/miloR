@@ -117,6 +117,8 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                              return.groups=FALSE, subset.nhoods=NULL,
                              na.function="na.pass", compute.new=FALSE){
 
+    warning("This method will be deprecated soon. Please use groupNhoods and findNhoodMarkers")
+
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
@@ -168,7 +170,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
                                               da.res=da.res,
                                               is.da=da.res$SpatialFDR < da.fdr,
                                               merge.discord=merge.discord,
-                                              lfc.threshold=lfc.threshold,
+                                              max.lfc.delta=lfc.threshold,
                                               overlap=overlap,
                                               cells=seq_len(ncol(x)),
                                               subset.nhoods=subset.nhoods) # returns a vector group values for each nhood

@@ -47,11 +47,11 @@ adjacency matrix if already present.}
 \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').}
 }
 \value{
-A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned 
+A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned
 group label for each neighbourhood (\code{NhoodGroup} column)
 }
 \description{
-This function groups overlapping and concordantly DA neighbourhoods, using the louvain 
+This function groups overlapping and concordantly DA neighbourhoods, using the louvain
 community detection algorithm.
 }
 \details{

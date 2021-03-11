@@ -62,7 +62,8 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                  nhoods=Matrix(0L, sparse=TRUE),
                  nhoodCounts=Matrix(0L, sparse=TRUE),
                  nhoodIndex=list(),
-                 nhoodExpression=Matrix(0L, sparse=TRUE), .k=NULL){
+                 nhoodExpression=Matrix(0L, sparse=TRUE),
+                 .k=NULL){
     old <- S4Vectors:::disableValidity()
     if (!isTRUE(old)) {
         S4Vectors:::disableValidity(TRUE)

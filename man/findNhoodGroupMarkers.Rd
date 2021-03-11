@@ -50,9 +50,6 @@ to subset before aggregation and DGE testing (default: NULL).}
 
 \item{na.function}{A valid NA action function to apply, should be one of
 \code{na.fail, na.omit, na.exclude, na.pass}.}
-
-\item{overlap}{A scalar integer that determines the number of cells that must
-overlap between adjacent neighbourhoods for merging.}
 }
 \value{
 A \code{data.frame} of DGE results containing a log fold change and adjusted
@@ -81,7 +78,4 @@ the model offsets by the number of detected genes in each cell.
 }
 \examples{
 
-}
-\author{
-Emma Dann
 }

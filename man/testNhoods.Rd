@@ -29,6 +29,12 @@ spatial FDR correction is performed and returns a vector of NAs.}
 \item{robust}{If robust=TRUE then this is passed to edgeR and limma which use a robust
 estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 Phipson et al, 2013 for details.}
+
+\item{norm.method}{A character scalar, either \code{"logMS"} or \code{"TMM"}. The \code{"logMS"}
+method normalises the counts across samples using the log columns sums of the count matrix as
+a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation as described in
+Robinson & Oshlack, 2010. The latter provides a degree of robustness against false positives
+when there are very large compositional differences between samples.}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -90,7 +96,7 @@ milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
 test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 rownames(test.meta) <- test.meta$Sample
-da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ], norm.method="TMM")
 da.res
 
 }
