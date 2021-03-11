@@ -63,10 +63,10 @@ A \code{list} containing a \code{data.frame} of DGE results for each aggregated
 group of neighbourhoods.
 }
 \description{
-This function will perform differential gene expression analysis with
+This function will perform differential gene expression analysis within
 differentially abundant neighbourhoods, by first aggregating adjacent and
 concordantly DA neighbourhoods, then comparing cells \emph{within} these
-aggregated groups for differential gene experession using the input design. For
+aggregated groups for differential gene expression using the input design. For
 comparing \emph{between} DA neighbourhoods see \code{\link{findNhoodMarkers}}.
 }
 \details{
@@ -101,7 +101,7 @@ test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 rownames(test.meta) <- test.meta$Sample
 da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 
-nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=1, compute.new=TRUE)
+nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df)
 nhood.dge
 
 }
