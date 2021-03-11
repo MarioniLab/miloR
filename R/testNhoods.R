@@ -21,6 +21,11 @@
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
 #' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 #' Phipson et al, 2013 for details.
+#' @param norm.method A character scalar, either \code{"logMS"} or \code{"TMM"}. The \code{"logMS"}
+#' method normalises the counts across samples using the log columns sums of the count matrix as
+#' a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation as described in
+#' Robinson & Oshlack, 2010. The latter provides a degree of robustness against false positives
+#' when there are very large compositional differences between samples.
 #'
 #'
 #' @details
@@ -80,7 +85,7 @@
 #' test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
-#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ], norm.method="TMM")
 #' da.res
 #'
 #' @name testNhoods
@@ -95,7 +100,8 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
-                       min.mean=0, model.contrasts=NULL, robust=TRUE){
+                       min.mean=0, model.contrasts=NULL, robust=TRUE,
+                       norm.method=c("TMM", "logMS")){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
@@ -110,6 +116,10 @@ testNhoods <- function(x, design, design.df,
         stop("Unrecognised input type - must be of class Milo")
     } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
+    }
+
+    if(!any(norm.method %in% c("TMM", "logMS"))){
+        stop(paste0("Normalisation method ", norm.method, " not recognised. Must be either TMM or logMS"))
     }
 
     subset.counts <- FALSE
@@ -149,8 +159,21 @@ testNhoods <- function(x, design, design.df,
         }
     }
 
-    dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                   lib.size=colSums(nhoodCounts(x)))
+    if(length(norm.method) > 1){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
+                       lib.size=colSums(nhoodCounts(x)))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("TMM")){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
+                       lib.size=colSums(nhoodCounts(x)))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("logMS")){
+        message("Using logMS normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
+                       lib.size=colSums(nhoodCounts(x)))
+    }
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=robust)
