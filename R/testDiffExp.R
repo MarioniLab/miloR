@@ -72,7 +72,7 @@
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
-#'
+#' da.res <- groupNhoods(milo, da.res, da.fdr=0.1)
 #' nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df)
 #' nhood.dge
 #'
@@ -110,6 +110,10 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
 
     if(any(is.na(da.res$SpatialFDR))){
         warning("NA values found in SpatialFDR vector")
+    }
+
+    if(!any(colnames(da.res) %in% c("NhoodGroup"))){
+        stop("No neighbourhood groups found. Please run groupNoods first")
     }
 
     # assign this group level information to the consituent cells using the input meta.data
