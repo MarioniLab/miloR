@@ -65,7 +65,7 @@ We will test for significant differences in abundance of cells between these sta
 
 ## Create a Milo object
 
-For differential abundance analysis on graph neighbourhoods we first construct a `Milo` object. This extends the [`SingleCellExperiment`](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html) class to store information about neighbourhoods on the KNN graph. 
+For differential abundance analysis on graph neighbourhoods we first construct a `Milo` object. This extends the SingleCellExperiment class to store information about neighbourhoods on the KNN graph. 
 
 ```{r}
 embryo_milo <- Milo(embryo_data)
