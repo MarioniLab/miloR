@@ -50,7 +50,8 @@ Suggests:
     rmarkdown,
     uwot,
     BiocStyle,
-    MouseGastrulationData
+    MouseGastrulationData,
+    magick
 RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
