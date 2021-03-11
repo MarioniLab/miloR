@@ -100,7 +100,7 @@ test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep
 test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 rownames(test.meta) <- test.meta$Sample
 da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
-
+da.res <- groupNhoods(milo, da.res, da.fdr=0.1)
 nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df)
 nhood.dge
 
