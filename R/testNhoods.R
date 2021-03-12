@@ -21,13 +21,18 @@
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
 #' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 #' Phipson et al, 2013 for details.
+#' @param norm.method A character scalar, either \code{"logMS"} or \code{"TMM"}. The \code{"logMS"}
+#' method normalises the counts across samples using the log columns sums of the count matrix as
+#' a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation as described in
+#' Robinson & Oshlack, 2010. The latter provides a degree of robustness against false positives
+#' when there are very large compositional differences between samples.
 #'
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
 #' the \code{edgeR} functions. These could be performed separately for users
 #' who want to exercise more contol over their DA testing. By default this
-#' function sets the \code{lib.sizes} to the log10(colSums(x)), and uses the
+#' function sets the \code{lib.sizes} to the colSums(x), and uses the
 #' Quasi-Likelihood F-test in \code{glmQLFTest} for DA testing. FDR correction
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
@@ -80,7 +85,7 @@
 #' test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
-#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
+#' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ], norm.method="TMM")
 #' da.res
 #'
 #' @name testNhoods
@@ -95,7 +100,8 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
-                       min.mean=0, model.contrasts=NULL, robust=TRUE){
+                       min.mean=0, model.contrasts=NULL, robust=TRUE,
+                       norm.method=c("TMM", "logMS")){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
@@ -112,6 +118,10 @@ testNhoods <- function(x, design, design.df,
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
+    if(!any(norm.method %in% c("TMM", "logMS"))){
+        stop(paste0("Normalisation method ", norm.method, " not recognised. Must be either TMM or logMS"))
+    }
+
     subset.counts <- FALSE
     if(ncol(nhoodCounts(x)) != nrow(model)){
         # need to allow for design.df with a subset of samples only
@@ -122,14 +132,6 @@ testNhoods <- function(x, design, design.df,
             stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
                         ncol(nhoodCounts(x)), ") are not the same dimension"))
         }
-    }
-
-    if(any(colnames(nhoodCounts(x)) != rownames(model)) & !any(colnames(nhoodCounts(x)) %in% rownames(model))){
-        stop(paste0("Sample names in design matrix and nhood counts are not matched.
-                    Set appropriate rownames in design matrix."))
-    } else if((colnames(nhoodCounts(x)) != rownames(model)) & any(colnames(nhoodCounts(x)) %in% rownames(model))){
-        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
-        model <- model[colnames(nhoodCounts(x)), ]
     }
 
     # assume nhoodCounts and model are in the same order
@@ -149,8 +151,36 @@ testNhoods <- function(x, design, design.df,
         }
     }
 
-    dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                   lib.size=log(colSums(nhoodCounts(x))))
+    if(isTRUE(subset.counts)){
+        keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
+    } else{
+        keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
+    }
+
+    if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        stop(paste0("Sample names in design matrix and nhood counts are not matched.
+                    Set appropriate rownames in design matrix."))
+    } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+        model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+    }
+
+
+    if(length(norm.method) > 1){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("TMM")){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("logMS")){
+        message("Using logMS normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+    }
 
     dge <- estimateDisp(dge, model)
     fit <- glmQLFit(dge, model, robust=robust)

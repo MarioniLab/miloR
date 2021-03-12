@@ -1,9 +1,9 @@
 #' Perform post-hoc differential gene expression analysis
 #'
-#' This function will perform differential gene expression analysis with
+#' This function will perform differential gene expression analysis within
 #' differentially abundant neighbourhoods, by first aggregating adjacent and
 #' concordantly DA neighbourhoods, then comparing cells \emph{within} these
-#' aggregated groups for differential gene experession using the input design. For
+#' aggregated groups for differential gene expression using the input design. For
 #' comparing \emph{between} DA neighbourhoods see \code{\link{findNhoodMarkers}}.
 #'
 #' @param x A \code{\linkS4class{Milo}} object containing single-cell gene expression
@@ -72,8 +72,8 @@
 #' test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
 #' rownames(test.meta) <- test.meta$Sample
 #' da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
-#'
-#' nhood.dge <- testDiffExp(milo, da.res, da.fdr=0.2, design=~Condition, meta.data=meta.df, overlap=1, compute.new=TRUE)
+#' da.res <- groupNhoods(milo, da.res, da.fdr=0.1)
+#' nhood.dge <- testDiffExp(milo, da.res, design=~Condition, meta.data=meta.df)
 #' nhood.dge
 #'
 #' @name testDiffExp
@@ -108,13 +108,12 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
         })
     }
 
-    # n.da <- sum(na.func(da.res$SpatialFDR < da.fdr))
-    # if(!is.na(n.da) & n.da == 0){
-    #     stop("No DA neighbourhoods found")
-    # }
-
     if(any(is.na(da.res$SpatialFDR))){
         warning("NA values found in SpatialFDR vector")
+    }
+
+    if(!any(colnames(da.res) %in% c("NhoodGroup"))){
+        stop("No neighbourhood groups found. Please run groupNoods first")
     }
 
     # assign this group level information to the consituent cells using the input meta.data
@@ -123,15 +122,15 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
     if(!all(rownames(copy.meta) == colnames(x))){
         warning("Column names of x are not the same as meta-data rownames")
     }
-    
+
     copy.meta$Nhood.Group <- NA
     nhs.da.gr <- da.res$NhoodGroup
     names(nhs.da.gr) <- da.res$Nhood
-    
+
     if(!is.null(subset.nhoods)){
         nhs.da.gr <- nhs.da.gr[subset.nhoods]
     }
-    
+
     nhood.gr <- unique(nhs.da.gr)
 
     for(i in seq_along(nhood.gr)){
@@ -265,7 +264,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
                                 model.contrasts=NULL, n.coef=NULL){
 
     i.dge <- DGEList(counts=exprs.data,
-                     lib.size=log(colSums(exprs.data)))
+                     lib.size=colSums(exprs.data))
 
     if(isTRUE(gene.offset)){
         n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))

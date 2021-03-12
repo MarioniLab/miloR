@@ -430,7 +430,7 @@ ggplot(nhood_markers, aes(logFC_2,-log10(adj.P.Val_2 ))) +
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 2)
 
-markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_2 < 0.01 & nhood_markers$logFC_2 > 1]
+markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_2 < 0.01 & nhood_markers$logFC_2 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
