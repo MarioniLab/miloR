@@ -134,14 +134,6 @@ testNhoods <- function(x, design, design.df,
         }
     }
 
-    if(any(colnames(nhoodCounts(x)) != rownames(model)) & !any(colnames(nhoodCounts(x)) %in% rownames(model))){
-        stop(paste0("Sample names in design matrix and nhood counts are not matched.
-                    Set appropriate rownames in design matrix."))
-    } else if(any(colnames(nhoodCounts(x)) != rownames(model)) & any(colnames(nhoodCounts(x)) %in% rownames(model))){
-        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
-        model <- model[colnames(nhoodCounts(x)), ]
-    }
-
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
@@ -159,20 +151,35 @@ testNhoods <- function(x, design, design.df,
         }
     }
 
+    if(isTRUE(subset.counts)){
+        keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
+    } else{
+        keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
+    }
+
+    if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        stop(paste0("Sample names in design matrix and nhood counts are not matched.
+                    Set appropriate rownames in design matrix."))
+    } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+        model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+    }
+
+
     if(length(norm.method) > 1){
         message("Using TMM normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                       lib.size=colSums(nhoodCounts(x)))
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
         dge <- calcNormFactors(dge, method="TMM")
     } else if(norm.method %in% c("TMM")){
         message("Using TMM normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                       lib.size=colSums(nhoodCounts(x)))
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
         dge <- calcNormFactors(dge, method="TMM")
     } else if(norm.method %in% c("logMS")){
         message("Using logMS normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, ],
-                       lib.size=colSums(nhoodCounts(x)))
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
     }
 
     dge <- estimateDisp(dge, model)
