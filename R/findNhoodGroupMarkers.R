@@ -238,7 +238,20 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     sink(file=NULL)
   }
 
-  marker.df <- do.call(cbind.data.frame, marker.list)
+  # check all rownames orders are the same
+  concord.rownames <- Reduce(x=marker.list, f=function(x, y) all(rownames(x) == rownames(y)))
+  if(isTRUE(all(concord.rownames))){
+    marker.df <- do.call(cbind.data.frame, marker.list)
+  } else{
+    warning("Rownames of DGE results are reordered")
+    n.rows <- lapply(marker.list, nrow)
+    if(length(unique(n.rows)) > 1){
+      warning("Not all DGE results contain the same features - results may be truncated")
+    }
+    # merge on rownames
+    marker.df <- Reduce(x=marker.list, f=function(x, y) merge(x, y, by=0))
+  }
+
   colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
   marker.df$GeneID <- rownames(i.res)
 
