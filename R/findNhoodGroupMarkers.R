@@ -253,7 +253,6 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   }
 
   colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
-  marker.df$GeneID <- rownames(i.res)
 
   return(marker.df)
   }
