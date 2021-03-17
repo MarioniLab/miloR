@@ -242,6 +242,8 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   concord.rownames <- Reduce(x=marker.list, f=function(x, y) all(rownames(x) == rownames(y)))
   if(isTRUE(all(concord.rownames))){
     marker.df <- do.call(cbind.data.frame, marker.list)
+    colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
+    marker.df$GeneID <- rownames(marker.df)
   } else{
     warning("Rownames of DGE results are reordered")
     n.rows <- lapply(marker.list, nrow)
@@ -250,9 +252,9 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     }
     # merge on rownames
     marker.df <- Reduce(x=marker.list, f=function(x, y) merge(x, y, by=0))
+    colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
+    marker.df$GeneID <- rownames(marker.df)
   }
-
-  colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
 
   return(marker.df)
   }
