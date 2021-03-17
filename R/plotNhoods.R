@@ -716,7 +716,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
   max.lfc <- max(abs(da.res$logFC))
   max.eps <- max.lfc * 0.1
 
-  emp.null <- median(da.res$logFC)
+  emp.null <- mean(da.res$logFC)
   min.x <- min(da.res$logCPM)
   minx.eps <- min.x * 0.01
   max.x <- max(da.res$logCPM)
