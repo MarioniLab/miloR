@@ -112,7 +112,7 @@ test_that("Incorrect input gives the expected errors", {
 
     expect_error(findNhoodGroupMarkers(sim1.mylo, sim1.res, assay="junk"),
                  "Unrecognised assay slot")
-    
+
     expect_error(findNhoodGroupMarkers(sim1.mylo, sim1.res),
                  "'NhoodGroup' columns is missing from da.res")
 
@@ -124,8 +124,7 @@ test_that("Incorrect input gives the expected errors", {
 sim1.res <- groupNhoods(sim1.mylo, sim1.res, overlap = 5)
 
 test_that("Less than optimal input gives the expected warnings", {
-    expect_warning(suppressMessages(findNhoodGroupMarkers(sim1.mylo, sim1.res, na.function=NULL,
-                                                     compute.new=TRUE)),
+    expect_warning(suppressMessages(findNhoodGroupMarkers(sim1.mylo, sim1.res, na.function=NULL)),
                    "NULL passed to na.function, using na.pass")
 
     # add simulated CPMs to the data
@@ -137,25 +136,21 @@ test_that("Less than optimal input gives the expected warnings", {
     rownames(ux.cpm) <- rownames(sim1.mylo)
 
     SingleCellExperiment::cpm(sim1.mylo) <- ux.cpm
-    expect_warning(suppressMessages(findNhoodGroupMarkers(sim1.mylo, sim1.res, assay="cpm",
-                                                     compute.new=TRUE)),
+    expect_warning(suppressMessages(findNhoodGroupMarkers(sim1.mylo, sim1.res, assay="cpm")),
                    "Assay type is not counts or logcounts")
 })
 
 
 test_that("Output is correct type", {
-    full.out <- suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res,
-                                                  compute.new=TRUE))
+    full.out <- suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res))
     expect_identical(class(full.out) , "data.frame")
 })
 
 
 test_that("Row subsetting returns expected number of results", {
-    full.out <- suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res,
-                                                  compute.new=TRUE))
+    full.out <- suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res))
 
     subset.out <- suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res,
-                                                    compute.new=TRUE,
                                                     subset.row=c(1:100)))
 
     expect_true(nrow(full.out) > nrow(subset.out))
@@ -164,7 +159,6 @@ test_that("Row subsetting returns expected number of results", {
 test_that("Nhood subsetting returns without error", {
     sub.nhoods <- sim1.res[1:20,"Nhood"]
     expect_error(suppressWarnings(findNhoodGroupMarkers(sim1.mylo, sim1.res,
-                                                   compute.new=TRUE,
                                                    subset.nhoods=sub.nhoods)),
                  NA)
     })
