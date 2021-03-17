@@ -107,8 +107,19 @@ testNhoods <- function(x, design, design.df,
         rownames(model) <- rownames(design.df)
     } else if(is(design, "matrix")){
         model <- design
+        if(nrow(model) != nrow(design.df)){
+            stop("Design matrix and model matrix are not the same dimensionality")
+        }
+
         if(any(rownames(model) != rownames(design.df))){
-            warning("Design matrix and design matrix dimnames are not the same")
+            warning("Design matrix and model matrix dimnames are not the same")
+            # check if rownames are a subset of the design.df
+            check.names <- any(rownames(model) %in% rownames(design.df))
+            if(isTRUE(check.names)){
+                rownames(model) <- rownames(design.df)
+            } else{
+                stop("Design matrix and model matrix rownames are not a subset")
+            }
         }
     }
 

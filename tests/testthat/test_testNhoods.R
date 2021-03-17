@@ -109,15 +109,26 @@ test_that("Wrong input gives errors", {
 
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 
-test_that("Discordant dimension names gives a warning", {
+test_that("Discordant dimension names gives an error", {
     design.matrix <- model.matrix(~Condition, data=sim1.meta)
     rownames(design.matrix) <- c(1:nrow(design.matrix))
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
+                                             design.df=sim1.meta)),
+                                  "Design matrix and model matrix rownames are not a subset")
+
+    # warning if only a subset are present, or order is wrong
+    design.matrix <- model.matrix(~Condition, data=sim1.meta)
+    rownames(design.matrix) <- rownames(sim1.meta)
+
+    set.seed(42)
+    design.matrix <- design.matrix[sample(rownames(design.matrix)), ]
     expect_warning(testNhoods(sim1.mylo, design=design.matrix,
-                                      design.df=sim1.meta),
-                   "Design matrix and design matrix dimnames are not the same")
+                              design.df=sim1.meta),
+                   "Sample names in design matrix and nhood counts are not matched. Reordering")
+
 })
 
-test_that("Discordant dimensions between input and design gives and error", {
+test_that("Discordant dimensions between input and design gives an error", {
     add.meta <- sim1.meta[c(1:5), ]
     rownames(add.meta) <- paste0(rownames(add.meta), "_add")
     big.meta <- rbind.data.frame(sim1.meta, add.meta)
@@ -125,8 +136,9 @@ test_that("Discordant dimensions between input and design gives and error", {
 
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                      design.df=sim1.meta)),
-                 "not the same dimension")
+                 "Design matrix and model matrix are not the same dimensionality")
 })
+
 
 test_that("Concordant dimensions between input and output", {
     in.rows <- nrow(nhoodCounts(sim1.mylo))
