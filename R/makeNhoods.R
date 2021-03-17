@@ -80,7 +80,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
 
     sampled_vertices <- unique(sampled_vertices)
-    
+
     nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     for (X in 1:length(sampled_vertices)){
@@ -164,10 +164,6 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
     }
-
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 }
 
 
