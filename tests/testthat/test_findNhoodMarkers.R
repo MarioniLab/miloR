@@ -219,7 +219,7 @@ test_that("Return an error if there are no DA nhoods", {
     rownames(test.meta) <- test.meta$Sample
     da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 
-    expect_error(findNhoodMarkers(milo, da.res, overlap=1),
+    expect_error(suppressWarnings(findNhoodMarkers(milo, da.res, overlap=1)),
                  "No DA neighbourhoods found")
 })
 
