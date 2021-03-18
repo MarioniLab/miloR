@@ -97,7 +97,7 @@ NULL
 #' @importFrom Matrix colSums rowMeans
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
-#' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
+#' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE,
