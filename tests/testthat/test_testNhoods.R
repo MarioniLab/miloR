@@ -217,17 +217,17 @@ test_that("Providing a subset model.matrix is reproducible", {
     set.seed(42)
     subset.samples <- sample(rownames(sim1.meta))
     exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
-    out.da <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                         min.mean=1,
-                         design.df=sim1.meta[subset.samples, ])
+    out.da <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                          min.mean=1,
+                                          design.df=sim1.meta[subset.samples, ]))
     expect_identical(nrow(out.da), exp.nh)
 
-    kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                          min.mean=1,
-                          design.df=sim1.meta[subset.samples, ])
-    kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                          min.mean=1,
-                          design.df=sim1.meta[subset.samples, ])
+    kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=sim1.meta[subset.samples, ]))
+    kd.ref2 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=sim1.meta[subset.samples, ]))
     expect_identical(kd.ref1, kd.ref2)
 })
 
