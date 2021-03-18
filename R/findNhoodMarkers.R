@@ -287,9 +287,6 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             rownames(i.model) <- rownames(i.meta)
         }
 
-        sink(file="/dev/null")
-        gc()
-        sink(file=NULL)
 
         if(assay == "logcounts"){
             i.res <- .perform_lognormal_dge(exprs, i.model, model.contrasts=i.contrast,
@@ -312,9 +309,6 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         colnames(i.res) <- paste(colnames(i.res), nhood.gr[i], sep="_")
         marker.list[[paste0(nhood.gr[i])]] <- i.res
 
-        sink(file="/dev/null")
-        gc()
-        sink(file=NULL)
     }
 
     marker.df <- do.call(cbind.data.frame, marker.list)

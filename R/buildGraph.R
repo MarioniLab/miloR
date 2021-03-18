@@ -135,9 +135,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
     nn.out <- .setup_knn_data(x=reducedDim(x, reduced.dim), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
@@ -162,10 +159,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
         }
         old.dist <- as(old.dist, "dgCMatrix")
         nhoodDistances(x) <- old.dist
-
-        sink(file="/dev/null")
-        gc()
-        sink(file=NULL)
     }
     x@.k <- k
     x
