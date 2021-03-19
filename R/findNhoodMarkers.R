@@ -148,8 +148,9 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         stop("No DA neighbourhoods found")
     }
 
-    if(any(is.na(da.res$SpatialFDR))){
-        warning("NA values found in SpatialFDR vector")
+    if(isTRUE(any(is.na(da.res$SpatialFDR)))){
+        warning("NA values found in SpatialFDR vector - setting to 1")
+        da.res$SpatialFDR[is.na(da.res$SpatialFDR)] <- 1
     }
 
     message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
