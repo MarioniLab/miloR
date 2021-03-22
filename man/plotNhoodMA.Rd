@@ -24,8 +24,10 @@ Visualize DA results as an MAplot
 MA plots provide a useful means to evaluate the distribution of log fold changes after differential
 abundance testing. In particular, they can be used to diagnose global shifts that occur in the presence of
 confounding between the number of cells acquired and the experimental variable of interest. The expected null
-value for the log FC distribution (grey dashed line), along with the median observed log fold change (purple
-dashed line) are plotted for reference.
+value for the log FC distribution (grey dashed line), along with the mean observed log fold change for non-DA
+neighbourhoods (purple dashed line) are plotted for reference. The deviation between these two lines can give
+an indication of biases in the results, such as in the presence of a single strong region of DA leading to an
+increase in false positive DA neighbourhoods in the opposite direction.
 }
 \examples{
 NULL
