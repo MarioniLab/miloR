@@ -13,7 +13,8 @@ Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
 LazyData: true
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
-Depends: edgeR
+Depends: R (>= 4.0.1),
+         edgeR
 Imports: BiocNeighbors,
          SingleCellExperiment,
          Matrix (>= 1.3-0),
@@ -50,8 +51,7 @@ Suggests:
     rmarkdown,
     uwot,
     BiocStyle,
-    MouseGastrulationData,
-    magick
+    MouseGastrulationData
 RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
