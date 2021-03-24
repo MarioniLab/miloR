@@ -423,7 +423,7 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
 
 ```{r}
-ggplot(nhood_markers, aes(logFC_10-log10(adj.P.Val_10 ))) + 
+ggplot(nhood_markers, aes(logFC_10, -log10(adj.P.Val_10 ))) + 
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 2)
 
