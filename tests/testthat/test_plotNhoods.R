@@ -131,11 +131,13 @@ test_that("Subsetting produces the expected number of neighbourhoods", {
 test_that("Different input types produce the same subsetting", {
   subset_numeric <- 1:10
   subset_logical <- c(rep(TRUE, 10), rep(FALSE, ncol(nhoods(sim1.mylo))-10))
-  p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
-                             subset.nhoods = subset_numeric)
-  p1 <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
-                             subset.nhoods = subset_logical)
-  expect_equal(p, p1)
+  p <- suppressWarnings(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                                              subset.nhoods = subset_numeric))
+  p1 <- suppressWarnings(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                                               subset.nhoods = subset_logical))
+
+  # extract the components of the 2 plots
+  expect_equal(str(p), str(p1))
 })
 
 test_that("The order of features is maintained if cluster_features=FALSE", {

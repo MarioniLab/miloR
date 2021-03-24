@@ -17,8 +17,7 @@ vignette: |
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = FALSE,
-  message=FALSE,
-  cache=TRUE
+  message=FALSE
 )
 ```
 
@@ -39,9 +38,9 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-select_samples <- c(2,  3,  6, 15,
+select_samples <- c(2,  3,  6, #15,
                     # 4, 19, 
-                    10, 14, 20, 30
+                    10, 14, 20 #30
                     #31, 32
                     )
 embryo_data = EmbryoAtlasData(samples = select_samples)
@@ -346,17 +345,17 @@ plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group
 ...and minimum overlap between neighbourhoods...
 
 ```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=1), group.by = "NhoodGroup") + ggtitle("overlap=1")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=5) , group.by = "NhoodGroup") + ggtitle("overlap=5")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=20)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1), group.by = "NhoodGroup") + ggtitle("overlap=1")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5) , group.by = "NhoodGroup") + ggtitle("overlap=5")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=20)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
 ```
 
-Let's settle for `overlap=5` and `max.lfc.delta=3`
+Let's settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
 
 ```{r}
 set.seed(42)
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 3, overlap=5)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)
 plotNhoodGroups(embryo_milo, da_results, layout="umap")
 plotDAbeeswarm(da_results, group.by = "NhoodGroup")
 ```
