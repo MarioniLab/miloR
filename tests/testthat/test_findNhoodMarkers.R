@@ -107,10 +107,10 @@ sim1.res <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                        design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
 test_that("Incorrect input gives the expected errors", {
-    expect_error(findNhoodMarkers(matrix(0L, nrow=nrow(sim1.mylo), ncol=ncol(sim1.mylo))),
+    expect_error(suppressWarnings(findNhoodMarkers(matrix(0L, nrow=nrow(sim1.mylo), ncol=ncol(sim1.mylo)))),
                  "Unrecognised input type")
 
-    expect_error(findNhoodMarkers(sim1.mylo, sim1.res, assay="junk"),
+    expect_error(suppressWarnings(findNhoodMarkers(sim1.mylo, sim1.res, assay="junk")),
                  "Unrecognised assay slot")
 
     expect_error(suppressWarnings(findNhoodMarkers(sim1.mylo, na.res, na.function="junk")),
@@ -118,7 +118,7 @@ test_that("Incorrect input gives the expected errors", {
 
     fake.res <- sim1.res
     fake.res$SpatialFDR <- 1
-    expect_error(findNhoodMarkers(sim1.mylo, fake.res),
+    expect_error(suppressWarnings(findNhoodMarkers(sim1.mylo, fake.res)),
                  "No DA neighbourhoods found")
 })
 
@@ -190,7 +190,7 @@ test_that("Nhood returns groups as expected", {
 
 })
 
-test_that("Neighbourhoods in a single group returns NULL", {
+test_that("Return an error if there are no DA nhoods", {
     require(SingleCellExperiment)
     ux.1 <- matrix(rpois(12000, 5), ncol=400)
     ux.2 <- matrix(rpois(12000, 4), ncol=400)
@@ -219,14 +219,7 @@ test_that("Neighbourhoods in a single group returns NULL", {
     rownames(test.meta) <- test.meta$Sample
     da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 
-    expect_warning(findNhoodMarkers(milo, da.res, overlap=1),
-                   "All graph neighbourhoods are in the same group")
-
-    nhood.dge <- suppressWarnings(findNhoodMarkers(milo, da.res, overlap=1))
-    expect_identical(nhood.dge, NULL)
+    expect_error(suppressWarnings(findNhoodMarkers(milo, da.res, overlap=1)),
+                 "No DA neighbourhoods found")
 })
-
-
-
-
 

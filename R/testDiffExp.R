@@ -176,10 +176,6 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
         x <- x[subset.row, , drop=FALSE]
     }
 
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
-
     # perform DGE _within_ each group of cells using the input design matrix
     dge.list <- list()
     for(i in seq_along(nhood.gr)){

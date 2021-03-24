@@ -151,13 +151,6 @@ test_that("Incorrect input gives the expected errors", {
                                               meta.data=meta.df,
                                               design=fake.model)),
                  "Cannot subset model matrix, subsetting vector is wrong length")
-
-    fake.res <- sim1.res
-    fake.res$SpatialFDR <- 1
-    expect_error(testDiffExp(sim1.mylo, fake.res, meta.data=meta.df,
-                             design=~Condition),
-                 "No DA neighbourhoods found")
-
 })
 
 test_that("Less than optimal input gives the expected warnings", {
@@ -267,9 +260,9 @@ test_that("Contrasts can be passed without error" , {
     blockC.mylo <- countCells(blockC.mylo, samples="Sample", meta.data=meta.df)
     blockC.res <- testNhoods(blockC.mylo, design=~0 + Condition, fdr.weighting="k-distance",
                              design.df=blockC.meta[colnames(nhoodCounts(blockC.mylo)), ])
-    
+
     blockC.res <- groupNhoods(blockC.mylo, blockC.res)
-    
+
     # works with estimable contrast levels
     expect_error(do.call(rbind.data.frame,
                          suppressWarnings(testDiffExp(blockC.mylo, blockC.res, meta.data=meta.df,

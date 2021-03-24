@@ -208,10 +208,6 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
       rownames(i.model) <- rownames(i.meta)
     }
 
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
-
     if(assay == "logcounts"){
       i.res <- .perform_lognormal_dge(exprs, i.model, model.contrasts=i.contrast,
                                       gene.offset=gene.offset)
@@ -233,14 +229,25 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     colnames(i.res) <- paste(colnames(i.res), nhood.gr[i], sep="_")
     marker.list[[paste0(nhood.gr[i])]] <- i.res
 
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
   }
 
-  marker.df <- do.call(cbind.data.frame, marker.list)
-  colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
-  marker.df$GeneID <- rownames(i.res)
+  # check all rownames orders are the same
+  concord.rownames <- Reduce(x=marker.list, f=function(x, y) all(rownames(x) == rownames(y)))
+  if(isTRUE(all(concord.rownames))){
+    marker.df <- do.call(cbind.data.frame, marker.list)
+    colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
+    marker.df$GeneID <- rownames(marker.df)
+  } else{
+    warning("Rownames of DGE results are reordered")
+    n.rows <- lapply(marker.list, nrow)
+    if(length(unique(n.rows)) > 1){
+      warning("Not all DGE results contain the same features - results may be truncated")
+    }
+    # merge on rownames
+    marker.df <- Reduce(x=marker.list, f=function(x, y) merge(x, y, by=0))
+    colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
+    marker.df$GeneID <- rownames(marker.df)
+  }
 
   return(marker.df)
   }

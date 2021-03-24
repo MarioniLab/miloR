@@ -21,10 +21,12 @@
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
 #' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 #' Phipson et al, 2013 for details.
-#' @param norm.method A character scalar, either \code{"logMS"} or \code{"TMM"}. The \code{"logMS"}
-#' method normalises the counts across samples using the log columns sums of the count matrix as
-#' a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation as described in
-#' Robinson & Oshlack, 2010. The latter provides a degree of robustness against false positives
+#' @param norm.method A character scalar, either \code{"logMS"}, \code{"TMM"} or \code{"RLE"}.
+#' The \code{"logMS"} method normalises the counts across samples using the log columns sums of
+#' the count matrix as a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation
+#' as described in Robinson & Oshlack, 2010, whilst \code{"RLE"} uses the relative log expression
+#' method by Anders & Huber, 2010, to compute normalisation factors relative to a reference computed from
+#' the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 #' when there are very large compositional differences between samples.
 #'
 #'
@@ -97,18 +99,29 @@ NULL
 #' @importFrom Matrix colSums rowMeans
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
-#' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags
+#' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE,
-                       norm.method=c("TMM", "logMS")){
+                       norm.method=c("TMM", "RLE", "logMS")){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
     } else if(is(design, "matrix")){
         model <- design
+        if(nrow(model) != nrow(design.df)){
+            stop("Design matrix and model matrix are not the same dimensionality")
+        }
+
         if(any(rownames(model) != rownames(design.df))){
-            warning("Design matrix and design matrix dimnames are not the same")
+            warning("Design matrix and model matrix dimnames are not the same")
+            # check if rownames are a subset of the design.df
+            check.names <- any(rownames(model) %in% rownames(design.df))
+            if(isTRUE(check.names)){
+                rownames(model) <- rownames(design.df)
+            } else{
+                stop("Design matrix and model matrix rownames are not a subset")
+            }
         }
     }
 
@@ -118,8 +131,8 @@ testNhoods <- function(x, design, design.df,
         stop("Neighbourhood counts missing - please run countCells first")
     }
 
-    if(!any(norm.method %in% c("TMM", "logMS"))){
-        stop(paste0("Normalisation method ", norm.method, " not recognised. Must be either TMM or logMS"))
+    if(!any(norm.method %in% c("TMM", "logMS", "RLE"))){
+        stop(paste0("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS"))
     }
 
     subset.counts <- FALSE
@@ -165,7 +178,6 @@ testNhoods <- function(x, design, design.df,
         model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
     }
 
-
     if(length(norm.method) > 1){
         message("Using TMM normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
@@ -176,7 +188,12 @@ testNhoods <- function(x, design, design.df,
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
         dge <- calcNormFactors(dge, method="TMM")
-    } else if(norm.method %in% c("logMS")){
+    } else if(norm.method %in% c("RLE")){
+        message("Using RLE normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="RLE")
+    }else if(norm.method %in% c("logMS")){
         message("Using logMS normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))

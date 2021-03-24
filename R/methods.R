@@ -269,10 +269,6 @@ setMethod("nhoodAdjacency<-", "Milo", function(x, value){
     coolcat("nhoodReducedDim names(%d): %s\n", names(object@nhoodReducedDim))
     coolcat("nhoodGraph names(%d): %s\n", names(object@nhoodGraph))
     coolcat("nhoodAdjacency dimension(%d): %s\n", dim(object@nhoodAdjacency))
-
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 }
 
 #' @export

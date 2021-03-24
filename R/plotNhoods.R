@@ -682,8 +682,10 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
 #' @details MA plots provide a useful means to evaluate the distribution of log fold changes after differential
 #' abundance testing. In particular, they can be used to diagnose global shifts that occur in the presence of
 #' confounding between the number of cells acquired and the experimental variable of interest. The expected null
-#' value for the log FC distribution (grey dashed line), along with the median observed log fold change (purple
-#' dashed line) are plotted for reference.
+#' value for the log FC distribution (grey dashed line), along with the mean observed log fold change for non-DA
+#' neighbourhoods (purple dashed line) are plotted for reference. The deviation between these two lines can give
+#' an indication of biases in the results, such as in the presence of a single strong region of DA leading to an
+#' increase in false positive DA neighbourhoods in the opposite direction.
 #'
 #' @author Mike Morgan
 #'
@@ -716,7 +718,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
   max.lfc <- max(abs(da.res$logFC))
   max.eps <- max.lfc * 0.1
 
-  emp.null <- median(da.res$logFC)
+  emp.null <- mean(da.res$logFC[da.res$SpatialFDR >= alpha])
   min.x <- min(da.res$logCPM)
   minx.eps <- min.x * 0.01
   max.x <- max(da.res$logCPM)

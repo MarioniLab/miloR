@@ -71,12 +71,6 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
         names(nhood.dists) <- nhoodIndex(x)
     }
 
-    # ensure garbage collection
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
-    # all.dist <- .aggregate_dists.hard(nhoods(x), nhood.dists, colnames(x))
-    # strictly this only actually needs to be a list of distance matrices
     nhoodDistances(x) <- nhood.dists
 
     return(x)
@@ -198,11 +192,6 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
                 if(ncol(sp.out) != nrow(sp.out)){
                     stop("Matrix corrupted - dimensions are not the same size")
                 }
-                sink(file="/dev/null")
-                rm(list=c(".tmp.i", ".tmp.j"))
-                gc()
-                sink(file=NULL)
-                print(dim(sp.out))
             }
         }
         ix <- ix + 1

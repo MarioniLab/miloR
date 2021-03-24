@@ -30,10 +30,12 @@ spatial FDR correction is performed and returns a vector of NAs.}
 estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
 Phipson et al, 2013 for details.}
 
-\item{norm.method}{A character scalar, either \code{"logMS"} or \code{"TMM"}. The \code{"logMS"}
-method normalises the counts across samples using the log columns sums of the count matrix as
-a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation as described in
-Robinson & Oshlack, 2010. The latter provides a degree of robustness against false positives
+\item{norm.method}{A character scalar, either \code{"logMS"}, \code{"TMM"} or \code{"RLE"}.
+The \code{"logMS"} method normalises the counts across samples using the log columns sums of
+the count matrix as a model offset. \code{"TMM"} uses the trimmed mean of M-values normalisation
+as described in Robinson & Oshlack, 2010, whilst \code{"RLE"} uses the relative log expression
+method by Anders & Huber, 2010, to compute normalisation factors relative to a reference computed from
+the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 when there are very large compositional differences between samples.}
 }
 \value{
