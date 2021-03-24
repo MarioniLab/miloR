@@ -336,7 +336,6 @@ We can see that some groups are made up of single neighbourhoods.
 Let's check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta...
 
 ```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 0.5), group.by = "NhoodGroup") + ggtitle("max LFC delta=0.5")
 plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
 plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
 plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
@@ -345,10 +344,9 @@ plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group
 ...and minimum overlap between neighbourhoods...
 
 ```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1), group.by = "NhoodGroup") + ggtitle("overlap=1")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5) , group.by = "NhoodGroup") + ggtitle("overlap=5")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=20)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
+plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
 ```
 
 Let's settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
@@ -386,13 +384,13 @@ nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvg
 head(nhood_markers)
 ```
 
-Let's check out the markers for group 2 for example
+Let's check out the markers for group 10 for example
 
 ```{r}
-gr2_markers <- nhood_markers[c("logFC_2", "adj.P.Val_2")] 
-colnames(gr2_markers) <- c("logFC", "adj.P.Val")
+gr10_markers <- nhood_markers[c("logFC_10", "adj.P.Val_10")] 
+colnames(gr10_markers) <- c("logFC", "adj.P.Val")
 
-head(gr2_markers[order(gr2_markers$adj.P.Val), ])
+head(gr10_markers[order(gr10_markers$adj.P.Val), ])
 ```
 
 If you already know you are interested only in the markers for group 2, you might want to test just 8-VS-all using the `subset.groups` parameter:
