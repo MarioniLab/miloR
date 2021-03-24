@@ -40,7 +40,7 @@ This dataset has already been pre-processed and contains a `pca.corrected` dimen
 ```{r}
 select_samples <- c(2,  3,  6, #15,
                     # 4, 19, 
-                    10, 14, 20, #30
+                    10, 14, 20 #30
                     #31, 32
                     )
 embryo_data = EmbryoAtlasData(samples = select_samples)
