@@ -1,7 +1,7 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 0.99.4
+Version: 0.99.5
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
