@@ -38,10 +38,9 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-select_samples <- c(2,  3,  #6, #15,
-                    # 4, 19, 
-                    10, 14#, 20 #30
-                    #31, 32
+# note: to run this on a larger set of samples un-comment the additional sample ids
+select_samples <- c(2,  3, #4, 19, 6, #15,#, 20 30, 31, 32
+                    10, 14
                     )
 embryo_data = EmbryoAtlasData(samples = select_samples)
 embryo_data
