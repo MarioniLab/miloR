@@ -38,9 +38,9 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-select_samples <- c(2,  3,  6, #15,
+select_samples <- c(2,  3,  #6, #15,
                     # 4, 19, 
-                    10, 14, 20 #30
+                    10, 14#, 20 #30
                     #31, 32
                     )
 embryo_data = EmbryoAtlasData(samples = select_samples)
@@ -312,7 +312,7 @@ In many cases, such as this example, DA neighbourhoods are found in different ar
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Find groups
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5)
 head(da_results)
 ```
 
@@ -384,13 +384,13 @@ nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvg
 head(nhood_markers)
 ```
 
-Let's check out the markers for group 10 for example
+Let's check out the markers for group 5 for example
 
 ```{r}
-gr10_markers <- nhood_markers[c("logFC_10", "adj.P.Val_10")] 
-colnames(gr10_markers) <- c("logFC", "adj.P.Val")
+gr5_markers <- nhood_markers[c("logFC_5", "adj.P.Val_5")] 
+colnames(gr5_markers) <- c("logFC", "adj.P.Val")
 
-head(gr10_markers[order(gr10_markers$adj.P.Val), ])
+head(gr5_markers[order(gr5_markers$adj.P.Val), ])
 ```
 
 If you already know you are interested only in the markers for group 2, you might want to test just 8-VS-all using the `subset.groups` parameter:
@@ -398,7 +398,7 @@ If you already know you are interested only in the markers for group 2, you migh
 ```{r}
 nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs, 
                                        aggregate.samples = TRUE, sample_col = "sample",
-                                       subset.groups = c("10")
+                                       subset.groups = c("5")
                                        )
 
 head(nhood_markers)
@@ -410,7 +410,7 @@ For example, you might want to compare just one pair of neighbourhood groups aga
 
 ```{r}
 nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs,
-                                       subset.nhoods = da_results$NhoodGroup %in% c('11','10'),
+                                       subset.nhoods = da_results$NhoodGroup %in% c('5','6'),
                                        aggregate.samples = TRUE, sample_col = "sample")
 
 head(nhood_markers)
@@ -423,18 +423,18 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
 
 ```{r}
-ggplot(nhood_markers, aes(logFC_10, -log10(adj.P.Val_10 ))) + 
+ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) + 
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 2)
 
-markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_10 < 0.01 & nhood_markers$logFC_10 > 0]
+markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
 
 ```{r, fig.width=12, fig.height=7}
 plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
-                          subset.nhoods = da_results$NhoodGroup %in% c('11','10'), scale=TRUE,
+                          subset.nhoods = da_results$NhoodGroup %in% c('6','5'), scale=TRUE,
                           grid.space = "fixed")
 ```
 

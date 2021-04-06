@@ -52,6 +52,7 @@ Suggests:
     uwot,
     BiocStyle,
     MouseGastrulationData,
+    magick,
     RCurl,
     curl
 RoxygenNote: 7.1.1.9000

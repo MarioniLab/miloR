@@ -14,7 +14,6 @@
 #' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
 #' @slot .k A hidden slot that stores the value of k used for graph building
 #'
-
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix ddiMatrix sparseMatrix
 setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix",
                                   "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
