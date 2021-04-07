@@ -31,6 +31,18 @@ library(patchwork)
 library(MouseGastrulationData)
 ```
 
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+## remove the old cache - this location points to the Bioc submission server - ignore this code block
+library(ExperimentHub)
+oldcache = path.expand(rappdirs::user_cache_dir(appname="ExperimentHub"))
+setExperimentHubOption("CACHE", oldcache)
+eh = ExperimentHub(localHub=TRUE)
+## removes old location and all resources
+removeCache(eh, ask=FALSE)
+```
+
+
 # Load data
 
 For this vignette we will use the mouse gastrulation single-cell data from [Pijuan-Sala et al. 2019](https://www.nature.com/articles/s41586-019-0933-9). The dataset can be downloaded as a `SingleCellExperiment` object from the [`MouseGastrulationData`](https://bioconductor.org/packages/3.12/data/experiment/html/MouseGastrulationData.html) package on Bioconductor. To make computations faster, here we will download just a subset of samples, 4 samples at stage E7 and 4 samples at stage E7.5. 
@@ -420,14 +432,14 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 
 ## Visualize detected markers
 
-Lets select marker genes for group 10 at FDR 0.1% and log-fold-Change > 1.
+Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
 
 ```{r}
 ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) + 
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 3)
 
-markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.001 & nhood_markers$logFC_5 > 0]
+markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
