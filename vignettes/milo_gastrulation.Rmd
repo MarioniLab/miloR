@@ -38,7 +38,7 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-select_samples <- c(2,  3,  #6, #15,
+select_samples <- c(2,  3,  6, #15,
                     # 4, 19, 
                     10, 14#, 20 #30
                     #31, 32
@@ -420,14 +420,14 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 
 ## Visualize detected markers
 
-Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
+Lets select marker genes for group 10 at FDR 0.1% and log-fold-Change > 1.
 
 ```{r}
 ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) + 
   geom_point(alpha=0.5, size=0.5) +
-  geom_hline(yintercept = 2)
+  geom_hline(yintercept = 3)
 
-markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
+markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.001 & nhood_markers$logFC_5 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
@@ -442,9 +442,9 @@ plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
 
 In some cases you might want to test for differential expression between cells in different conditions *within* the same neighbourhood group. You can do that using `testDiffExp`:
 
-```{r}
+```{r, warning=FALSE}
 dge_9 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
-                     subset.row = rownames(embryo_milo)[1:10], subset.nhoods=da_results$NhoodGroup=="9")
+                     subset.row = rownames(embryo_milo)[1:5], subset.nhoods=da_results$NhoodGroup=="9")
 
 dge_9
 ```
