@@ -12,7 +12,7 @@ License: GPL-3
 Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
-Depends: R (>= 4.1.0),
+Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,
          SingleCellExperiment,
