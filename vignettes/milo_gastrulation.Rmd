@@ -33,13 +33,13 @@ library(MouseGastrulationData)
 
 
 ```{r, warning=FALSE, message=FALSE, echo=FALSE}
-## remove the old cache - this location points to the Bioc submission server - ignore this code block
-library(ExperimentHub)
-oldcache = path.expand(rappdirs::user_cache_dir(appname="ExperimentHub"))
-setExperimentHubOption("CACHE", oldcache)
-eh = ExperimentHub(localHub=TRUE)
-## removes old location and all resources
-removeCache(eh, ask=FALSE)
+# ## remove the old cache - this location points to the Bioc submission server - ignore this code block
+# library(ExperimentHub)
+# oldcache = path.expand(rappdirs::user_cache_dir(appname="ExperimentHub"))
+# setExperimentHubOption("CACHE", oldcache)
+# eh = ExperimentHub(localHub=FALSE)
+# ## removes old location and all resources
+# removeCache(eh, ask=FALSE)
 ```
 
 
@@ -50,8 +50,8 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-select_samples <- c(2,  3,  6, #15,
-                    # 4, 19, 
+select_samples <- c(2,  3,  6, 4, #15,
+                    # 19, 
                     10, 14#, 20 #30
                     #31, 32
                     )
@@ -324,7 +324,7 @@ In many cases, such as this example, DA neighbourhoods are found in different ar
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Find groups
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 10)
 head(da_results)
 ```
 
@@ -345,23 +345,26 @@ We can see that some groups are made up of single neighbourhoods.
 <!-- plotNhoodGroups(embryo_milo, da_results, layout="umap", show_groups = singletons,  size_range=c(0.2,4))  -->
 <!-- ``` -->
 
-Let's check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta...
+We can easily check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta by plotting with different values of `max.lfc.delta` 
+(not executed here).
 
 ```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
+# code not run - uncomment to run.
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
 ```
 
-...and minimum overlap between neighbourhoods...
+...and we can do the same for the minimum overlap between neighbourhoods... (code not executed).
 
 ```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
+# code not run - uncomment to run.
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
 ```
 
-Let's settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
+In these examples we settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
 
 ```{r}
 set.seed(42)
@@ -455,10 +458,10 @@ plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
 In some cases you might want to test for differential expression between cells in different conditions *within* the same neighbourhood group. You can do that using `testDiffExp`:
 
 ```{r, warning=FALSE}
-dge_9 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
-                     subset.row = rownames(embryo_milo)[1:5], subset.nhoods=da_results$NhoodGroup=="9")
+dge_6 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
+                     subset.row = rownames(embryo_milo)[1:5], subset.nhoods=da_results$NhoodGroup=="6")
 
-dge_9
+dge_6
 ```
 
 
