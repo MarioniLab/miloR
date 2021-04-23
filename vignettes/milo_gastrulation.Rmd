@@ -63,7 +63,7 @@ embryo_data
 
 We recompute the UMAP embedding for this subset of cells to visualize the data.
 
-```{r}
+```{r, dev="jpeg"}
 embryo_data <- embryo_data[,apply(reducedDim(embryo_data, "pca.corrected"), 1, function(x) !all(is.na(x)))]
 embryo_data <- runUMAP(embryo_data, dimred = "pca.corrected", name = 'umap')
 
@@ -203,7 +203,7 @@ ggplot(da_results, aes(PValue)) + geom_histogram(bins=50)
 
 Then we visualize the test results with a volcano plot (remember that each point here represents a neighbourhood, _not_ a cell).
 
-```{r}
+```{r, dev="jpeg"}
 ggplot(da_results, aes(logFC, -log10(SpatialFDR))) + 
   geom_point() +
   geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
@@ -213,7 +213,7 @@ Looks like we have detected several neighbourhoods were there is a significant d
 
 To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying singificant DA are colored by their log-Fold Change.
 
-```{r, fig.width=15, fig.height=8}
+```{r, fig.width=15, fig.height=8, dev="jpeg"}
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Plot single-cell UMAP
@@ -246,7 +246,7 @@ da_results$celltype <- ifelse(da_results$celltype_fraction < 0.7, "Mixed", da_re
 
 Now we can visualize the distribution of DA Fold Changes in different cell types
 
-```{r, fig.height=7, fig.width=7}
+```{r, fig.height=7, fig.width=7, dev="jpeg"}
 plotDAbeeswarm(da_results, group.by = "celltype")
 ```
 
@@ -330,11 +330,11 @@ head(da_results)
 
 Let's have a look at the detected groups 
 
-```{r, fig.height=7, fig.width=7}
+```{r, fig.height=7, fig.width=7, dev="jpeg"}
 plotNhoodGroups(embryo_milo, da_results, layout="umap") 
 ```
 
-```{r}
+```{r, dev="jpeg"}
 plotDAbeeswarm(da_results, "NhoodGroup")
 ```
 
@@ -348,7 +348,7 @@ We can see that some groups are made up of single neighbourhoods.
 We can easily check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta by plotting with different values of `max.lfc.delta` 
 (not executed here).
 
-```{r}
+```{r, dev="jpeg"}
 # code not run - uncomment to run.
 # plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
 # plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
@@ -357,7 +357,7 @@ We can easily check how changing the grouping parameters changes the groups we o
 
 ...and we can do the same for the minimum overlap between neighbourhoods... (code not executed).
 
-```{r}
+```{r, dev="jpeg"}
 # code not run - uncomment to run.
 # plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
 # plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
@@ -366,7 +366,7 @@ We can easily check how changing the grouping parameters changes the groups we o
 
 In these examples we settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
 
-```{r}
+```{r, dev="jpeg"}
 set.seed(42)
 da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)
 plotNhoodGroups(embryo_milo, da_results, layout="umap")
@@ -385,6 +385,7 @@ keep.rows <- rowSums(logcounts(embryo_milo)) != 0
 embryo_milo <- embryo_milo[keep.rows, ]
 
 ## Find HVGs
+set.seed(101)
 dec <- modelGeneVar(embryo_milo)
 hvgs <- getTopHVGs(dec, n=2000)
 head(hvgs)
@@ -437,7 +438,7 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 
 Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
 
-```{r}
+```{r, dev="jpeg"}
 ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) + 
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 3)
@@ -447,9 +448,10 @@ markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_mark
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
 
-```{r, fig.width=12, fig.height=7}
-plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
-                          subset.nhoods = da_results$NhoodGroup %in% c('6','5'), scale=TRUE,
+```{r, fig.width=12, fig.height=7, dev="jpeg"}
+plotNhoodExpressionGroups(embryo_milo, da_results, features=markers[1:10],
+                          subset.nhoods = da_results$NhoodGroup %in% c('6','5'), 
+                          scale=TRUE,
                           grid.space = "fixed")
 ```
 
