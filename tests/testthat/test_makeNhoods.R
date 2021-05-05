@@ -95,7 +95,7 @@ test_that("Incorrect input gives informative error", {
 test_that("Passing d parameter higher than ncols of reducedDims gives warning", {
     sim1.mylo <- buildGraph(sim1.mylo, k=21)
     expect_warning(makeNhoods(sim1.mylo, d=ncol(reducedDim(sim1.mylo, "PCA")) + 1),
-                   "Warning")
+                   "Specified d is higher than the total number of dimensions in")
 })
 
 
