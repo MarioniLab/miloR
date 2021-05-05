@@ -98,15 +98,15 @@ pca <- prcomp(t(vx))
 
 sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
                             reducedDims=SimpleList(PCA=pca$x))
-colnames(sce) <- paste0("Cell", 1:ncol(sce))
+colnames(sce) <- paste0("Cell", seq_len(ncol(sce)))
 milo <- Milo(sce)
 milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 milo <- calcNhoodDistance(milo, d=10)
 
 cond <- rep("A", ncol(milo))
-cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
-cond.b <- setdiff(1:ncol(milo), cond.a)
+cond.a <- sample(seq_len(ncol(milo)), size=floor(ncol(milo)*0.25))
+cond.b <- setdiff(seq_len(ncol(milo)), cond.a)
 cond[cond.b] <- "B"
 meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
 meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")

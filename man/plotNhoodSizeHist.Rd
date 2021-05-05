@@ -31,7 +31,7 @@ pca <- prcomp(t(vx))
 
 sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
                             reducedDims=SimpleList(PCA=pca$x))
-colnames(sce) <- paste0("Cell", 1:ncol(sce))
+colnames(sce) <- paste0("Cell", seq_len(ncol(sce)))
 milo <- Milo(sce)
 milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 
