@@ -75,7 +75,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
     warning("NA values found in SpatialFDR vector")
   }
 
-  message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
+  message("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%")
 
   ## Check if adjacency matrix exists, if not build
   if((ncol(nhoodAdjacency(x)) == ncol(nhoods(x))) & isFALSE(compute.new)){

@@ -558,7 +558,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning(paste0('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') ))
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -645,7 +645,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   }
 
   if (!is.factor(da.res[,"group_by"])) {
-    message(paste0("Converting group.by to factor..."))
+    message("Converting group.by to factor...")
     da.res <- mutate(da.res, factor(group_by, levels=unique(group_by)))
     # anno_vec <- factor(anno_vec, levels=unique(anno_vec))
   }

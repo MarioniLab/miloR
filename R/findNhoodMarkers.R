@@ -153,7 +153,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         da.res$SpatialFDR[is.na(da.res$SpatialFDR)] <- 1
     }
 
-    message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
+    message("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%")
 
     if((ncol(nhoodAdjacency(x)) == ncol(nhoods(x))) & isFALSE(compute.new)){
         message("nhoodAdjacency found - using for nhood grouping")
@@ -179,7 +179,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
-    message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
+    message("Nhoods aggregated into ", length(nhood.gr), " groups")
 
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID

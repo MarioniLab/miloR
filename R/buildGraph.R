@@ -138,13 +138,13 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
 
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
-    message(paste0("Constructing kNN graph with k:", k))
+    message("Constructing kNN graph with k:", k)
     zee.graph <- .neighborsToKNNGraph(nn.out$index, directed=FALSE)
     graph(x) <- zee.graph
 
     # adding distances
     if(isTRUE(get.distance)){
-        message(paste0("Retrieving distances from ", k, " nearest neighbours"))
+        message("Retrieving distances from ", k, " nearest neighbours")
         # set this up as a dense matrix first, then coerce to a sparse matrix
         # starting with a sparse matrix requires a coercion at each iteration
         # which uses up lots of memory and unncessary CPU time
