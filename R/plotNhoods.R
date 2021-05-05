@@ -41,6 +41,7 @@
 #' @rdname plotNhoodSizeHist
 #' @importFrom ggplot2 ggplot geom_histogram xlab theme_classic
 #' @importFrom igraph neighbors
+#' @importFrom grDevices colorRampPalette
 plotNhoodSizeHist <- function(milo, bins=50){
   if (! isTRUE(.valid_nhood(milo))){
     stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
