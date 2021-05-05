@@ -132,7 +132,7 @@ testNhoods <- function(x, design, design.df,
     }
 
     if(!any(norm.method %in% c("TMM", "logMS", "RLE"))){
-        stop(paste0("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS"))
+        stop("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS")
     }
 
     subset.counts <- FALSE
@@ -142,8 +142,8 @@ testNhoods <- function(x, design, design.df,
             message("Design matrix is a strict subset of the nhood counts")
             subset.counts <- TRUE
         } else{
-            stop(paste0("Design matrix (", nrow(model), ") and nhood counts (",
-                        ncol(nhoodCounts(x)), ") are not the same dimension"))
+            stop("Design matrix (", nrow(model), ") and nhood counts (",
+                 ncol(nhoodCounts(x)), ") are not the same dimension")
         }
     }
 
@@ -171,8 +171,8 @@ testNhoods <- function(x, design, design.df,
     }
 
     if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
-        stop(paste0("Sample names in design matrix and nhood counts are not matched.
-                    Set appropriate rownames in design matrix."))
+        stop("Sample names in design matrix and nhood counts are not matched.
+             Set appropriate rownames in design matrix.")
     } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
         warning("Sample names in design matrix and nhood counts are not matched. Reordering")
         model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
@@ -211,7 +211,7 @@ testNhoods <- function(x, design, design.df,
     }
 
     res$Nhood <- as.numeric(rownames(res))
-    message(paste0("Performing spatial FDR correction with", fdr.weighting[1], " weighting"))
+    message("Performing spatial FDR correction with", fdr.weighting[1], " weighting")
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,

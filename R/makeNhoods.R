@@ -58,7 +58,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         graph <- graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
-            warning("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
+            warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
                     ncol(X_reduced_dims),"dimensions\n")
             d <- ncol(X_reduced_dims)
         }

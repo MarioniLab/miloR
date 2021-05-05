@@ -66,7 +66,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
   } else if(any(!assay %in% assayNames(x))){
-    stop(paste0("Unrecognised assay slot: ", assay))
+    stop("Unrecognised assay slot: ", assay)
   }
 
   if(is.null(na.function)){
@@ -78,7 +78,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     }, warning=function(warn){
       warning(warn)
     }, error=function(err){
-      stop(paste0("NA function ", na.function, " not recognised"))
+      stop("NA function ", na.function, " not recognised")
     }, finally={
     })
   }
