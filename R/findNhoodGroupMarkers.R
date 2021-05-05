@@ -174,7 +174,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
       summFunc <- rowMeans
     }
 
-    for (i in 1:ncol(sample_gr_mat)){
+    for (i in seq_len(ncol(sample_gr_mat))){
       if (sum(sample_gr_mat[,i]) > 1) {
         exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])
       } else {

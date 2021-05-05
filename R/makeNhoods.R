@@ -58,10 +58,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         graph <- graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
-            warning(paste("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using", ncol(X_reduced_dims),"dimensions\n"))
+            warning("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
+                    ncol(X_reduced_dims),"dimensions\n")
             d <- ncol(X_reduced_dims)
         }
-        X_reduced_dims  <- X_reduced_dims[,1:d]
+        X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
@@ -69,7 +70,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         graph <- x
         X_reduced_dims <- reduced_dims
     } else{
-        stop(paste0("Data format: ", class(x), " not recognised. Should be Milo or igraph"))
+        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
     random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
 
@@ -83,7 +84,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 
     nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
-    for (X in 1:length(sampled_vertices)){
+    for (X in seq_len(length(sampled_vertices))){
         nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
     }
 
@@ -115,11 +116,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     # this function fails if rownames are not set
     if(is.null(rownames(X_reduced_dims))){
         warning("Rownames not set on reducedDims - setting to row indices")
-        rownames(X_reduced_dims) <- as.character(c(1:nrow(X_reduced_dims)))
+        rownames(X_reduced_dims) <- as.character(seq_len(nrow(X_reduced_dims)))
     }
 
     colnames(nh_reduced_dims) <- colnames(X_reduced_dims)
-    rownames(nh_reduced_dims) <- paste0('nh_', 1:nrow(nh_reduced_dims))
+    rownames(nh_reduced_dims) <- paste0('nh_', seq_len(nrow(nh_reduced_dims)))
 
     ## Search nearest cell to average profile
     # I have to do this trick because as far as I know there is no fast function to
@@ -130,7 +131,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
                       k = nrow(nh_reduced_dims) + 1,
                       subset = rownames(nh_reduced_dims))[["index"]]
     ## Look for first NN that is not another nhood
-    nh_ixs <- 1:nrow(nh_reduced_dims)
+    nh_ixs <- seq_len(nrow(nh_reduced_dims))
     i = 1
     sampled_vertices <- rep(0, nrow(nn_mat))
     while (any(sampled_vertices <= max(nh_ixs))) {
@@ -161,7 +162,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         return(random.vertices)
     } else{
         message("Finding neighbours of sampled vertices")
-        vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
+        vertex.list <- sapply(seq_len(length(random.vertices)), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
     }
 }

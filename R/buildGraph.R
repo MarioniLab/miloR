@@ -151,7 +151,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
         old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
 
         n.idx <- ncol(x)
-        for(i in seq_along(1:n.idx)){
+        for(i in seq_len(n.idx)){
             i.knn <- nn.out$index[i, ]
             i.dists <- nn.out$distance[i, ]
             old.dist[i, i.knn] <- i.dists
@@ -171,7 +171,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
+    findKNN(x[, seq_len(d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
 }
 
 

@@ -60,7 +60,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
     }, warning=function(warn){
       warning(warn)
     }, error=function(err){
-      stop(paste0("NA function ", na.function, " not recognised"))
+      stop("NA function ", na.function, " not recognised")
     }, finally={
     })
   }
@@ -115,7 +115,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
 
   if(is.null(colnames(nhs))){
     warning("No names attributed to nhoods. Converting indices to names")
-    colnames(nhs) <- as.character(c(1:ncol(nhs)))
+    colnames(nhs) <- as.character(seq_len(ncol(nhs)))
   }
 
   # assume order of nhs is the same as nhood.adj
@@ -140,7 +140,7 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
         stop("Subsetting `is.da` vector length does not equal nhoods length")
       }
     } else{
-      stop(paste0("Incorrect subsetting vector provided:", class(subset.nhoods)))
+      stop("Incorrect subsetting vector provided:", class(subset.nhoods))
     }
   } else{
     if(length(is.da) != ncol(nhood.adj)){

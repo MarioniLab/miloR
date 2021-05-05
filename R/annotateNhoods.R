@@ -40,7 +40,7 @@ annotateNhoods <- function(x, da.res, coldata_col){
   }
 
   if(!coldata_col %in% names(colData(x))){
-    stop(paste0(coldata_col, " is not a column in colData(x)"))
+    stop(coldata_col, " is not a column in colData(x)")
   }
 
   if(ncol(nhoods(x)) != nrow(da.res)){
@@ -55,9 +55,9 @@ annotateNhoods <- function(x, da.res, coldata_col){
   }
 
   ## Count occurrence of labels in each nhood
-  nhood_counts <- sapply(1:ncol(nhoods(x)), function(n) table(anno_vec[which(nhoods(x)[,n]==1)]))
+  nhood_counts <- sapply(seq_len(ncol(nhoods(x))), function(n) table(anno_vec[which(nhoods(x)[,n]==1)]))
   nhood_counts <- t(nhood_counts)
-  rownames(nhood_counts) <- 1:ncol(nhoods(x))
+  rownames(nhood_counts) <- seq_len(ncol(nhoods(x)))
 
   ## Fetch the most frequent label
   max_val <- apply(nhood_counts, 1, function(x) colnames(nhood_counts)[which.max(x)])
