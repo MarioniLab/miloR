@@ -1,7 +1,7 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 0.99.12
+Version: 0.99.13
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
@@ -55,7 +55,7 @@ Suggests:
     magick,
     RCurl,
     curl,
-    layout,
+    graphics,
     grDevices
 RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
@@ -72,6 +72,7 @@ Collate:
     'graphSpatialFDR.R'
     'makeNhoods.R'
     'milo.R'
+    'miloR-package.R'
     'methods.R'
     'plotNhoods.R'
     'sim_discrete.R'
