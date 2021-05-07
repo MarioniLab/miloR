@@ -91,7 +91,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
-        stop(paste0("Unrecognised assay slot: ", assay))
+        stop("Unrecognised assay slot: ", assay)
     }
 
     if(is.null(na.function)){
@@ -103,7 +103,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
         }, warning=function(warn){
             warning(warn)
         }, error=function(err){
-            stop(paste0("NA function ", na.function, " not recognised"))
+            stop("NA function ", na.function, " not recognised")
         }, finally={
         })
     }
@@ -159,7 +159,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
             if(length(subset.dims) == nrow(model)){
                 model <- model[subset.dims, ]
             } else{
-                stop(paste0("Cannot subset model matrix, subsetting vector is wrong length:", length(subset.dims)))
+                stop("Cannot subset model matrix, subsetting vector is wrong length:", length(subset.dims))
             }
         }
         if(any(rownames(model) != rownames(copy.meta))){
@@ -168,8 +168,8 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
     }
 
     if(ncol(x) != nrow(model)){
-        stop(paste0("Design matrix (", nrow(model), ") and milo objects (",
-                    ncol(x), ") are not the same dimension"))
+        stop("Design matrix (", nrow(model), ") and milo objects (",
+                    ncol(x), ") are not the same dimension")
     }
 
     if(!is.null(subset.row)){
@@ -266,7 +266,7 @@ testDiffExp <- function(x, da.res, design, meta.data, model.contrasts=NULL,
         n.gene <- apply(exprs.data, 2, function(X) sum(X > 0))
         if(ncol(test.model) == 2){
             test.model <- cbind(test.model, n.gene)
-            colnames(test.model) <- c(colnames(test.model)[1:2], "NGenes")
+            colnames(test.model) <- c(colnames(test.model)[seq_len(2)], "NGenes")
         } else if (ncol(test.model) > 2){
             test.model <- cbind(test.model[, 1], n.gene, test.model[, c(2:ncol(test.model))])
             colnames(test.model) <- c(colnames(test.model)[1], "NGenes", colnames(test.model[, c(2:ncol(test.model))]))

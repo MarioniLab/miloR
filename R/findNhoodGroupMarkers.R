@@ -66,7 +66,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
   } else if(any(!assay %in% assayNames(x))){
-    stop(paste0("Unrecognised assay slot: ", assay))
+    stop("Unrecognised assay slot: ", assay)
   }
 
   if(is.null(na.function)){
@@ -78,7 +78,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     }, warning=function(warn){
       warning(warn)
     }, error=function(err){
-      stop(paste0("NA function ", na.function, " not recognised"))
+      stop("NA function ", na.function, " not recognised")
     }, finally={
     })
   }
@@ -174,7 +174,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
       summFunc <- rowMeans
     }
 
-    for (i in 1:ncol(sample_gr_mat)){
+    for (i in seq_len(ncol(sample_gr_mat))){
       if (sum(sample_gr_mat[,i]) > 1) {
         exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])
       } else {

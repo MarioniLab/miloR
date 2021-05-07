@@ -31,6 +31,18 @@ library(patchwork)
 library(MouseGastrulationData)
 ```
 
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# ## remove the old cache - this location points to the Bioc submission server - ignore this code block
+# library(ExperimentHub)
+# oldcache = path.expand(rappdirs::user_cache_dir(appname="ExperimentHub"))
+# setExperimentHubOption("CACHE", oldcache)
+# eh = ExperimentHub(localHub=FALSE)
+# ## removes old location and all resources
+# removeCache(eh, ask=FALSE)
+```
+
+
 # Load data
 
 For this vignette we will use the mouse gastrulation single-cell data from [Pijuan-Sala et al. 2019](https://www.nature.com/articles/s41586-019-0933-9). The dataset can be downloaded as a `SingleCellExperiment` object from the [`MouseGastrulationData`](https://bioconductor.org/packages/3.12/data/experiment/html/MouseGastrulationData.html) package on Bioconductor. To make computations faster, here we will download just a subset of samples, 4 samples at stage E7 and 4 samples at stage E7.5. 
@@ -38,9 +50,10 @@ For this vignette we will use the mouse gastrulation single-cell data from [Piju
 This dataset has already been pre-processed and contains a `pca.corrected` dimensionality reduction, which was built after batch correction using [`fastMNN`](https://bioconductor.org/packages/release/bioc/vignettes/batchelor/inst/doc/correction.html).
 
 ```{r}
-# note: to run this on a larger set of samples un-comment the additional sample ids
-select_samples <- c(2,  3, #4, 19, 6, #15,#, 20 30, 31, 32
-                    10, 14
+select_samples <- c(2,  3,  6, 4, #15,
+                    # 19, 
+                    10, 14#, 20 #30
+                    #31, 32
                     )
 embryo_data = EmbryoAtlasData(samples = select_samples)
 embryo_data
@@ -50,7 +63,7 @@ embryo_data
 
 We recompute the UMAP embedding for this subset of cells to visualize the data.
 
-```{r}
+```{r, dev="jpeg"}
 embryo_data <- embryo_data[,apply(reducedDim(embryo_data, "pca.corrected"), 1, function(x) !all(is.na(x)))]
 embryo_data <- runUMAP(embryo_data, dimred = "pca.corrected", name = 'umap')
 
@@ -190,7 +203,7 @@ ggplot(da_results, aes(PValue)) + geom_histogram(bins=50)
 
 Then we visualize the test results with a volcano plot (remember that each point here represents a neighbourhood, _not_ a cell).
 
-```{r}
+```{r, dev="jpeg"}
 ggplot(da_results, aes(logFC, -log10(SpatialFDR))) + 
   geom_point() +
   geom_hline(yintercept = 1) ## Mark significance threshold (10% FDR)
@@ -200,7 +213,7 @@ Looks like we have detected several neighbourhoods were there is a significant d
 
 To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying singificant DA are colored by their log-Fold Change.
 
-```{r, fig.width=15, fig.height=8}
+```{r, fig.width=15, fig.height=8, dev="jpeg"}
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Plot single-cell UMAP
@@ -233,7 +246,7 @@ da_results$celltype <- ifelse(da_results$celltype_fraction < 0.7, "Mixed", da_re
 
 Now we can visualize the distribution of DA Fold Changes in different cell types
 
-```{r, fig.height=7, fig.width=7}
+```{r, fig.height=7, fig.width=7, dev="jpeg"}
 plotDAbeeswarm(da_results, group.by = "celltype")
 ```
 
@@ -311,17 +324,17 @@ In many cases, such as this example, DA neighbourhoods are found in different ar
 embryo_milo <- buildNhoodGraph(embryo_milo)
 
 ## Find groups
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 10)
 head(da_results)
 ```
 
 Let's have a look at the detected groups 
 
-```{r, fig.height=7, fig.width=7}
+```{r, fig.height=7, fig.width=7, dev="jpeg"}
 plotNhoodGroups(embryo_milo, da_results, layout="umap") 
 ```
 
-```{r}
+```{r, dev="jpeg"}
 plotDAbeeswarm(da_results, "NhoodGroup")
 ```
 
@@ -332,25 +345,28 @@ We can see that some groups are made up of single neighbourhoods.
 <!-- plotNhoodGroups(embryo_milo, da_results, layout="umap", show_groups = singletons,  size_range=c(0.2,4))  -->
 <!-- ``` -->
 
-Let's check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta...
+We can easily check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta by plotting with different values of `max.lfc.delta` 
+(not executed here).
 
-```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
+```{r, dev="jpeg"}
+# code not run - uncomment to run.
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 1) , group.by = "NhoodGroup") + ggtitle("max LFC delta=1")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 2)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=2")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 3)   , group.by = "NhoodGroup") + ggtitle("max LFC delta=3")
 ```
 
-...and minimum overlap between neighbourhoods...
+...and we can do the same for the minimum overlap between neighbourhoods... (code not executed).
 
-```{r}
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
-plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
+```{r, dev="jpeg"}
+# code not run - uncomment to run.
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=1) , group.by = "NhoodGroup") + ggtitle("overlap=5")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)   , group.by = "NhoodGroup") + ggtitle("overlap=10")
+# plotDAbeeswarm(groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=10)   , group.by = "NhoodGroup") + ggtitle("overlap=20")
 ```
 
-Let's settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
+In these examples we settle for `overlap=5` and `max.lfc.delta=5`, as we need at least 2 neighbourhoods assigned to each group.
 
-```{r}
+```{r, dev="jpeg"}
 set.seed(42)
 da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)
 plotNhoodGroups(embryo_milo, da_results, layout="umap")
@@ -369,6 +385,7 @@ keep.rows <- rowSums(logcounts(embryo_milo)) != 0
 embryo_milo <- embryo_milo[keep.rows, ]
 
 ## Find HVGs
+set.seed(101)
 dec <- modelGeneVar(embryo_milo)
 hvgs <- getTopHVGs(dec, n=2000)
 head(hvgs)
@@ -421,19 +438,20 @@ or you might use `subset.nhoods` to exclude singleton neighbourhoods, or to subs
 
 Lets select marker genes for group 10 at FDR 1% and log-fold-Change > 1.
 
-```{r}
+```{r, dev="jpeg"}
 ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) + 
   geom_point(alpha=0.5, size=0.5) +
-  geom_hline(yintercept = 2)
+  geom_hline(yintercept = 3)
 
 markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
 
-```{r, fig.width=12, fig.height=7}
-plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
-                          subset.nhoods = da_results$NhoodGroup %in% c('6','5'), scale=TRUE,
+```{r, fig.width=12, fig.height=7, dev="jpeg"}
+plotNhoodExpressionGroups(embryo_milo, da_results, features=markers[1:10],
+                          subset.nhoods = da_results$NhoodGroup %in% c('6','5'), 
+                          scale=TRUE,
                           grid.space = "fixed")
 ```
 
@@ -441,11 +459,11 @@ plotNhoodExpressionGroups(embryo_milo, da_results, features=markers,
 
 In some cases you might want to test for differential expression between cells in different conditions *within* the same neighbourhood group. You can do that using `testDiffExp`:
 
-```{r}
-dge_9 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
-                     subset.row = rownames(embryo_milo)[1:10], subset.nhoods=da_results$NhoodGroup=="9")
+```{r, warning=FALSE}
+dge_6 <- testDiffExp(embryo_milo, da_results, design = ~ stage, meta.data = data.frame(colData(embryo_milo)),
+                     subset.row = rownames(embryo_milo)[1:5], subset.nhoods=da_results$NhoodGroup=="6")
 
-dge_9
+dge_6
 ```
 
 

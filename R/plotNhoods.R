@@ -29,7 +29,7 @@
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
 #'                             reducedDims=SimpleList(PCA=pca$x))
-#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
+#' colnames(sce) <- paste0("Cell", seq_len(ncol(sce)))
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #'
@@ -41,6 +41,7 @@
 #' @rdname plotNhoodSizeHist
 #' @importFrom ggplot2 ggplot geom_histogram xlab theme_classic
 #' @importFrom igraph neighbors
+#' @importFrom grDevices colorRampPalette
 plotNhoodSizeHist <- function(milo, bins=50){
   if (! isTRUE(.valid_nhood(milo))){
     stop("Not a valid Milo object - nhoods are missing. Please run makeNhoods() first.")
@@ -59,8 +60,8 @@ plotNhoodSizeHist <- function(milo, bins=50){
   n_neigh <- ncol(nhoods(milo))
   is_not_empty <- n_neigh > 0
   if (is_not_empty) {
-    # is_graph_vx <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "igraph.vs")
-    # is_numeric_vc <- is(milo@nhoods[[sample(1:n_neigh, 1)]], "numeric")
+    # is_graph_vx <- is(milo@nhoods[[sample(seq_len(n_neigh), 1)]], "igraph.vs")
+    # is_numeric_vc <- is(milo@nhoods[[sample(seq_len(n_neigh), 1)]], "numeric")
     # if (isTRUE(is_igraph_vx) | isTRUE(is_numeric_vc)){
       TRUE
     # } else {
@@ -110,7 +111,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   }
   if (is.character(layout)) {
     if (!layout %in% names(reducedDims(x))) {
-      stop(paste(layout, "isn't in readucedDim(x) - choose a different layout"))
+      stop(layout, "isn't in readucedDim(x) - choose a different layout")
     }
   }
   nh_graph <- nhoodGraph(x)
@@ -145,7 +146,7 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
         }
       V(nh_graph)$colour_by <- col_vals
     } else {
-      stop(paste(colour_by, "is not a column in colData(x)"))
+      stop(colour_by, "is not a column in colData(x)")
     }
   } else {
     V(nh_graph)$colour_by <- V(nh_graph)$size
@@ -213,7 +214,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   }
   if (is.character(layout)) {
     if (!layout %in% names(reducedDims(x))) {
-      stop(paste(layout, "is not in readucedDim(x) - choose a different layout"))
+      stop(layout, "is not in readucedDim(x) - choose a different layout")
     }
   }
 
@@ -253,7 +254,7 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   }
   if (is.character(layout)) {
     if (!layout %in% names(reducedDims(x))) {
-      stop(paste(layout, "is not in reducedDim(x) - choose a different layout"))
+      stop(layout, "is not in reducedDim(x) - choose a different layout")
     }
   }
 
@@ -341,7 +342,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   }
 
   expr_mat <- nhoodExpression(x)[features, ]
-  colnames(expr_mat) <- 1:ncol(nhoods(x))
+  colnames(expr_mat) <- seq_len(ncol(nhoods(x)))
 
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
@@ -397,7 +398,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning(paste0('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') ))
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -512,7 +513,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
   }
 
   expr_mat <- nhoodExpression(x)[features, ]
-  colnames(expr_mat) <- 1:ncol(nhoods(x))
+  colnames(expr_mat) <- seq_len(ncol(nhoods(x)))
 
   ## Get nhood expression matrix
   if (!is.null(subset.nhoods)) {
@@ -557,7 +558,7 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning(paste0('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') ))
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -633,10 +634,10 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
 plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL){
   if (!is.null(group.by)) {
     if (!group.by %in% colnames(da.res)) {
-      stop(paste0(group.by, " is not a column in da.res. Have you forgot to run annotateNhoods(x, da.res, ", group.by,")?"))
+      stop(group.by, " is not a column in da.res. Have you forgot to run annotateNhoods(x, da.res, ", group.by,")?")
     }
     if (is.numeric(da.res[,group.by])) {
-      stop(paste0(group.by, " is a numeric variable. Please bin to use for grouping."))
+      stop(group.by, " is a numeric variable. Please bin to use for grouping.")
     }
     da.res <- mutate(da.res, group_by = da.res[,group.by])
   } else {
@@ -644,7 +645,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   }
 
   if (!is.factor(da.res[,"group_by"])) {
-    message(paste0("Converting group.by to factor..."))
+    message("Converting group.by to factor...")
     da.res <- mutate(da.res, factor(group_by, levels=unique(group_by)))
     # anno_vec <- factor(anno_vec, levels=unique(anno_vec))
   }

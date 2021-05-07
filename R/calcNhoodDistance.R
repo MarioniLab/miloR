@@ -52,7 +52,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
         } else if((length(reducedDimNames(x)) == 0) & is.character(reduced.dim)){
-            stop(paste(reduced.dim, " not found in reducedDim slot"))
+            stop(reduced.dim, " not found in reducedDim slot")
         }
     } else{
         stop("Input is not a valid Milo object")
@@ -61,13 +61,15 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
     non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
 
     if(any(names(reducedDims(x)) %in% c("PCA"))){
-        nhood.dists <- sapply(1:ncol(nhoods(x)),
-                              function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
+            nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
+                              function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                              seq_len(d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
 
     } else if(is.character(reduced.dim)){
-        nhood.dists <- sapply(1:ncol(nhoods(x)),
-                              function(X) .calc_distance(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'], c(1:d),drop=FALSE]))
+        nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
+                              function(X) .calc_distance(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                                    seq_len(d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
     }
 
@@ -82,9 +84,9 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 #' @export
 .calc_distance <- function(in.x){
 
-    dist.list <- lapply(1:nrow(in.x), FUN=function(i){
+    dist.list <- lapply(seq_len(nrow(in.x)), FUN=function(i){
         i.dist <- apply(in.x, 1, FUN=function(P) sqrt(sum((P - in.x[i, ])**2)))
-        list("rowIndex"=rep(i, nrow(in.x)), "colIndex"=c(1:length(i.dist)),
+        list("rowIndex"=rep(i, nrow(in.x)), "colIndex"=seq_len(length(i.dist)),
              "dist"=i.dist)
         })
 
@@ -104,7 +106,7 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 
     # this could be so much more elegant than this.
     dist.list <- list()
-    index.df <- data.frame("cname"=cell.names, "idx"=c(1:length(cell.names)))
+    index.df <- data.frame("cname"=cell.names, "idx"=seq_len(length(cell.names)))
 
     for(x in seq_along(names(nhood.list))){
         x.ix <- names(nhood.list)[x]

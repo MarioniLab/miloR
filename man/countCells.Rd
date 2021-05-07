@@ -41,8 +41,8 @@ milo <- buildGraph(t(m), k=20, d=10)
 milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 
 cond <- rep("A", nrow(m))
-cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-cond.b <- setdiff(1:nrow(m), cond.a)
+cond.a <- sample(seq_len(nrow(m)), size=floor(nrow(m)*0.25))
+cond.b <- setdiff(seq_len(nrow(m)), cond.a)
 cond[cond.b] <- "B"
 meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
 meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")

@@ -40,7 +40,7 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
             message("Casting to sparse matrix format")
             x <- as(x, "dgTMatrix")
         } else{
-            stop(paste0("Input 'x' is not a recognisable matrix format. Class is ", class(x)))
+            stop("Input 'x' is not a recognisable matrix format. Class is ", class(x))
         }
     }
 

@@ -30,8 +30,8 @@
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
-#' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-#' cond.b <- setdiff(1:nrow(m), cond.a)
+#' cond.a <- sample(seq_len(nrow(m)), size=floor(nrow(m)*0.25))
+#' cond.b <- setdiff(seq_len(nrow(m)), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
@@ -55,8 +55,8 @@ countCells <- function(x, samples, meta.data=NULL){
     if(length(samples) > 1 & !is.null(meta.data)){
         stop("Multiple sample columns provided, please specify a unique column name")
     } else if(is.null(meta.data) & length(samples) != ncol(x)){
-        stop(paste0("Length of vector does not match dimensions of object. Length:",
-                    length(samples), " Dimensions: ", ncol(x)))
+        stop("Length of vector does not match dimensions of object. Length:",
+             length(samples), " Dimensions: ", ncol(x))
     }
 
     # check the nhoods slot is populated
@@ -95,7 +95,7 @@ countCells <- function(x, samples, meta.data=NULL){
     count.matrix <- Matrix::t(nhoods(x)) %*% dummy.meta.data
 
     # add to the object
-    rownames(count.matrix) <- c(1:num.hoods)
+    rownames(count.matrix) <- seq_len(num.hoods)
     nhoodCounts(x) <- count.matrix
 
     return(x)

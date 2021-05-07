@@ -81,15 +81,15 @@
 #'
 #' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
 #'                             reducedDims=SimpleList(PCA=pca$x))
-#' colnames(sce) <- paste0("Cell", 1:ncol(sce))
+#' colnames(sce) <- paste0("Cell", seq_len(ncol(sce)))
 #' milo <- Milo(sce)
 #' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #' milo <- calcNhoodDistance(milo, d=10)
 #'
 #' cond <- rep("A", ncol(milo))
-#' cond.a <- sample(1:ncol(milo), size=floor(ncol(milo)*0.25))
-#' cond.b <- setdiff(1:ncol(milo), cond.a)
+#' cond.a <- sample(seq_len(ncol(milo)), size=floor(ncol(milo)*0.25))
+#' cond.b <- setdiff(seq_len(ncol(milo)), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 132), rep("R2", 132), rep("R3", 136)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
@@ -122,7 +122,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(any(!assay %in% assayNames(x))){
-        stop(paste0("Unrecognised assay slot: ", assay))
+        stop("Unrecognised assay slot: ", assay)
     }
 
     if(is.null(na.function)){
@@ -134,7 +134,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         }, warning=function(warn){
             warning(warn)
         }, error=function(err){
-            stop(paste0("NA function ", na.function, " not recognised"))
+            stop("NA function ", na.function, " not recognised")
         }, finally={
         })
     }
@@ -153,7 +153,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
         da.res$SpatialFDR[is.na(da.res$SpatialFDR)] <- 1
     }
 
-    message(paste0("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%"))
+    message("Found ", n.da, " DA neighbourhoods at FDR ", da.fdr*100, "%")
 
     if((ncol(nhoodAdjacency(x)) == ncol(nhoods(x))) & isFALSE(compute.new)){
         message("nhoodAdjacency found - using for nhood grouping")
@@ -179,7 +179,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
 
     nhood.gr <- unique(nhs.da.gr)
     # perform DGE _within_ each group of cells using the input design matrix
-    message(paste0("Nhoods aggregated into ", length(nhood.gr), " groups"))
+    message("Nhoods aggregated into ", length(nhood.gr), " groups")
 
     fake.meta <- data.frame("CellID"=colnames(x), "Nhood.Group"=rep(NA, ncol(x)))
     rownames(fake.meta) <- fake.meta$CellID
@@ -259,7 +259,7 @@ findNhoodMarkers <- function(x, da.res, da.fdr=0.1, assay="logcounts",
             summFunc <- rowMeans
         }
 
-        for (i in 1:ncol(sample_gr_mat)){
+        for (i in seq_len(ncol(sample_gr_mat))){
             if (sum(sample_gr_mat[,i]) > 1) {
                 exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])
             } else {

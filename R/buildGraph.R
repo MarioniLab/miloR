@@ -138,20 +138,20 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
 
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
-    message(paste0("Constructing kNN graph with k:", k))
+    message("Constructing kNN graph with k:", k)
     zee.graph <- .neighborsToKNNGraph(nn.out$index, directed=FALSE)
     graph(x) <- zee.graph
 
     # adding distances
     if(isTRUE(get.distance)){
-        message(paste0("Retrieving distances from ", k, " nearest neighbours"))
+        message("Retrieving distances from ", k, " nearest neighbours")
         # set this up as a dense matrix first, then coerce to a sparse matrix
         # starting with a sparse matrix requires a coercion at each iteration
         # which uses up lots of memory and unncessary CPU time
         old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
 
         n.idx <- ncol(x)
-        for(i in seq_along(1:n.idx)){
+        for(i in seq_len(n.idx)){
             i.knn <- nn.out$index[i, ]
             i.dists <- nn.out$distance[i, ]
             old.dist[i, i.knn] <- i.dists
@@ -171,7 +171,7 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
+    findKNN(x[, seq_len(d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
 }
 
 

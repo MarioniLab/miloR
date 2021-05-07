@@ -1,17 +1,17 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 0.99.6
+Version: 0.99.17
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
-Description: This package performs single-cell differential abundance testing by 
-    modelling cell states as neighbourhoods on a nearest neighbour graph using a negative bionomial 
-    generalized linear model.
-License: GPL-3
+Description: This package performs single-cell differential abundance testing. Cell states are modelled 
+    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a 
+    negative bionomial generalized linear model.
+License: GPL-3 + file LICENSE
 Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
-LazyData: true
+BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 Depends: R (>= 4.0.0),
          edgeR
@@ -39,7 +39,8 @@ Imports: BiocNeighbors,
          dplyr,
          ggrepel,
          ggbeeswarm,
-         RColorBrewer
+         RColorBrewer,
+         grDevices
 Suggests: 
     testthat,
     MASS,
@@ -54,7 +55,8 @@ Suggests:
     MouseGastrulationData,
     magick,
     RCurl,
-    curl
+    curl,
+    graphics
 RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
@@ -70,6 +72,7 @@ Collate:
     'graphSpatialFDR.R'
     'makeNhoods.R'
     'milo.R'
+    'miloR-package.R'
     'methods.R'
     'plotNhoods.R'
     'sim_discrete.R'
