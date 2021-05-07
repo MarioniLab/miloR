@@ -55,7 +55,8 @@ annotateNhoods <- function(x, da.res, coldata_col){
   }
 
   ## Count occurrence of labels in each nhood
-  nhood_counts <- sapply(seq_len(ncol(nhoods(x))), function(n) table(anno_vec[which(nhoods(x)[,n]==1)]))
+  nhood_counts <- vapply(seq_len(ncol(nhoods(x))), FUN=function(n) table(anno_vec[which(nhoods(x)[,n]==1)]),
+                         FUN.VALUE=numeric(1))
   nhood_counts <- t(nhood_counts)
   rownames(nhood_counts) <- seq_len(ncol(nhoods(x)))
 
