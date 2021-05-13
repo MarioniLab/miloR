@@ -394,6 +394,7 @@ head(hvgs)
 We run `findNhoodGroupMarkers` to test for one-vs-all differential gene expression for each neighbourhood group
 
 ```{r}
+set.seed(42)
 nhood_markers <- findNhoodGroupMarkers(embryo_milo, da_results, subset.row = hvgs, 
                                        aggregate.samples = TRUE, sample_col = "sample")
 
@@ -449,7 +450,8 @@ markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_mark
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.
 
 ```{r, fig.width=12, fig.height=7, dev="jpeg"}
-plotNhoodExpressionGroups(embryo_milo, da_results, features=markers[1:10],
+set.seed(42)
+plotNhoodExpressionGroups(embryo_milo, da_results, features=na.omit(markers[1:10]),
                           subset.nhoods = da_results$NhoodGroup %in% c('6','5'), 
                           scale=TRUE,
                           grid.space = "fixed")
