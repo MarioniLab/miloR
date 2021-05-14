@@ -451,7 +451,7 @@ We can visualize the expression in neighbourhoods using `plotNhoodExpressionGrou
 
 ```{r, fig.width=12, fig.height=7, dev="jpeg"}
 set.seed(42)
-plotNhoodExpressionGroups(embryo_milo, da_results, features=na.omit(markers[1:10]),
+plotNhoodExpressionGroups(embryo_milo, da_results, features=intersect(rownames(embryo_milo), markers[1:10]),
                           subset.nhoods = da_results$NhoodGroup %in% c('6','5'), 
                           scale=TRUE,
                           grid.space = "fixed")
