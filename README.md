@@ -48,7 +48,7 @@ milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
 Calculate distances, count cells according to an experimental design and perform DA testing.
 
 ```{r}
-milo.obj <- calcNhoodDistances(milo.obj, d=30)
+milo.obj <- calcNhoodDistance(milo.obj, d=30)
 milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
 
 milo.design <- as.data.frame(xtabs(~ Condition + Sample, data=milo.meta))
