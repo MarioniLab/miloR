@@ -51,3 +51,9 @@ setGeneric("nhoodGraph", function(x) standardGeneric("nhoodGraph"))
 
 #' @export
 setGeneric("nhoodGraph<-", function(x, value) standardGeneric("nhoodGraph<-"))
+
+#' @export
+setGeneric("nhoodAdjacency", function(x) standardGeneric("nhoodAdjacency"))
+
+#' @export
+setGeneric("nhoodAdjacency<-", function(x, value) standardGeneric("nhoodAdjacency<-"))

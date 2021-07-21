@@ -10,23 +10,26 @@
 #' @param graph The kNN graph used to define the neighbourhoods
 #' @param pvalues A vector of p-values calculated from a GLM or other appropriate
 #' statistical test for differential neighbourhood abundance
+#' @param k A numeric integer that determines the kth nearest neighbour distance to use for
+#' the weighted FDR. Only applicaple when using \code{weighting="k-distance"}.
 #' @param weighting A string scalar defining which weighting scheme to use.
-#' Choices are: vertex, edge, k-distance, neighbour-distance.
+#' Choices are: max, k-distance, neighbour-distance.
 #' @param reduced.dimensions (optional) A \code{matrix} of cells X reduced dimensions used
 #' to calculate the kNN graph. Only necessary if this function is being used
 #' outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available
-#' @param distances (optional) A \code{matrix} of cell-to-cell distances. Only necessary if
-#' this function is being used outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
+#' @param distances (optional) A \code{matrix} of cell-to-cell distances or a list
+#' of distance matrices, 1 per neighbourhood. Only necessary if this function is being
+#' used outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
 #' object is not available.
 #' @param indices (optional) A list of neighbourhood index vertices in the same order as the input neighbourhoods.
 #' Only used for the k-distance weighting.
 #'
 #' @details Each neighbourhood is weighted according to the weighting scheme
-#' defined. Vertex and edge use the respective graph connectivity measures
-#' of the neighbourhoods, k-distance uses the distance to the kth nearest neighbour
-#' of the index vertex, while neighbour-distance uses the average with-neighbourhood
-#' Euclidean distance in reduced dimensional space. The frequency-weighted version of the
+#' defined. k-distance uses the distance to the kth nearest neighbour
+#' of the index vertex, while neighbour-distance uses the average within-neighbourhood
+#' Euclidean distance in reduced dimensional space, and max uses the largest within-neighbourhood distance
+#' from the index vertex. The frequency-weighted version of the
 #' BH method is then applied to the p-values, as in \code{cydar}.
 #'
 #' @return A vector of adjusted p-values
@@ -40,8 +43,12 @@ NULL
 
 
 #' @export
-#' @import igraph
-graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduced.dimensions=NULL, distances=NULL, indices=NULL){
+#' @importFrom igraph induced_subgraph
+#' @importFrom Matrix rowMeans tril
+#' @importFrom stats dist
+#' @importFrom BiocNeighbors findKNN
+graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-distance',
+                            reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
     # Discarding NA pvalues.
     haspval <- !is.na(pvalues)
@@ -59,41 +66,60 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, weighting='vertex', reduce
         weighting <- weighting[1]
     }
 
-    if(weighting %in% c("vertex", "edge")){
-        # define the subgraph for each neighborhood then calculate the connectivity for each
-        # this latter computation is quite slow - can it be sped up?
-        # then loop over these sub-graphs to calculate the connectivity
-        subgraphs <- lapply(1:length(x.nhoods[haspval]),
-                            FUN=function(X) induced_subgraph(graph, x.nhoods[haspval][[X]]))
-        if(weighting == "vertex"){
-            t.connect <- lapply(subgraphs, FUN=function(EG) vertex_connectivity(EG))
-        } else{
-            t.connect <- lapply(subgraphs, FUN=function(EG) edge_connectivity(EG))
-        }
-    } else if(weighting == "neighbour-distance"){
+    if(weighting == "neighbour-distance"){
         if(!is.null(reduced.dimensions)){
-            t.connect <- lapply(1:length(x.nhoods[haspval]),
+            t.connect <- sapply(colnames(x.nhoods)[haspval],
                                 FUN=function(PG) {
-                                    x.pcs <- reduced.dimensions[x.nhoods[haspval][[PG]], ]
+                                    x.pcs <- reduced.dimensions[x.nhoods[, PG] > 0, ]
                                     x.euclid <- as.matrix(dist(x.pcs))
                                     x.distdens <- mean(x.euclid[lower.tri(x.euclid, diag=FALSE)])
                                     return(x.distdens)})
+        } else if(is.list(distances) & all(unlist(lapply(distances, class)) %in% c("matrix"))){
+            t.connect <- unlist(lapply(distances, FUN=function(NHD) mean(rowMeans(NHD))))
         } else{
             stop("A matrix of reduced dimensions is required to calculate distances")
         }
-    } else if(weighting == "k-distance"){
+    } else if(weighting == "max"){
         # do we have a distance matrix for the vertex cell to it's kth NN?
         if(!is.null(distances) & !is.null(indices)){
             # use distances first as they are already computed
             # compute the distance to the kth nearest neighbour
             # this is just the most distant neighbour
-            t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[X, ])))
+            if(class(distances) %in% c("matrix")){
+                # find the distance to the kth nearest neighbour within the distance matrix
+                t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[X, ])))
+            } else if(class(distances) %in% c("list")){
+                t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
+            } else{
+                stop("Neighbourhood distances must be either a matrix or a list of matrices")
+            }
+        }
+    }else if(weighting == "k-distance"){
+        if(is.null(k)){
+            stop("K must be non-null to use k-distance. Please provide a valid integer value")
+        }
+        # do we have a distance matrix for the vertex cell to it's kth NN?
+        if(!is.null(distances) & !is.null(indices)){
+            # use distances first as they are already computed
+            # compute the distance to the kth nearest neighbour
+            # this is just the most distant neighbour
+            if(class(distances) %in% c("matrix")){
+                # find the distance to the kth nearest neighbour within the distance matrix
+                t.connect <- unlist(lapply(indices, FUN=function(X) distances[X, ][order(distances[X, ], decreasing=FALSE)[k]]))
+            } else if(class(distances) %in% c("list")){
+                t.dists <- lapply(indices,
+                                  FUN=function(X) as.numeric(tril(distances[[as.character(X)]])))
+                t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+
+            } else{
+                stop("Neighbourhood distances must be either a matrix or a list of matrices")
+            }
         } else if(!is.null(reduced.dimensions) & !is.null(indices)){
             # find the kth NN and distance
             t.connect <- unlist(lapply(indices,
                                        FUN=function(X) max(findKNN(reduced.dimensions,
                                                                    get.distance=TRUE,
-                                                                   subset=X, k=21)[["distance"]])))
+                                                                   subset=X, k=k)[["distance"]])))
         } else if(is.null(indices)){
             stop("No neighbourhood indices found - required to compute k-distance weighting")
         } else{

@@ -75,9 +75,8 @@ meta.df$Vertex <- c(1:nrow(meta.df))
 
 sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
                                  reducedDims=list("PCA"=sim1.pca$x))
-attr(reducedDim(sim1.sce, "PCA"), "rotation") <- sim1.pca$rotation
-
 sim1.mylo <- Milo(sim1.sce)
+attr(reducedDim(sim1.mylo, "PCA"), "rotation") <- sim1.pca$rotation
 
 test_that("Milo inherits from SingleCellExperiment", {
     expect_is(sim1.mylo, "SingleCellExperiment")
@@ -95,28 +94,24 @@ test_that("Milo getters working as expected", {
 
     sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
     expect_type(graph(sim1.mylo), "list")
-    expect_s4_class(nhoodDistances(sim1.mylo), "Matrix")
 
     sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                     d=30,
                                     reduced_dims="PCA")
-    expect_type(nhoods(sim1.mylo), "list")
+    expect_s4_class(nhoods(sim1.mylo), "sparseMatrix")
+
+    sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
+    expect_equal(class(nhoodDistances(sim1.mylo)), "list")
 
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_s4_class(nhoodCounts(sim1.mylo), "Matrix")
 
     # check concordant dimensions for nhoods
-    expect_identical(length(nhoods(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
+    expect_identical(ncol(nhoods(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
 
     sim1.mylo <- calcNhoodExpression(sim1.mylo)
     expect_identical(ncol(nhoodExpression(sim1.mylo)), nrow(nhoodCounts(sim1.mylo)))
     expect_identical(nrow(nhoodExpression(sim1.mylo)), nrow(sim1.mylo))
-
-    # loadings were set on Milo object at instantiation
-    expect_identical(nrow(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
-                     sum(nrow(nhoodCounts(sim1.mylo)), ncol(sim1.mylo)))
-    expect_identical(ncol(nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30, reduced_dims="PCA"))),
-                     ncol(reducedDim(sim1.mylo, "PCA")[, 1:30]))
 })
 
 
@@ -124,11 +119,11 @@ test_that("Milo setters working as expected", {
     graph(sim1.mylo) <- list()
     expect_identical(graph(sim1.mylo), list())
 
-    nhoodDistances(sim1.mylo) <- matrix(0L, ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
-    expect_equal(sum(rowSums(nhoodDistances(sim1.mylo))), 0)
+    nhoodDistances(sim1.mylo) <- list()
+    expect_equal(class(nhoodDistances(sim1.mylo)), "list")
 
-    nhoods(sim1.mylo) <- list()
-    expect_identical(nhoods(sim1.mylo), list())
+    nhoods(sim1.mylo) <- Matrix(0L, sparse = TRUE)
+    expect_identical(nhoods(sim1.mylo), Matrix(0L, sparse = TRUE))
 
     nhoodCounts(sim1.mylo) <- matrix(0L, ncol=ncol(nhoodCounts(sim1.mylo)),
                                      nrow=nrow(nhoodCounts(sim1.mylo)))

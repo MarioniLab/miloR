@@ -109,7 +109,8 @@ test_that("Inputting a non-square binary matrix result generates the expected er
 })
 
 test_that("Providing a distance matrix generates a message", {
-    sim1.dist <- nhoodDistances(sim1.mylo)
+
+    sim1.dist <- matrix(rnorm(ncol(sim1.mylo)**2), ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
     expect_message(suppressWarnings(buildFromAdjacency(sim1.dist, k=21)),
                    "Adding nhoodDistances to Milo object")
 })
@@ -133,12 +134,10 @@ test_that("A valid Milo object is created", {
     adj.mylo <- suppressMessages(buildFromAdjacency(sim1.adj, k=21))
     expect_equal(class(graph(adj.mylo)), "igraph")
 
-    sim1.dist <- nhoodDistances(sim1.mylo)
+    sim1.dist <- matrix(rnorm(ncol(sim1.mylo)**2), ncol=ncol(sim1.mylo), nrow=ncol(sim1.mylo))
     adj.mylo <- suppressMessages(buildFromAdjacency(sim1.dist, k=21))
     expect_equal(class(graph(adj.mylo)), "igraph")
-    expect_true(is(nhoodDistances(adj.mylo), "sparseMatrix"))
-    expect_equal(ncol(nhoodDistances(adj.mylo)), length(V(graph(adj.mylo))))
-    expect_equal(nrow(nhoodDistances(adj.mylo)), length(V(graph(adj.mylo))))
+    #expect_true(is(nhoodDistances(adj.mylo), "NULL"))
 })
 
 

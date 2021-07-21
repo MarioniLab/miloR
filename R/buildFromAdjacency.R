@@ -36,11 +36,11 @@ NULL
 buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     # test class? If it's not sparse then cast it to one
     if(!is(x, "sparseMatrix")){
-        if(class(x) %in% c("matrix")){
+        if(any(class(x) %in% c("matrix"))){
             message("Casting to sparse matrix format")
             x <- as(x, "dgTMatrix")
         } else{
-            stop(paste0("Input 'x' is not a recognisable matrix format. Class is ", class(x)))
+            stop("Input 'x' is not a recognisable matrix format. Class is ", class(x))
         }
     }
 
@@ -92,7 +92,7 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     # if the matrix contains distances then also population the nhoodDistances slot
     if(!is.binary & is.square){
         message("Adding nhoodDistances to Milo object")
-        nhoodDistances(mylo) <- x
+        nhoodDistances(mylo) <- NULL
     }
 
     return(mylo)

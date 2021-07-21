@@ -17,8 +17,7 @@
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions.
 #' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
-#' @param seed An integer scalar seed to initial the pseudorandom number
-#' generator
+#'
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
@@ -47,10 +46,10 @@
 #' @export
 #' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN
-#' @importFrom igraph neighbors
+#' @importFrom igraph neighbors as_ids
 #' @importFrom stats setNames
-makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_dims="PCA") {
-    if(class(x) == "Milo"){
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
+    if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
         if(!.valid_graph(graph(x))){
@@ -59,20 +58,21 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
         graph <- graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
-            warning(paste("Warning: specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using", ncol(X_reduced_dims),"dimensions\n"))
+            warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
+                    ncol(X_reduced_dims),"dimensions\n")
             d <- ncol(X_reduced_dims)
         }
-        X_reduced_dims  <- X_reduced_dims[,1:d]
-    } else if(class(x) == "igraph"){
+        X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
+    } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
         graph <- x
         X_reduced_dims <- reduced_dims
     } else{
-        stop(paste0("Data format: ", class(x), " not recognised. Should be Milo or igraph"))
+        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
-    random_vertices <- .sample_vertices(graph, prop, seed, return.vertices = TRUE)
+    random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
 
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
@@ -82,19 +82,20 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
 
     sampled_vertices <- unique(sampled_vertices)
 
-    nh_list <-
-        sapply(
-            1:length(sampled_vertices),
-            FUN = function(X)
-                neighbors(graph, v = sampled_vertices[X])
-        )
-    nh_list <- setNames(nh_list, sampled_vertices)
-    if(class(x) == "Milo"){
+    nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    # Is there an alternative to using a for loop to populate the sparseMatrix here?
+    for (X in seq_len(length(sampled_vertices))){
+        nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
+    }
+
+    # need to add the index cells.
+    colnames(nh_mat) <- as.character(sampled_vertices)
+    if(is(x, "Milo")){
         nhoodIndex(x) <- as(sampled_vertices, "list")
-        nhoods(x) <- nh_list
+        nhoods(x) <- nh_mat
         return(x)
     } else {
-        return(nh_list)
+        return(nh_mat)
     }
 }
 
@@ -115,11 +116,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
     # this function fails if rownames are not set
     if(is.null(rownames(X_reduced_dims))){
         warning("Rownames not set on reducedDims - setting to row indices")
-        rownames(X_reduced_dims) <- as.character(c(1:nrow(X_reduced_dims)))
+        rownames(X_reduced_dims) <- as.character(seq_len(nrow(X_reduced_dims)))
     }
 
     colnames(nh_reduced_dims) <- colnames(X_reduced_dims)
-    rownames(nh_reduced_dims) <- paste0('nh_', 1:nrow(nh_reduced_dims))
+    rownames(nh_reduced_dims) <- paste0('nh_', seq_len(nrow(nh_reduced_dims)))
 
     ## Search nearest cell to average profile
     # I have to do this trick because as far as I know there is no fast function to
@@ -129,15 +130,17 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
     nn_mat <- findKNN(all_reduced_dims,
                       k = nrow(nh_reduced_dims) + 1,
                       subset = rownames(nh_reduced_dims))[["index"]]
-    nn_mat_names <- apply(nn_mat, c(1,2), function(x) rownames(all_reduced_dims)[x])
+    ## Look for first NN that is not another nhood
+    nh_ixs <- seq_len(nrow(nh_reduced_dims))
     i = 1
-    sampled_vertices <- rep("nh_0", nrow(nn_mat))
-    while (any(grepl(sampled_vertices, pattern = "nh_"))) {
-        update_ix <- grep(sampled_vertices, pattern="nh_")
-        sampled_vertices[update_ix] <- nn_mat_names[update_ix, i]
+    sampled_vertices <- rep(0, nrow(nn_mat))
+    while (any(sampled_vertices <= max(nh_ixs))) {
+        update_ix <- which(sampled_vertices <= max(nh_ixs))
+        sampled_vertices[update_ix] <- nn_mat[update_ix, i]
         i <- i + 1
     }
-    sampled_vertices <- match(sampled_vertices, rownames(X_reduced_dims))
+    ## Reset indexes
+    sampled_vertices <- sampled_vertices - max(nh_ixs)
     return(sampled_vertices)
 }
 
@@ -152,21 +155,16 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, seed=42, reduced_d
 }
 
 #' @import igraph
-.sample_vertices <- function(graph, prop, return.vertices=FALSE, seed=42){
-    set.seed(seed)
+.sample_vertices <- function(graph, prop, return.vertices=FALSE){
     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
     if(isTRUE(return.vertices)){
         return(random.vertices)
     } else{
         message("Finding neighbours of sampled vertices")
-        vertex.list <- sapply(1:length(random.vertices), FUN=function(X) neighbors(graph, v=random.vertices[X]))
+        vertex.list <- sapply(seq_len(length(random.vertices)), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
     }
-
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 }
 
 

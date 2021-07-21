@@ -86,6 +86,7 @@ sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
                                 d=30,
                                 reduced_dims="PCA")
+sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
 
 sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
                         "Replicate"=rep(c("R1", "R2", "R3"), 2))
@@ -101,28 +102,43 @@ test_that("Wrong input gives errors", {
     # count cells
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_error(testNhoods(nhoodCounts(sim1.mylo), design=~Condition,
-                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
+                            design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
                  "Unrecognised input type - must be of class Milo")
 
 })
 
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 
-test_that("Discordant dimension names gives a warning", {
+test_that("Discordant dimension names gives an error", {
     design.matrix <- model.matrix(~Condition, data=sim1.meta)
     rownames(design.matrix) <- c(1:nrow(design.matrix))
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
+                                             design.df=sim1.meta)),
+                                  "Design matrix and model matrix rownames are not a subset")
+
+    # warning if only a subset are present, or order is wrong
+    design.matrix <- model.matrix(~Condition, data=sim1.meta)
+    rownames(design.matrix) <- rownames(sim1.meta)
+
+    set.seed(42)
+    design.matrix <- design.matrix[sample(rownames(design.matrix)), ]
     expect_warning(testNhoods(sim1.mylo, design=design.matrix,
-                                      design.df=sim1.meta),
-                   "Design matrix and design matrix dimnames are not the same")
+                              design.df=sim1.meta),
+                   "Sample names in design matrix and nhood counts are not matched. Reordering")
+
 })
 
-test_that("Discordant dimensions between input and design gives and error", {
-    design.matrix <- model.matrix(~Condition, data=sim1.meta)
-    design.matrix <- design.matrix[-1, ]
+test_that("Discordant dimensions between input and design gives an error", {
+    add.meta <- sim1.meta[c(1:5), ]
+    rownames(add.meta) <- paste0(rownames(add.meta), "_add")
+    big.meta <- rbind.data.frame(sim1.meta, add.meta)
+    design.matrix <- model.matrix(~Condition, data=big.meta)
+
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                      design.df=sim1.meta)),
-                 "not the same dimension")
+                 "Design matrix and model matrix are not the same dimensionality")
 })
+
 
 test_that("Concordant dimensions between input and output", {
     in.rows <- nrow(nhoodCounts(sim1.mylo))
@@ -146,21 +162,6 @@ test_that("Identical results are produced with identical input", {
     nd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
                           design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     expect_identical(nd.ref1, nd.ref2)
-
-    #edge
-    ec.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    ec.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="edge",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    expect_identical(ec.ref1, ec.ref2)
-
-    #vertex
-    vc.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-    vc.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="vertex",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
-
-    expect_identical(vc.ref1, vc.ref2)
 })
 
 test_that("testNhoods produces reproducible results with equivalent input", {
@@ -210,3 +211,23 @@ test_that("Model contrasts provide expected results", {
     expect_equal(cont.ref$`F`, form.ref$`F`)
     expect_equal(cont.ref$FDR, form.ref$FDR)
 })
+
+test_that("Providing a subset model.matrix is reproducible", {
+    require(Matrix)
+    set.seed(42)
+    subset.samples <- sample(rownames(sim1.meta))
+    exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
+    out.da <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                          min.mean=1,
+                                          design.df=sim1.meta[subset.samples, ]))
+    expect_identical(nrow(out.da), exp.nh)
+
+    kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=sim1.meta[subset.samples, ]))
+    kd.ref2 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=sim1.meta[subset.samples, ]))
+    expect_identical(kd.ref1, kd.ref2)
+})
+

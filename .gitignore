@@ -1,5 +1,12 @@
-.Rproj.user
-.Rhistory
+*.Rproj.user
+*.Rhistory
+*.Rproj*
 .RData
 .Ruserdata
 testGLMM.R
+inst/doc
+doc
+Meta
+docs
+.Rproj.user
+*yml

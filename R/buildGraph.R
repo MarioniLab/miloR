@@ -12,11 +12,14 @@
 #' @param d The number of dimensions to use if the input is a matrix of cells
 #' X reduced dimensions. If this is provided, transposed should also be
 #' set=TRUE.
+#' @param reduced.dim A character scalar that refers to a specific entry in
+#' the \code{reduceDim} slot of the \code{\linkS4class{Milo}} object.
 #' @param transposed Logical if the input x is transposed with rows as cells.
 #' @param BNPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BSPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
 #' @param BPPARAM refer to \code{\link[scran]{buildKNNGraph}} for details.
-#' @param seed Seed number used for pseudorandom number generators.
+#' @param get.distance A logical scalar whether to compute distances during graph
+#' construction.
 #'
 #' @details
 #' This function computes a k-nearest neighbour graph. Each graph vertex is a
@@ -57,41 +60,48 @@ NULL
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
-                       BSPARAM=bsparam(), BPPARAM=SerialParam(), seed=42){
-    set.seed(seed)
+buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
+                       reduced.dim="PCA", BNPARAM=KmknnParam(),
+                       BSPARAM=bsparam(), BPPARAM=SerialParam()){
+
     # check class of x to determine which function to call
     # in all cases it must return a Milo object with the graph slot populated
     # what is a better design principle here? make a Milo object here and just
     # have one function, or have a separate function for input data type? I
     # think the former probably.
 
-    if(class(x) == "Milo"){
+    if(is(x, "Milo")){
         # check for reducedDims
-        if(is.null(reducedDim(x))){
+        if(length(reducedDimNames(x)) == 0){
             # assume logcounts is present?
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
-        } else if(!any(names(reducedDims(x)) %in% c("PCA"))){
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
+        } else if(!any(reducedDimNames(x) %in% c(reduced.dim))){
             # assume logcounts is present?
+            message("Computing PCA - name not in slot")
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
         }
-    } else if(class(x) == "matrix" & isTRUE(transposed)){
+    } else if(is.matrix(x) & isTRUE(transposed)){
         # assume input are PCs - the expression data is non-sensical here
         SCE <- SingleCellExperiment(assays=list(counts=Matrix(0L, nrow=1, ncol=nrow(x))),
                                     reducedDims=SimpleList("PCA"=x))
         x <- Milo(SCE)
-    } else if(class(x) == "matrix" & isFALSE(transposed)){
+    } else if(is.matrix(x) & isFALSE(transposed)){
         # this should be a gene expression matrix
         SCE <- SingleCellExperiment(assays=list(logcounts=x))
         x_pca <- prcomp_irlba(t(logcounts(SCE)), n=min(d+1, ncol(x)-1),
                               scale.=TRUE, center=TRUE)
         reducedDim(SCE, "PCA") <- x_pca$x
         x <- Milo(SCE)
-    } else if (class(x) == "SingleCellExperiment"){
+        attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+    } else if (is(x, "SingleCellExperiment")){
         # test for reducedDims, if not then compute them
         # give me a Milo object
         if(is.null(reducedDim(x))){
@@ -101,12 +111,14 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
             x_pca <- prcomp_irlba(t(logcounts(x)), n=min(d+1, ncol(x)-1),
                                   scale.=TRUE, center=TRUE)
             reducedDim(x, "PCA") <- x_pca$x
+            attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
+            reduced.dim <- "PCA"
         }
 
         x <- Milo(x)
     }
 
-    .buildGraph(x, k=k, d=d,
+    .buildGraph(x, k=k, d=d, get.distance=get.distance, reduced.dim=reduced.dim,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
@@ -116,24 +128,23 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
-.buildGraph <- function(x, k=10, d=50,
+.buildGraph <- function(x, k=10, d=50, get.distance=FALSE,
+                        reduced.dim="PCA",
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
 
-    nn.out <- .setup_knn_data(x=reducedDim(x, "PCA"), d=d,
+    nn.out <- .setup_knn_data(x=reducedDim(x, reduced.dim), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
-    sink(file="/dev/null")
-    gc()
-    sink(file=NULL)
 
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
-    message(paste0("Constructing kNN graph with k:", k))
+    message("Constructing kNN graph with k:", k)
     zee.graph <- .neighborsToKNNGraph(nn.out$index, directed=FALSE)
     graph(x) <- zee.graph
 
     # adding distances
+<<<<<<< HEAD
     message(paste0("Retrieving distances from ", k, " nearest neighbours"))
     # set this up as a dense matrix first, then coerce to a sparse matrix
     # starting with a sparse matrix requires a coercion at each iteration
@@ -154,17 +165,37 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, BNPARAM=KmknnParam(),
     old.dist <- as(old.dist, "dgCMatrix")
     nhoodDistances(x) <- old.dist
 
+=======
+    if(isTRUE(get.distance)){
+        message("Retrieving distances from ", k, " nearest neighbours")
+        # set this up as a dense matrix first, then coerce to a sparse matrix
+        # starting with a sparse matrix requires a coercion at each iteration
+        # which uses up lots of memory and unncessary CPU time
+        old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
+
+        n.idx <- ncol(x)
+        for(i in seq_len(n.idx)){
+            i.knn <- nn.out$index[i, ]
+            i.dists <- nn.out$distance[i, ]
+            old.dist[i, i.knn] <- i.dists
+            old.dist[i.knn, i] <- i.dists
+        }
+        old.dist <- as(old.dist, "dgCMatrix")
+        nhoodDistances(x) <- old.dist
+    }
+    x@.k <- k
+>>>>>>> master
     x
 }
 
 
 #' @importFrom BiocNeighbors findKNN
-.setup_knn_data <- function(x, k, d=50,
+.setup_knn_data <- function(x, k, d=50, get.distance=FALSE,
                             BNPARAM, BSPARAM, BPPARAM) {
 
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
-    findKNN(x[, c(1:d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=TRUE)
+    findKNN(x[, seq_len(d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
 }
 
 

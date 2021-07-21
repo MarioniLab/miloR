@@ -6,11 +6,11 @@
     # check if a Milo object slot is empty or not
     x.slot <- slot(x, attribute)
 
-    if(class(x.slot) == "list" & names(slot(x, "graph")) == "graph"){
+    if(is.list(x.slot) & names(slot(x, "graph")) == "graph"){
         return(length(x.slot[[1]]) > 0)
-    } else if(class(x.slot) == "list" & is.null(names(x.slot))){
+    } else if(is.list(x.slot) & is.null(names(x.slot))){
         return(length(x.slot))
-    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix", "matrix"))){
+    } else if(any(class(x.slot) %in% c("dgCMatrix", "dsCMatrix", "ddiMatrix", "matrix"))){
         return(sum(rowSums(x.slot)) == 0)
     }
 }
@@ -57,12 +57,26 @@
             stop("No reduced dimensionality slot provided")
         }
     }else{
-        stop(paste0("replacement method not implemented for ", slot))
+        stop("replacement method not implemented for ", slot)
     }
 
     x
 }
 
+######################################
+## neighbourhood grouping functions
+######################################
 
+#### nhood adjacency matrix function
+# Build adjacency matrix of overlap between neighbourhoods
+#' @importFrom gtools permutations
+#' @importFrom Matrix crossprod
+.build_nhood_adjacency <- function(nhoods, overlap=1){
+    nh_intersect_mat <- Matrix::crossprod(nhoods)
+    nh_intersect_mat[nh_intersect_mat < overlap] <- 0
 
+    rownames(nh_intersect_mat) <- colnames(nhoods)
+    colnames(nh_intersect_mat) <- colnames(nhoods)
+    return(nh_intersect_mat)
+}
 

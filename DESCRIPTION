@@ -1,22 +1,63 @@
 Package: miloR
 Type: Package
-Title: Differential neighbourhood abundance testing on a tree
-Version: 0.1.0
+Title: Differential neighbourhood abundance testing on a graph
+Version: 0.99.19
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
-Maintainer: Mike Morgan <michael.morgan@cruk.cam.ac.uk>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-License: GPL-3
+Description: This package performs single-cell differential abundance testing. Cell states are modelled 
+    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a 
+    negative bionomial generalized linear model.
+License: GPL-3 + file LICENSE
 Encoding: UTF-8
-Depends: edgeR
-Imports: BiocNeighbors, cydar, SingleCellExperiment, Matrix, S4Vectors,
-        methods, igraph, irlba, BiocParallel, BiocSingular, limma, ggplot2,
-        matrixStats, dplyr, ggraph, gtools
+URL: https://marionilab.github.io/miloR
+BugReports: https://github.com/MarioniLab/miloR/issues
+biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
+Depends: R (>= 4.0.0),
+         edgeR
+Imports: BiocNeighbors,
+         SingleCellExperiment,
+         Matrix (>= 1.3-0),
+         S4Vectors,
+         stats,
+         stringr,
+         methods,
+         igraph,
+         irlba,
+         cowplot,
+         BiocParallel,
+         BiocSingular,
+         limma,
+         ggplot2,
+         tibble,
+         matrixStats,
+         ggraph,
+         gtools,
+         SummarizedExperiment,
+         patchwork,
+         tidyr,
+         dplyr,
+         ggrepel,
+         ggbeeswarm,
+         RColorBrewer,
+         grDevices
 Suggests: 
-    testthat, MASS, mvtnorm, scater, scran, covr
-RoxygenNote: 7.1.1
+    testthat,
+    MASS,
+    mvtnorm,
+    scater,
+    scran,
+    covr,
+    knitr,
+    rmarkdown,
+    uwot,
+    BiocStyle,
+    MouseGastrulationData,
+    magick,
+    RCurl,
+    curl,
+    graphics
+RoxygenNote: 7.1.1.9000
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
 Collate: 
@@ -25,15 +66,22 @@ Collate:
     'buildFromAdjacency.R'
     'buildGraph.R'
     'calcNhoodExpression.R'
+    'calcNhoodDistance.R'
     'countCells.R'
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
     'makeNhoods.R'
     'milo.R'
+    'miloR-package.R'
     'methods.R'
     'plotNhoods.R'
-    'projectNhoodExpression.R'
+    'sim_discrete.R'
+    'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
+    'annotateNhoods.R'
+    'groupNhoods.R'
+    'findNhoodGroupMarkers.R'
+VignetteBuilder: knitr

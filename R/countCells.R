@@ -20,18 +20,18 @@
 #' @return A \code{\linkS4class{Milo}} object containing a counts matrix in the
 #' \code{nhoodCounts} slot.
 #'
-#' @author Mike Morgan
+#' @author Mike Morgan, Emma Dann
 #'
 #' @examples
 #'
 #' library(igraph)
 #' m <- matrix(rnorm(100000), ncol=100)
-#' milo <- buildGraph(m, k=20, d=10)
+#' milo <- buildGraph(t(m), k=20, d=10)
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #'
 #' cond <- rep("A", nrow(m))
-#' cond.a <- sample(1:nrow(m), size=floor(nrow(m)*0.25))
-#' cond.b <- setdiff(1:nrow(m), cond.a)
+#' cond.a <- sample(seq_len(nrow(m)), size=floor(nrow(m)*0.25))
+#' cond.b <- setdiff(seq_len(nrow(m)), cond.a)
 #' cond[cond.b] <- "B"
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 330), rep("R2", 330), rep("R3", 340)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
@@ -48,52 +48,55 @@ NULL
 countCells <- function(x, samples, meta.data=NULL){
 
     # cast dplyr objects to data.frame
-    if(class(meta.data) != "data.frame" & !is.null(meta.data)){
+    if(!is.data.frame(meta.data) & !is.null(meta.data)){
         meta.data <- as.data.frame(meta.data)
     }
 
     if(length(samples) > 1 & !is.null(meta.data)){
         stop("Multiple sample columns provided, please specify a unique column name")
     } else if(is.null(meta.data) & length(samples) != ncol(x)){
-        stop(paste0("Length of vector does not match dimensions of object. Length:",
-                    length(samples), " Dimensions: ", ncol(x)))
+        stop("Length of vector does not match dimensions of object. Length:",
+             length(samples), " Dimensions: ", ncol(x))
     }
 
     # check the nhoods slot is populated
-    if(length(nhoods(x)) == 0){
+    if(ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1){
         stop("No neighbourhoods found. Please run makeNhoods() first.")
     }
 
     message("Checking meta.data validity")
     if(!is.null(meta.data)){
-        samp.ids <- unique(meta.data[, samples])
-    } else{
-        samp.ids <- unique(samples)
-    }
-
-    n.hoods <- length(nhoods(x))
-    message(paste0("Setting up matrix with ", n.hoods, " neighbourhoods"))
-    count.matrix <- Matrix(0L, ncol=length(samp.ids), nrow=n.hoods, sparse=TRUE)
-    colnames(count.matrix) <- samp.ids
-
-    message("Counting cells in neighbourhoods")
-    for(i in seq_along(1:n.hoods)){
-        v.i <- nhoods(x)[[i]]
-        for(j in seq_along(1:length(samp.ids))){
-            j.s <- samp.ids[j]
-
-            if(is.null(meta.data)){
-                # samples is a vector of N cells
-                j.s.vertices <- intersect(v.i, names(samples[samples == j.s]))
-            } else{
-                j.s.vertices <- intersect(v.i, which(meta.data[, samples] == j.s))
-            }
-            count.matrix[i, j] <- length(j.s.vertices)
+        if (is.factor(meta.data[, samples])){
+            samp.ids <- levels(meta.data[, samples])
+        } else {
+            samp.ids <- unique(as.character(meta.data[, samples]))
+        }
+    } else {
+        if (is.factor(samples)){
+            samp.ids <- levels(samples)
+        } else {
+            samp.ids <- unique(as.character(samples))
         }
     }
 
+    num.hoods <- ncol(nhoods(x))
+
+    ## Convert meta data to binary dummies in sparse matrix
+    dummy.meta.data <- Matrix(data=0, nrow=nrow(meta.data), ncol = length(samp.ids), sparse = TRUE)
+    colnames(dummy.meta.data) <- samp.ids
+    rownames(dummy.meta.data) <- rownames(meta.data)
+    for (s in seq_along(samp.ids)){
+        i.s <- samp.ids[s]
+        s.ixs <- which(meta.data[samples]==i.s)
+        dummy.meta.data[s.ixs, as.character(i.s)] <- 1
+    }
+
+    message("Counting cells in neighbourhoods")
+    count.matrix <- Matrix::t(nhoods(x)) %*% dummy.meta.data
+
     # add to the object
-    rownames(count.matrix) <- c(1:n.hoods)
+    rownames(count.matrix) <- seq_len(num.hoods)
     nhoodCounts(x) <- count.matrix
+
     return(x)
 }

@@ -1,0 +1,8 @@
+pandoc: 2.9.2
+pkgdown: 1.5.1
+pkgdown_sha: ~
+articles:
+  milo_demo: milo_demo.html
+  milo_gastrulation: milo_gastrulation.html
+last_built: 2020-11-20T15:46Z
+

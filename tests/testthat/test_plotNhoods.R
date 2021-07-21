@@ -1,4 +1,4 @@
-context("Testing projectNhoodExpression function")
+context("Testing plotting functions")
 library(miloR)
 
 ### Set up a mock data set using simulated data
@@ -8,6 +8,7 @@ library(scater)
 library(irlba)
 library(MASS)
 library(mvtnorm)
+library(miloR)
 
 set.seed(42)
 r.n <- 1000
@@ -74,49 +75,82 @@ meta.df$Vertex <- c(1:nrow(meta.df))
 
 sim1.sce <- SingleCellExperiment(assays=list(logcounts=sim1.gex),
                                  reducedDims=list("PCA"=sim1.pca$x))
-
 sim1.mylo <- Milo(sim1.sce)
+# build a graph - this can take a while for large graphs - will need to play
+# around with the parallelisation options
 sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 
-test_that("Incorrect input gives informative error", {
-    # incorrect input
-    expect_error(projectNhoodExpression(graph(sim1.mylo)), "Unrecognised input type")
+# define neighbourhoods - this is slow for large data sets
+# how can this be sped up? There are probably some parallelisable steps
+sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
+                        d=30,
+                        reduced_dims="PCA")
 
-    # missing nhoods slot
-    expect_error(projectNhoodExpression(sim1.mylo), "Not a valid Milo object - nhoods are missing")
+sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
+                        "Replicate"=rep(c("R1", "R2", "R3"), 2))
+sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
+rownames(sim1.meta) <- sim1.meta$Sample
 
-    # missing rotation information
-    sim1.mylo <- makeNhoods(sim1.mylo, k=21, d=30)
-    expect_error(projectNhoodExpression(sim1.mylo), "loading matrix for 'reduced_dim' needs to be stored as attribute")
-})
+#test for DA
+sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
+sim1.da.res <- testNhoods(sim1.mylo, design = ~ Condition, design.df = sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
-test_that("Warnings produced when expected", {
+## Tests for plotNhoodExpressionDA ##
 
-    # d is too high
-    attr(reducedDim(sim1.mylo, "PCA"), "rotation") <- sim1.pca$rotation
-    sim1.mylo <- makeNhoods(sim1.mylo, k=21, d=30)
-    expect_warning(projectNhoodExpression(sim1.mylo, d=60), "d is higher than the total number of dimensions")
-
-    # nhoodExpression is missing
-    expect_warning(projectNhoodExpression(sim1.mylo, d=30), "nhoodExpression slot is empty")
-})
-
-
-test_that("Nhood projection is reproducible", {
-    # recreate the expected projection
-    attr(reducedDim(sim1.mylo, "PCA"), "rotation") <- sim1.pca$rotation
-    sim1.mylo <- makeNhoods(sim1.mylo, k=21, d=30)
+test_that("Incorrect input features produce proper errors", {
+    # input features not in milo object
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = "GeneA"),
+                 "Some features are not in rownames(x)", fixed=TRUE)
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = NA),
+               "Some features are not in rownames(x)", fixed=TRUE)
     sim1.mylo <- calcNhoodExpression(sim1.mylo)
-
-    # need to check that combining the nhoods and cells doesn't cause any corruption of original values
-    loadings <- attr(reducedDim(sim1.mylo, "PCA"), "rotation")[, c(1:30)]
-    nhood.project <- t(scale(nhoodExpression(sim1.mylo), scale=TRUE, center=TRUE)) %*% loadings
-    rownames(nhood.project) <- paste0("nh_", 1:nrow(nhood.project))
-
-    func.projct <- nhoodReducedDim(projectNhoodExpression(sim1.mylo, d=30))
-    nh.projct <- func.projct[grepl(rownames(func.projct), pattern="nh"), ]
-    cx.projct <- func.projct[!grepl(rownames(func.projct), pattern="nh"), ]
-
-    expect_identical(nhood.project, nh.projct)
-    expect_identical(cx.projct, reducedDim(sim1.mylo, "PCA")[, 1:30])
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c()),
+                 "features is empty", fixed=TRUE)
+    expect_error(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("blah")),
+                 "Some features are not in rownames(x)", fixed=TRUE)
 })
+
+test_that("calcNhoodExpression is run within the function only if needed", {
+  feats <- paste0("Gene", 1:100)
+  sim1.mylo.2 <- calcNhoodExpression(sim1.mylo, subset.row = feats)
+  expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene101", "Gene102", "Gene103")))
+  expect_warning(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene103")))
+  expect_silent(plotNhoodExpressionDA(sim1.mylo.2, sim1.da.res, features = c("Gene1", "Gene2", "Gene3")))
+  })
+
+sim1.mylo <- calcNhoodExpression(sim1.mylo)
+
+test_that("Subsetting produces the expected number of neighbourhoods", {
+  max.length <- nrow(sim1.da.res)
+  subset.length <- max.length - 10
+  p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                             subset.nhoods = c(1:subset.length))
+  expect_equal(length(unique(p$data$Nhood)), subset.length)
+  })
+
+test_that("Different input types produce the same subsetting", {
+  subset_numeric <- 1:10
+  subset_logical <- c(rep(TRUE, 10), rep(FALSE, ncol(nhoods(sim1.mylo))-10))
+  p <- suppressWarnings(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                                              subset.nhoods = subset_numeric))
+  p1 <- suppressWarnings(plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = c("Gene101", "Gene102"),
+                                               subset.nhoods = subset_logical))
+
+  # extract the components of the 2 plots
+  expect_equal(str(p), str(p1))
+})
+
+test_that("The order of features is maintained if cluster_features=FALSE", {
+  p_feats <- paste0("Gene", 400:300)
+  p <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = p_feats,
+                             cluster_features = FALSE)
+  expect_true(all(levels(p$data[["feature"]]) == p_feats))
+  p1 <- plotNhoodExpressionDA(sim1.mylo, sim1.da.res, features = p_feats,
+                             cluster_features = TRUE)
+  expect_false(all(levels(p1$data[["feature"]]) == p_feats))
+  })
+
+
+
+
+
