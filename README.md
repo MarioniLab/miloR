@@ -61,9 +61,3 @@ head(milo.res)
 ### Support
 
 For any question, feature request or bug report please create a new issue in this repository.
-
-
-
-
-
-
