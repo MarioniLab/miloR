@@ -82,9 +82,9 @@ jobs:
           rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran", "--no-build-vignettes"), error_on = "error", check_dir = "check")
         shell: Rscript {0}
 
-      - name: Upload check results
-        if: failure()
-        uses: actions/upload-artifact@main
-        with:
-          name: ${{ runner.os }}-r${{ matrix.config.r }}-results
-          path: check
+      - name: Test coverage
+        run: |
+          install.packages("covr")
+          covr::codecov()
+        shell: Rscript {0}
+
