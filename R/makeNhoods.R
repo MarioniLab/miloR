@@ -48,15 +48,15 @@
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors as_ids
 #' @importFrom stats setNames
-makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", seed = NULL) {
     if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
-        if(!.valid_graph(graph(x))){
+        if(!.valid_graph(miloR::graph(x))){
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
-        graph <- graph(x)
-        X_reduced_dims  <- reducedDim(x, reduced_dims)
+        X_graph <- miloR::graph(x)
+        X_reduced_dims  <- SingleCellExperiment::reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
             warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
                     ncol(X_reduced_dims),"dimensions\n")
@@ -65,29 +65,108 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
-            stop("No reduced dimensions matrix provided - required for refined sampling")
+            #stop("No reduced dimensions matrix provided - required for refined sampling")
         }
-        graph <- x
-        X_reduced_dims <- reduced_dims
+        X_graph <- x
+        #X_reduced_dims <- reduced_dims
     } else{
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
-    random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
-
-    if (isFALSE(refined)) {
-        sampled_vertices <- random_vertices
-    } else if (isTRUE(refined)) {
+    random_vertices <- .sample_vertices(X_graph, prop, return.vertices = TRUE, seed = seed)
+    
+    # if (isFALSE(refined)) {
+    #     sampled_vertices <- random_vertices
+    # } else if (isTRUE(refined)) {
+    #     sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
+    # }
+    if(refined == "refined"){
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-        }
-
+    } else if (refined == "independent") {
+        sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
+    } else if (refined == "random") {
+        sampled_vertices <- random_vertices
+    } else {
+        stop("Refined must be one of refined, independent, or random")
+    }
+    
     sampled_vertices <- unique(sampled_vertices)
-
+    
+    return(sampled_vertices)
+    
     nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     for (X in seq_len(length(sampled_vertices))){
         nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
     }
+    
+    # need to add the index cells.
+    colnames(nh_mat) <- as.character(sampled_vertices)
+    if(is(x, "Milo")){
+        nhoodIndex(x) <- as(sampled_vertices, "list")
+        nhoods(x) <- nh_mat
+        return(x)
+    } else {
+        return(nh_mat)
+    }
+}
 
+
+makeNhoodsD <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", seed = NULL) {
+    if(is(x, "Milo")){
+        message("Checking valid object")
+        # check that a graph has been built
+        if(!.valid_graph(miloR::graph(x))){
+            stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
+        }
+        X_graph <- miloR::graph(x)
+        if(!igraph::is.directed(X_graph)){
+            stop("Milo object must have a directed graph for makeNhoodsD.")
+        }
+        X_reduced_dims  <- SingleCellExperiment::reducedDim(x, reduced_dims)
+        if (d > ncol(X_reduced_dims)) {
+            warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
+                    ncol(X_reduced_dims),"dimensions\n")
+            d <- ncol(X_reduced_dims)
+        }
+        X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
+    } else if(is(x, "igraph")){
+        if(!is.matrix(reduced_dims) & isTRUE(refined)){
+            #stop("No reduced dimensions matrix provided - required for refined sampling")
+        }
+        X_graph <- x
+        if(!igraph::is.directed(X_graph)){
+            stop("Milo object must have a directed graph for makeNhoodsD.")
+        }
+    } else{
+        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
+    }
+    random_vertices <- .sample_vertices(X_graph, prop, return.vertices = TRUE, seed = seed)
+    
+    # if (isFALSE(refined)) {
+    #     sampled_vertices <- random_vertices
+    # } else if (isTRUE(refined)) {
+    #     sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
+    # }
+    if(refined == "milo"){
+        sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
+    } else if (refined == "graph_independent") {
+        sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
+    } else if (refined == "none") {
+        sampled_vertices <- random_vertices
+    } else {
+        stop("Refined must be one of milo, graph_independent, or none")
+    }
+    
+    sampled_vertices <- unique(sampled_vertices)
+    
+    return(sampled_vertices)
+    
+    nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    # Is there an alternative to using a for loop to populate the sparseMatrix here?
+    for (X in seq_len(length(sampled_vertices))){
+        nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
+    }
+    
     # need to add the index cells.
     colnames(nh_mat) <- as.character(sampled_vertices)
     if(is(x, "Milo")){
@@ -110,18 +189,18 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             get.index = TRUE,
             get.distance = FALSE
         )
-
-    nh_reduced_dims <- t(apply(vertex.knn$index, 1, function(x) colMedians(X_reduced_dims[x,])))
-
+    
+    nh_reduced_dims <- t(apply(vertex.knn$index, 1, function(x) matrixStats::colMedians(X_reduced_dims[x,])))
+    
     # this function fails if rownames are not set
     if(is.null(rownames(X_reduced_dims))){
         warning("Rownames not set on reducedDims - setting to row indices")
         rownames(X_reduced_dims) <- as.character(seq_len(nrow(X_reduced_dims)))
     }
-
+    
     colnames(nh_reduced_dims) <- colnames(X_reduced_dims)
     rownames(nh_reduced_dims) <- paste0('nh_', seq_len(nrow(nh_reduced_dims)))
-
+    
     ## Search nearest cell to average profile
     # I have to do this trick because as far as I know there is no fast function to
     # search for NN between 2 distinct sets of points (here I'd like to search NNs of
@@ -155,7 +234,10 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 }
 
 #' @import igraph
-.sample_vertices <- function(graph, prop, return.vertices=FALSE){
+.sample_vertices <- function(graph, prop, return.vertices=FALSE, seed){
+    if(!is.null(seed)){
+        set.seed(seed = seed)
+    }
     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
     if(isTRUE(return.vertices)){
@@ -165,6 +247,23 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         vertex.list <- sapply(seq_len(length(random.vertices)), FUN=function(X) neighbors(graph, v=random.vertices[X]))
         return(list(random.vertices, vertex.list))
     }
+}
+
+#' @import igraph
+.graph_independent_sampling <- function(random_vertices, X_graph){
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    random_vertices <- as.vector(random_vertices)
+    refined_vertices <- lapply(seq_along(random_vertices), function(i){
+        target_vertices <- igraph::neighbors(X_graph, v = random_vertices[i], mode = "out")
+        rv_induced_subgraph <- induced_subgraph(graph = X_graph, vids = target_vertices)
+        ego_sizes <- ego_size(rv_induced_subgraph, mode = "in")
+        max_ego_size <- max(ego_sizes)
+        max_ego_size_indices <- which(ego_sizes == max_ego_size)
+        max_ego_index <- max_ego_size_indices
+        resulting_vertices <- V(rv_induced_subgraph)[max_ego_index]$name[1]
+        return(resulting_vertices)
+    }) %>% unlist() %>% as.integer()
+    return(refined_vertices)
 }
 
 
