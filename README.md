@@ -61,3 +61,10 @@ head(milo.res)
 ### Support
 
 For any question, feature request or bug report please create a new issue in this repository.
+
+### Contributions
+
+We welcome contributions and suggestions from the community (though we may not take them onboard if they don't align with our development roadmap - please 
+don't be offended). Please submit the initial idea as an issue, which we will discuss and ask for refinements/clarifications. If we approve the idea, then 
+please open a pull request onto the __devel__ branch, from which we will begin a review process. To smooth the process, please note that code changes must be 
+backwards compatible, and must include all relevant unit tests.
