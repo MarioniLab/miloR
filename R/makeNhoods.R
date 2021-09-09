@@ -74,18 +74,16 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
     random_vertices <- .sample_vertices(X_graph, prop, return.vertices = TRUE, seed = seed)
-    
-    # if (isFALSE(refined)) {
-    #     sampled_vertices <- random_vertices
-    # } else if (isTRUE(refined)) {
-    #     sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-    # }
+
     if(refined == "refined"){
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-    } else if (refined == "graph-refined") {
+    } else if (refined == "graph-refined-a") {
         if(!is.directed(X_graph)){
-            warning("When using graph-refined mode, kNN graph must be directed.")
+            warning("When using graph-refined-a mode, kNN graph must be directed.")
         }
+        sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
+    } else if (refined == "graph-refined-b") {
+        X_graph <- igraph::as.undirected(X_graph, mode = "collapse")
         sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
     } else if (refined == "random") {
         sampled_vertices <- random_vertices
@@ -185,7 +183,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
 }
 
-#' @import igraph
+
 .graph_independent_sampling <- function(random_vertices, X_graph){
     random_vertices <- as.vector(random_vertices)
     X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
@@ -196,10 +194,13 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         max_ego_size <- max(ego_sizes)
         max_ego_size_indices <- which(ego_sizes == max_ego_size)
         max_ego_index <- max_ego_size_indices
+        #note - am taking first incidence of max_ego_index in the next line of code
+        #otherwise in worst case scenario we'd have double the number of random indices
         resulting_vertices <- V(rv_induced_subgraph)[max_ego_index]$name[1]
         return(resulting_vertices)
     }) %>% unlist() %>% as.integer()
     return(refined_vertices)
 }
+
 
 
