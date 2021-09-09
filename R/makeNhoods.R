@@ -84,7 +84,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
     } else if (refined == "graph-refined") {
         if(!is.directed(X_graph)){
-            stop("When using independent mode, kNN graph must be directed.")
+            stop("When using graph-refined mode, kNN graph must be directed.")
         }
         sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
     } else if (refined == "random") {
@@ -196,7 +196,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         max_ego_size <- max(ego_sizes)
         max_ego_size_indices <- which(ego_sizes == max_ego_size)
         max_ego_index <- max_ego_size_indices
-        resulting_vertices <- V(rv_induced_subgraph)[max_ego_index]$name
+        resulting_vertices <- V(rv_induced_subgraph)[max_ego_index]$name[1]
         return(resulting_vertices)
     }) %>% unlist() %>% as.integer()
     return(refined_vertices)
