@@ -184,7 +184,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 }
 
 
-.graph_independent_sampling <- function(random_vertices, X_graph){
+.graph_refined_sampling <- function(random_vertices, X_graph){
     random_vertices <- as.vector(random_vertices)
     X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
     refined_vertices <- lapply(seq_along(random_vertices), function(i){
