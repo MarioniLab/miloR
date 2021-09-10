@@ -103,7 +103,8 @@ NULL
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE,
-                       norm.method=c("TMM", "RLE", "logMS")){
+                       norm.method=c("TMM", "RLE", "logMS"),
+                       error.model=c("glm", "glmm")){
     if(is(design, "formula")){
         model <- model.matrix(design, data=design.df)
         rownames(model) <- rownames(design.df)
@@ -178,36 +179,42 @@ testNhoods <- function(x, design, design.df,
         model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
     }
 
-    if(length(norm.method) > 1){
-        message("Using TMM normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-        dge <- calcNormFactors(dge, method="TMM")
-    } else if(norm.method %in% c("TMM")){
-        message("Using TMM normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-        dge <- calcNormFactors(dge, method="TMM")
-    } else if(norm.method %in% c("RLE")){
-        message("Using RLE normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-        dge <- calcNormFactors(dge, method="RLE")
-    }else if(norm.method %in% c("logMS")){
-        message("Using logMS normalisation")
-        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-    }
+    if(error.model %in% c("glmm")){
+        # insert GLMM here
 
-    dge <- estimateDisp(dge, model)
-    fit <- glmQLFit(dge, model, robust=robust)
-    if(!is.null(model.contrasts)){
-        mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
-        res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
-                                     sort.by='none', n=Inf))
-    } else{
-        n.coef <- ncol(model)
-        res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
+    } else if(error.model %in% c("glm")){
+
+        if(length(norm.method) > 1){
+            message("Using TMM normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="TMM")
+        } else if(norm.method %in% c("TMM")){
+            message("Using TMM normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="TMM")
+        } else if(norm.method %in% c("RLE")){
+            message("Using RLE normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="RLE")
+        }else if(norm.method %in% c("logMS")){
+            message("Using logMS normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        }
+
+        dge <- estimateDisp(dge, model)
+        fit <- glmQLFit(dge, model, robust=robust)
+        if(!is.null(model.contrasts)){
+            mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
+            res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
+                                         sort.by='none', n=Inf))
+        } else{
+            n.coef <- ncol(model)
+            res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
+        }
     }
 
     res$Nhood <- as.numeric(rownames(res))

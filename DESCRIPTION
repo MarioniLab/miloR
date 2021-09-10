@@ -70,6 +70,7 @@ Collate:
     'countCells.R'
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
+    'glmm.R'
     'makeNhoods.R'
     'milo.R'
     'miloR-package.R'
