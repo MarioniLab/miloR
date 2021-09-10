@@ -4,7 +4,15 @@
 \alias{makeNhoods}
 \title{Define neighbourhoods on a graph (fast)}
 \usage{
-makeNhoods(x, prop = 0.1, k = 21, d = 30, refined = TRUE, reduced_dims = "PCA")
+makeNhoods(
+  x,
+  prop = 0.1,
+  k = 21,
+  d = 30,
+  refined = TRUE,
+  reduced_dims = "PCA",
+  refinement_scheme = "reduced_dim"
+)
 }
 \arguments{
 \item{x}{A \code{\linkS4class{Milo}} object with a non-empty \code{graph}
@@ -19,11 +27,16 @@ to randomly sample. Must be 0 < prop < 1.}
 \item{d}{The number of dimensions to use if the input is a matrix of cells
 X reduced dimensions.}
 
-\item{refined}{A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.}
+\item{refined}{A logical scalar that determines the sampling behaviour,
+default=TRUE implements a refined sampling scheme.}
 
-\item{reduced_dims}{If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
-\code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
-matrix of vertices X reduced dimensions.}
+\item{reduced_dims}{If x is an \code{\linkS4class{Milo}} object, a character
+indicating the name of the \code{reducedDim} slot in the
+\code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an
+\code{igraph} object, a matrix of vertices X reduced dimensions.}
+
+\item{refinement_scheme}{A character scalar that determines the refinement
+scheme, either "reduced_dim" or "graph". Only used if refined is TRUE.}
 }
 \value{
 A \code{\linkS4class{Milo}} object containing a list of vertices and
