@@ -13,11 +13,14 @@
 #' @param k An integer scalar - the same k used to construct the input graph.
 #' @param d The number of dimensions to use if the input is a matrix of cells
 #' X reduced dimensions.
-#' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
-#' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
-#' matrix of vertices X reduced dimensions.
-#' @param refined A character scalar that determines the sampling behaviour; "refined" implements the refined sampling scheme, "graph-refined" implements the refined sampling scheme utilizing only the graph, and "none" skips the sampling refinement.
-#' @param seed An integer scalar used as the seed for the sampling procedure.
+#' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character
+#' indicating the name of the \code{reducedDim} slot in the
+#' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an
+#' \code{igraph} object, a matrix of vertices X reduced dimensions.
+#' @param refined A logical scalar that determines the sampling behaviour,
+#' default=TRUE implements a refined sampling scheme.
+#' @param refinement_scheme A character scalar that determines the refinement
+#' scheme, either "reduced_dim" or "graph". Only used if refined is TRUE.
 #'
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
@@ -49,15 +52,16 @@
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom igraph neighbors as_ids
 #' @importFrom stats setNames
-makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", seed = NULL) {
+#' @importFrom SingleCellExperiment reducedDim
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", refinement_scheme = "reduced_dim") {
     if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
-        if(!.valid_graph(miloR::graph(x))){
+        if(!.valid_graph(graph(x))){
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
-        X_graph <- miloR::graph(x)
-        X_reduced_dims  <- SingleCellExperiment::reducedDim(x, reduced_dims)
+        X_graph <- graph(x)
+        X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
             warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
                     ncol(X_reduced_dims),"dimensions\n")
@@ -65,7 +69,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
         X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
     } else if(is(x, "igraph")){
-        if(!is.matrix(reduced_dims) & (refined != "none")){
+        if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
         X_graph <- x
@@ -73,22 +77,18 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     } else{
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
-    random_vertices <- .sample_vertices(X_graph, prop, return.vertices = TRUE, seed = seed)
-
-    if(refined == "refined"){
-        sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-    } else if (refined == "graph-refined-a") {
-        if(!is.directed(X_graph)){
-            warning("When using graph-refined-a mode, kNN graph must be directed.")
-        }
-        sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
-    } else if (refined == "graph-refined-b") {
-        X_graph <- igraph::as.undirected(X_graph, mode = "collapse")
-        sampled_vertices <- .graph_independent_sampling(random_vertices, X_graph)
-    } else if (refined == "random") {
+    random_vertices <- .sample_vertices(X_graph, prop, return.vertices = TRUE)
+    
+    if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
-    } else {
-        stop("Refined must be one of refined, graph-refined, or random")
+    } else if (isTRUE(refined)) {
+        if(refinement_scheme == "reduced_dim"){
+            sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)    
+        } else if (refinement_scheme == "graph") {
+            sampled_vertices <- .graph_refined_sampling(random_vertices, X_graph)
+        } else {
+            stop("When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
+        }
     }
     
     sampled_vertices <- unique(sampled_vertices)
