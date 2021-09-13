@@ -1,6 +1,6 @@
 #' Define neighbourhoods on a graph (fast)
 #'
-#' This function randomly samples vertices on a graph to define neighbourhoods.
+#' This function randomly samples vertcies on a graph to define neighbourhoods.
 #' These are then refined by computing the median profile for the neighbourhood
 #' in reduced dimensional space and selecting the nearest vertex to this
 #' position. Thus, multiple neighbourhoods may be collapsed down together to
@@ -21,9 +21,9 @@
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
-#' be turned off by setting \code{refined=FALSE}, however, we do not recommend
+#' be turned off by setting \code{refine=FALSE}, however, we do not recommend
 #' this as neighbourhoods will contain a lot of redundancy and lead to an
-#' uncecessarily larger multiple-testing burden.
+#' unncecessarily larger multiple-testing burden.
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
@@ -63,14 +63,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             d <- ncol(X_reduced_dims)
         }
         X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
-        mat_cols <- ncol(x)
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
         graph <- x
         X_reduced_dims <- reduced_dims
-        mat_cols <- nrow(X_reduced_dims)
     } else{
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
@@ -80,18 +78,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         sampled_vertices <- random_vertices
     } else if (isTRUE(refined)) {
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-    }
+        }
 
     sampled_vertices <- unique(sampled_vertices)
 
-    nh_mat <- Matrix(data = 0, nrow=mat_cols, ncol=length(sampled_vertices), sparse = TRUE)
+    nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
-    # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
-    v.class <- class(V(graph)$name)
-    if(!is.null(v.class)){
-        rownames(nh_mat) <- rownames(X_reduced_dims)
-    }
-
     for (X in seq_len(length(sampled_vertices))){
         nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
     }
