@@ -80,12 +80,18 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         sampled_vertices <- random_vertices
     } else if (isTRUE(refined)) {
         sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
-        }
+    }
 
     sampled_vertices <- unique(sampled_vertices)
 
     nh_mat <- Matrix(data = 0, nrow=mat_cols, ncol=length(sampled_vertices), sparse = TRUE)
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
+    # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
+    v.class <- class(V(graph)$name)
+    if(!is.null(v.class)){
+        rownames(nh_mat) <- rownames(X_reduced_dims)
+    }
+
     for (X in seq_len(length(sampled_vertices))){
         nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
     }
