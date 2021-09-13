@@ -53,14 +53,15 @@
 #' @importFrom igraph neighbors as_ids
 #' @importFrom stats setNames
 #' @importFrom SingleCellExperiment reducedDim
+#' @importFrom Matrix sparseMatrix
 makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", refinement_scheme = "reduced_dim") {
     if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
-        if(!.valid_graph(graph(x))){
+        if(!.valid_graph(miloR::graph(x))){
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
-        X_graph <- graph(x)
+        X_graph <- miloR::graph(x)
         X_reduced_dims  <- reducedDim(x, reduced_dims)
         if (d > ncol(X_reduced_dims)) {
             warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
@@ -69,7 +70,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
         X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
     } else if(is(x, "igraph")){
-        if(!is.matrix(reduced_dims) & isTRUE(refined)){
+        if(!is.matrix(reduced_dims) & isTRUE(refined) & refinement_scheme == "reduced_dim"){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
         X_graph <- x
@@ -89,6 +90,8 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         } else {
             stop("When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
         }
+    } else {
+        stop("refined must be TRUE or FALSE")
     }
     
     sampled_vertices <- unique(sampled_vertices)
@@ -96,9 +99,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     #Q: Is there an alternative to using a for loop to populate the sparseMatrix here?
     #A: https://stackoverflow.com/questions/4942361/how-to-turn-a-list-of-lists-to-a-sparse-matrix-in-r-without-using-lapply 
     neighbor_list <- lapply(seq_along(sampled_vertices), function(i) as_ids(neighbors(X_graph, v = sampled_vertices[i], mode = "all")))
-    n.ids <- sapply(neighbor_list,length)
-    vals <- unlist(neighbor_list)
-    nh_mat <- Matrix::sparseMatrix(vals, rep(seq_along(n.ids), n.ids), x = 1)
+    neighbor_list <- lapply(neighbor_list, unique)
+    neighbor_lengths <- lengths(neighbor_list)
+    num_cols <- length(neighbor_list)
+    nh_mat_col <- rep(seq_along(neighbor_lengths), times = neighbor_lengths)
+    n_list <- sort(unique(unlist(neighbor_list)))
+    nh_mat <- sparseMatrix(i = unlist(neighbor_list), j = nh_mat_col, x = 1, dims = c(vcount(X_graph), length(neighbor_list)))
     
     # need to add the index cells.
     colnames(nh_mat) <- as.character(sampled_vertices)
@@ -116,7 +122,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 #' @importFrom matrixStats colMedians
 .refined_sampling <- function(random_vertices, X_reduced_dims, k){
     vertex.knn <-
-        BiocNeighbors::findKNN(
+        findKNN(
             X = X_reduced_dims,
             k = k,
             subset = as.vector(random_vertices),
@@ -140,9 +146,9 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     # search for NN between 2 distinct sets of points (here I'd like to search NNs of
     # nh_reduced_dims points among X_reduced_dims points). Suggestions are welcome
     all_reduced_dims <- rbind(nh_reduced_dims, X_reduced_dims)
-    nn_mat <- BiocNeighbors::findKNN(all_reduced_dims,
-                                     k = nrow(nh_reduced_dims) + 1,
-                                     subset = rownames(nh_reduced_dims))[["index"]]
+    nn_mat <- findKNN(all_reduced_dims,
+                      k = nrow(nh_reduced_dims) + 1,
+                      subset = rownames(nh_reduced_dims))[["index"]]
     ## Look for first NN that is not another nhood
     nh_ixs <- seq_len(nrow(nh_reduced_dims))
     i = 1
@@ -169,9 +175,6 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 
 #' @import igraph
 .sample_vertices <- function(graph, prop, return.vertices=FALSE, seed){
-    if(!is.null(seed)){
-        set.seed(seed = seed)
-    }
     # define a set of vertices and neihbourhood centers - extract the neihbourhoods of these cells
     random.vertices <- sample(V(graph), size=floor(prop*length(V(graph))))
     if(isTRUE(return.vertices)){
@@ -184,11 +187,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 }
 
 
+#' @importFrom igraph neighbors induced_subgraph ego_size V set_vertex_attr
 .graph_refined_sampling <- function(random_vertices, X_graph){
     random_vertices <- as.vector(random_vertices)
     X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
     refined_vertices <- lapply(seq_along(random_vertices), function(i){
-        target_vertices <- igraph::neighbors(X_graph, v = random_vertices[i], mode = "out")
+        target_vertices <- neighbors(X_graph, v = random_vertices[i], mode = "out")
         rv_induced_subgraph <- induced_subgraph(graph = X_graph, vids = target_vertices)
         ego_sizes <- ego_size(rv_induced_subgraph, mode = "in")
         max_ego_size <- max(ego_sizes)
