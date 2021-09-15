@@ -62,13 +62,16 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
         X_graph <- miloR::graph(x)
-        X_reduced_dims  <- reducedDim(x, reduced_dims)
-        if (d > ncol(X_reduced_dims)) {
-            warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
-                    ncol(X_reduced_dims),"dimensions\n")
-            d <- ncol(X_reduced_dims)
+        if(refinement_scheme != "graph"){
+            X_reduced_dims  <- reducedDim(x, reduced_dims)
+            if (d > ncol(X_reduced_dims)) {
+                warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims).
+                        Falling back to using",ncol(X_reduced_dims),"dimensions\n")
+                d <- ncol(X_reduced_dims)
+            }
+            X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
         }
-        X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
+        
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined) & refinement_scheme == "reduced_dim"){
             stop("No reduced dimensions matrix provided - required for refined sampling")
