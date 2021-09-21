@@ -93,8 +93,14 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10)
     # if eigen values have opposite signs then we have a saddle point
 
     hess.eigen <- eigen(hess_mat)
-    if(all(hess.eigen$values > 0)){
-        theta_new <- theta_hat - solve(hess_mat) %*% score_vec
+    hess.condition <- 1/kappa(hess_mat)
+
+    if(all(hess.eigen$values > 0) | hess.condition < det.tol){
+        if(det(hess_mat) < det.tol | hess.condition){
+            theta_new <- theta_hat - ginv(hess_mat) %*% score_vec
+        } else{
+            theta_new <- theta_hat - solve(hess_mat) %*% score_vec
+        }
     } else{
         # warning("Hessian is not positive definite - attempting modified Levenberg-Marquardt adjustment")
         # use the Levenberg-Marquardt method
@@ -111,7 +117,13 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10)
             }
         }
 
-        theta_new <- theta_hat - solve(new_hess) %*% score_vec
+
+        print(solve(new_hess))
+        if(det(new_hess) < det.tol){
+            theta_new <- theta_hat - ginv(new_hess) %*% score_vec
+        } else{
+            theta_new <- theta_hat - solve(new_hess) %*% score_vec
+        }
         hess_mat <- new_hess
     }
 
@@ -127,7 +139,7 @@ computeDinv <- function(mu){
 
 computeW <- function(mu, r){
     # diagonal matrix containing elements of dV^-1/dmu
-    w <- (1/mu**2) - (r/(mu**3))
+    w <- (((mu**2)*(1-(2*mu)))/(r)) - ((2*(mu**3))/(r**2)) - mu
     W <- diag(length(mu))
     diag(W) <- w
     return(W)
@@ -136,7 +148,7 @@ computeW <- function(mu, r){
 computeB <- function(y, r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/dmu
     n <- length(y)
-    b <- y - (n*r)/((1-r*(mu**-1))**2) - (n*r)/((r*(mu**-1))**2)
+    b <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     B <- diag(n)
     diag(B) <- b
     return(B)
@@ -145,14 +157,14 @@ computeB <- function(y, r, mu){
 computeQ <- function(r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/du
     n <- length(mu)
-    q <- -(2*n*(r))/((mu**2)*((1-r*(mu**-1)))**3) - (2*n*(r))/((mu**2)*((r*(mu**-1)))**3)
+    q <- -n*(1 + (r**2)/(mu**2*(1-r*(mu**-1))))
     Q <- diag(n)
     diag(Q) <- q
     return(Q)
 }
 
 ## setup functions
-computeG <- function(u_hats, diag=FALSE){
+computeG <- function(u_hats, cluster_levels, curr_G, diag=FALSE){
     # compute G from the estimates of u=u_hat
     if(length(u_hats) > 1){
         c <- length(u_hats) - 1
@@ -160,11 +172,17 @@ computeG <- function(u_hats, diag=FALSE){
         c <- 1
     }
 
-    G <- (1/c) * ((u_hats) %*% t(u_hats))
-    if(diag){
-        G[lower.tri(G)] <- 0
-        G[upper.tri(G)] <- 0
-    }
+    # cluster_levels should be a list with the component clusters for each random effect
+    # I also need to consider the covariances between random effect cluster levels
+    u_bars <- do.call(rbind, lapply(cluster_levels,
+                                    FUN=function(UX) {
+                                        mean(u_hats[UX, ])
+                                        }))
+    rownames(u_bars) <- names(cluster_levels)
+
+    G_score <- varScore(G_inv=curr_G, u_hat=u_bars)
+    G_hess <- varHess(G_inv=curr_G, u_hat=u_bars)
+    G <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=curr_G)$theta
 
     return(G)
 }
@@ -206,19 +224,16 @@ computeVinv <- function(mu, y, r){
 }
 
 betaScore <- function(X, D_inv, V_inv, mu, y, r){
-    # X' * D^-1 * V^-1 * (y - [nr^2*mu^-2/(1-r*mu^-1) + nr* mu^-1]) <- kx1 vector
+    # score vector for fixed effects
+    # kx1 vector
     n <- length(y)
-    rhs <- y - (n*r)/((1-r*(mu**-1))**2) - (n*r)/((r*(mu**-1))**2)
+    rhs <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     return(t(X) %*% D_inv %*% V_inv %*% (y - rhs))
 }
 
-betaHess <- function(X, D_inv, V_inv, mu, y, r){
+betaHess <- function(X, D_inv, V_inv, B, W, Q){
     # compute hessian for beta's
     # k x k matrix
-    B <- computeB(y=y, r=r, mu=mu)
-    W <- computeW(mu=mu, r=r)
-    Q <- computeQ(mu=mu, r=r)
-
     part.1 <- t(X) %*% D_inv %*% V_inv %*% B %*% X
     part.2 <- t(X) %*% D_inv %*% W %*% D_inv %*% B %*% X
     part.3 <- t(X) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% X
@@ -227,23 +242,55 @@ betaHess <- function(X, D_inv, V_inv, mu, y, r){
     return(hess)
 }
 
-randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, y_bar, r, u_hat){
+betaUHess <- function(X, Z, D_inv, V_inv, mu, y, r){
+    # compute the d S(beta)/du
+    part.1 <- t(X) %*% D_inv %*% V_inv %*% B %*% Z
+    part.2 <- t(X) %*% D_inv %*% W %*% D_inv %*% B %*% Z
+    part.3 <- t(X) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% Z
+
+    hess <- part.1 + part.2 + part.3
+    return(hess)
+}
+
+
+uBetaHess <- function(X, Z, D_inv, V_inv, mu, y, r){
+    # compute the d S(u)/dbeta
+    part.1 <- t(Z) %*% D_inv %*% V_inv %*% B %*% X
+    part.2 <- t(Z) %*% D_inv %*% W %*% D_inv %*% B %*% X
+    part.3 <- t(Z) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% X
+
+    hess <- part.1 + part.2 + part.3
+    return(hess)
+}
+
+jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q){
+    # construct the full hessian
+    beta.beta <- betaHess(X, D_inv, V_inv, B, W, Q)
+    rand.rand <- randHess(Z, D_inv, V_inv, G_inv, B, W, Q)
+
+    beta.rand <- betaUHess(X, Z, D_inv, V_inv, B, W, Q)
+    rand.beta <- uBetaHess(X, Z, D_inv, V_inv, B, W, Q)
+
+    top.hess <- cbind(beta.beta, beta.rand)
+    bottom.hess <- cbind(rand.beta, rand.rand)
+
+    full.hess <- rbind(top.hess, bottom.hess)
+    return(full.hess)
+}
+
+randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, r, u_hat){
     # score function for random effects
     # c X 1 vector
     n <- length(y)
-    y_diff <- y - (n*r)/((1-r*(mu**-1))**2) - (n*r)/((r*(mu**-1))**2)
+    y_diff <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     LHS <- t(Z) %*% D_inv %*% V_inv %*% y_diff
     RHS <- 0.5 * (G_inv %*% u_hat) - (G_inv %*% u_hat)
     return(LHS - RHS)
 }
 
-randHess <- function(Z, D_inv, V_inv, G_inv, mu, y, r, y_bar){
+randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q){
     # compute Hessian for the random effects
     # c x c matrix
-    W <- computeW(mu=mu, r=r)
-    B <- computeB(y=y, r=r, mu=mu)
-    Q <- computeQ(r=r, mu=mu)
-
     part.1 <- t(Z) %*% D_inv %*% V_inv %*% B %*% Z
     part.2 <- t(Z) %*% D_inv %*% W %*% D_inv %*% B %*% Z
     part.3 <- t(Z) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% Z
@@ -253,6 +300,66 @@ randHess <- function(Z, D_inv, V_inv, G_inv, mu, y, r, y_bar){
 
     return(hess)
 }
+
+
+varScore <- function(G_inv, u_hat){
+    # compute the score function for the sigmas
+    (-0.5 * G_inv) + ((u_hat %*% t(u_hat)) %*% G_inv %*% G_inv)
+}
+
+varHess <- function(G_inv, u_hat){
+    # compute the Hessian for the sigmas
+    (0.5 * (G_inv %*% G_inv)) - (2*(u_hat %*% t(u_hat)) %*% G_inv)
+}
+
+
+laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
+    ## compute the Laplace approximation to the full extended likelihood
+    nb.liklihood <- nbLogLikelihood(mu=mu, r=r, y=y)
+    norm.liklihood <- normLogLikelihood(G, G_inv, curr_u)
+
+    det.hess <- det(hessian)
+    nb.liklihood + norm.liklihood - ((2*pi) * det.hess)
+}
+
+
+nbLogLikelihood <- function(mu, r, y){
+    ## compute the negative binomial log likelihood over our variables and observations
+    n <- length(y)
+    sum((n * y * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (log(gamma(y+1))/log(gamma(r))))
+}
+
+
+normLogLikelihood <- function(G, Ginv, u){
+    ## compute the normal log likelihood over our variables and observations
+    det.G <- det(G)
+    if(det.G > 0){
+        log.detG <- log(det.G)
+    } else{
+        log.detG <- 0
+    }
+    u.mat <- as.matrix(u, ncol=1)
+    c <- length(u)
+
+    sum(-((c/2) * log(2*pi)) -0.5 * log.detG - (0.5 * (t(u) %*% Ginv %*% u)))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+######## old  code
+
 
 
 newtonRaphson <- function(X, init.beta, Z, init.u, y, y_bar, alphas, sigmas, theta_new, max.iter=10, tol=1e-6){
@@ -341,11 +448,11 @@ computeR <- function(alpha, y, zi){
 }
 
 
-### functions to compute derivatives
-computeV <- function(y, alpha, zi){
-    # the components of v are the product of the partial derivs w.r.t. zis and the zis w.r.t. eta
-    y - (((alpha + y)*zi)/(zi + alpha))
-}
+# ### functions to compute derivatives
+# computeV <- function(y, alpha, zi){
+#     # the components of v are the product of the partial derivs w.r.t. zis and the zis w.r.t. eta
+#     y - (((alpha + y)*zi)/(zi + alpha))
+# }
 
 logLikBeta <- function(X, v){
     # partial derivatives for fixed effect estimation with NR
@@ -416,31 +523,31 @@ solveMME <- function(X, Z, hessian, y_bar, R){
 }
 
 
-laplaceApprox <- function(alpha, y, zi, G, Ginv, u, tau.hessian){
-    ## compute the Laplace approximation to the variance component likelihood
-    nb.liklihood <- nbLogLikelihood(alpha, y, zi)
-    norm.liklihood <- normLogLikelihood(G, Ginv, u)
-
-    det.hess <- det(tau.hessian)
-    as.numeric(nb.liklihood + norm.liklihood - (0.5 * det.hess))
-}
-
-
-nbLogLikelihood <- function(alpha, y, zi){
-    ## compute the negative binomial log likelihood over our variables and observations
-    n <- length(y)
-    n  * (alpha * log(alpha) - log(gamma(alpha)) + sum(log(gamma(y + alpha)) - (alpha * log(zi + alpha)) + (y * log(zi)) - log(zi + alpha)))
-}
-
-
-normLogLikelihood <- function(G, Ginv, u){
-    ## compute the normal log likelihood over our variables and observations
-    det.G <- det(G)
-    u.mat <- as.matrix(u)
-
-    -0.5 * log(det.G) - (0.5 * (t(u) %*% Ginv %*% u))
-}
-
-
-
-
+# laplaceApprox <- function(alpha, y, zi, G, Ginv, u, tau.hessian){
+#     ## compute the Laplace approximation to the full extended likelihood
+#     nb.liklihood <- nbLogLikelihood(alpha, y, zi)
+#     norm.liklihood <- normLogLikelihood(G, Ginv, u)
+#
+#     det.hess <- det(tau.hessian)
+#     as.numeric(nb.liklihood + norm.liklihood - (0.5 * det.hess))
+# }
+#
+#
+# nbLogLikelihood <- function(alpha, y, zi){
+#     ## compute the negative binomial log likelihood over our variables and observations
+#     n <- length(y)
+#     n  * (alpha * log(alpha) - log(gamma(alpha)) + sum(log(gamma(y + alpha)) - (alpha * log(zi + alpha)) + (y * log(zi)) - log(zi + alpha)))
+# }
+#
+#
+# normLogLikelihood <- function(G, Ginv, u){
+#     ## compute the normal log likelihood over our variables and observations
+#     det.G <- det(G)
+#     u.mat <- as.matrix(u)
+#
+#     -0.5 * log(det.G) - (0.5 * (t(u) %*% Ginv %*% u))
+# }
+#
+#
+#
+#
