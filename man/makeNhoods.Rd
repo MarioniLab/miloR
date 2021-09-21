@@ -28,7 +28,8 @@ to randomly sample. Must be 0 < prop < 1.}
 X reduced dimensions.}
 
 \item{refined}{A logical scalar that determines the sampling behaviour,
-default=TRUE implements a refined sampling scheme.}
+default=TRUE implements one of two refined sampling scheme, determined by the
+`refinement_scheme` argument.}
 
 \item{reduced_dims}{If x is an \code{\linkS4class{Milo}} object, a character
 indicating the name of the \code{reducedDim} slot in the
@@ -47,10 +48,12 @@ neighbourhoods.
 }
 \description{
 This function randomly samples vertcies on a graph to define neighbourhoods.
-These are then refined by computing the median profile for the neighbourhood
-in reduced dimensional space and selecting the nearest vertex to this
-position. Thus, multiple neighbourhoods may be collapsed down together to
-prevent over-sampling the graph space.
+These are then refined by either computing the median profile for the
+neighbourhood in reduced dimensional space and selecting the nearest vertex
+to this position (`refinement_scheme = "reduced_dim"`) or selecting the
+vertex within the neighbourhood with the most incoming edges (for a directed
+graph, `refinement_scheme = "graph"`). Thus, multiple neighbourhoods may be
+collapsed down together to prevent over-sampling the graph space.
 }
 \details{
 This function randomly samples graph vertices, then refines them to collapse

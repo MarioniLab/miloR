@@ -1,10 +1,12 @@
 #' Define neighbourhoods on a graph (fast)
 #'
 #' This function randomly samples vertcies on a graph to define neighbourhoods.
-#' These are then refined by computing the median profile for the neighbourhood
-#' in reduced dimensional space and selecting the nearest vertex to this
-#' position. Thus, multiple neighbourhoods may be collapsed down together to
-#' prevent over-sampling the graph space.
+#' These are then refined by either computing the median profile for the
+#' neighbourhood in reduced dimensional space and selecting the nearest vertex
+#' to this position (`refinement_scheme = "reduced_dim"`) or selecting the
+#' vertex within the neighbourhood with the most incoming edges (for a directed
+#' graph, `refinement_scheme = "graph"`). Thus, multiple neighbourhoods may be
+#' collapsed down together to prevent over-sampling the graph space.
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{graph}
 #' slot. Alternatively an \code{igraph} object on which neighbourhoods will
 #' be defined.
@@ -18,7 +20,8 @@
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an
 #' \code{igraph} object, a matrix of vertices X reduced dimensions.
 #' @param refined A logical scalar that determines the sampling behaviour,
-#' default=TRUE implements a refined sampling scheme.
+#' default=TRUE implements one of two refined sampling scheme, determined by the
+#' `refinement_scheme` argument.
 #' @param refinement_scheme A character scalar that determines the refinement
 #' scheme, either "reduced_dim" or "graph". Only used if refined is TRUE.
 #'
@@ -62,7 +65,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
         X_graph <- miloR::graph(x)
-        if(refinement_scheme != "graph"){
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
             X_reduced_dims  <- reducedDim(x, reduced_dims)
             if (d > ncol(X_reduced_dims)) {
                 warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims).
@@ -77,7 +80,9 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
         X_graph <- x
-        X_reduced_dims <- reduced_dims
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
+            X_reduced_dims  <- reduced_dims
+        }
     } else{
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
@@ -190,8 +195,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 }
 
 
-#' @importFrom igraph neighbors induced_subgraph ego_size V set_vertex_attr
+#' @importFrom igraph neighbors induced_subgraph ego_size V set_vertex_attr is.directed
 .graph_refined_sampling <- function(random_vertices, X_graph){
+    if(!is.directed(X_graph)){
+        warning("graph refined sampling works best with a directed kNN graph")    
+    }
     random_vertices <- as.vector(random_vertices)
     X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
     refined_vertices <- lapply(seq_along(random_vertices), function(i){
