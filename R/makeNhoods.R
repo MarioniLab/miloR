@@ -23,7 +23,7 @@
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
 #' be turned off by setting \code{refined=FALSE}, however, we do not recommend
 #' this as neighbourhoods will contain a lot of redundancy and lead to an
-#' uncecessarily larger multiple-testing burden.
+#' unnecessarily larger multiple-testing burden.
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
@@ -46,7 +46,7 @@
 #' @export
 #' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN
-#' @importFrom igraph neighbors as_ids
+#' @importFrom igraph neighbors neighborhood as_ids
 #' @importFrom stats setNames
 makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
     if(is(x, "Milo")){
@@ -93,7 +93,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
 
     for (X in seq_len(length(sampled_vertices))){
-        nh_mat[as_ids(neighbors(graph, v = sampled_vertices[X])), X] <- 1
+        nh_mat[unlist(neighborhood(graph, order = 1, nodes = sampled_vertices[X])), X] <- 1 #changed to include index cells
     }
 
     # need to add the index cells.
