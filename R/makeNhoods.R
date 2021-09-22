@@ -15,7 +15,7 @@
 #' X reduced dimensions.
 #' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
-#' matrix of vertices X reduced dimensions.
+#' matrix of vertices X reduced dimensions with \code{rownames()} set to correspond to the cellIDs.
 #' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
 #'
 #' @details
@@ -64,13 +64,24 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
         X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
         mat_cols <- ncol(x)
+        match.ids <- all(rownames(X_reduced_dims) == colnames(x))
+        if(!match.ids){
+            stop("Rownames of reduced dimensions do not match cell IDs")
+        }
+
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined)){
             stop("No reduced dimensions matrix provided - required for refined sampling")
         }
+
         graph <- x
         X_reduced_dims <- reduced_dims
         mat_cols <- nrow(X_reduced_dims)
+
+        if(is.null(rownames(X_reduced_dims))){
+            stop("Reduced dim rownames are missing - required to assign cell IDs to neighbourhoods")
+        }
+
     } else{
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
     }
@@ -88,8 +99,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
     v.class <- class(V(graph)$name)
-    if(!is.null(v.class)){
+
+    if(!is.null(v.class) & is(x, "igraph")){
         rownames(nh_mat) <- rownames(X_reduced_dims)
+    } else if(!is.null(v.class) & is(x, "Milo")){
+        rownames(nh_mat) <- colnames(x)
     }
 
     for (X in seq_len(length(sampled_vertices))){

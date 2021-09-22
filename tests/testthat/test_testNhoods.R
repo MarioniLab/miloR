@@ -105,6 +105,12 @@ test_that("Wrong input gives errors", {
                             design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
                  "Unrecognised input type - must be of class Milo")
 
+    # missing reduced dimension slot
+    expect_error(testNhoods(sim1.mylo, design=~Condition,
+                            design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ],
+                            reduced.dim="blah"),
+                 "is not found in reducedDimNames")
+
 })
 
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
