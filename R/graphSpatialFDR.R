@@ -47,6 +47,7 @@ NULL
 #' @importFrom Matrix rowMeans tril
 #' @importFrom stats dist
 #' @importFrom BiocNeighbors findKNN
+#' @importFrom BiocGenerics which
 graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-distance',
                             reduced.dimensions=NULL, distances=NULL, indices=NULL){
 
@@ -113,7 +114,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
                     t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
                 } else {
                 # if row names are not set, extract numeric indices
-                non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
+                non.zero.nhoods <- which(x.nhoods!=0, arr.ind = TRUE)
                 t.dists <- lapply(indices,
                                   FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[,2] == which(indices == X),][,1] == X),])
                 t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
