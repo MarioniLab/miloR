@@ -107,10 +107,17 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
                 # find the distance to the kth nearest neighbour within the distance matrix
                 t.connect <- unlist(lapply(indices, FUN=function(X) distances[X, ][order(distances[X, ], decreasing=FALSE)[k]]))
             } else if(class(distances) %in% c("list")){
+                # check if row names are set
+                if(!is.null(rownames(distances))){
+                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][as.character(X), ]))
+                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+                } else {
+                # if row names are not set, extract numeric indices
+                non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
                 t.dists <- lapply(indices,
-                                  FUN=function(X) as.numeric(tril(distances[[as.character(X)]])))
+                                  FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[,2] == which(indices == X),][,1] == X),])
                 t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
-
+                }
             } else{
                 stop("Neighbourhood distances must be either a matrix or a list of matrices")
             }
