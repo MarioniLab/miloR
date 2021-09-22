@@ -83,7 +83,7 @@ runLMM <- function(X, Z, y, error.model=c('normal', 'negbinom')){
 }
 
 
-singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10){
+singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
     # theta ~= theta_hat - hess^-1 * score
 
@@ -95,8 +95,16 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10)
     hess.eigen <- eigen(hess_mat)
     hess.condition <- 1/kappa(hess_mat)
 
-    if(all(hess.eigen$values > 0) | hess.condition < det.tol){
-        if(det(hess_mat) < det.tol | hess.condition){
+    # check if complex eigen values
+    complex.eigens <- any(is.complex(hess.eigen$values))
+    if(isTRUE(complex.eigens)){
+        pos.eigens <- FALSE
+    } else{
+        pos.eigens <- all(hess.eigen$values > 0)
+    }
+
+    if(pos.eigens | complex.eigens | hess.condition < det.tol){
+        if(det(hess_mat) < det.tol | hess.condition < cond.tol){
             theta_new <- theta_hat - ginv(hess_mat) %*% score_vec
         } else{
             theta_new <- theta_hat - solve(hess_mat) %*% score_vec
@@ -117,8 +125,6 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10)
             }
         }
 
-
-        print(solve(new_hess))
         if(det(new_hess) < det.tol){
             theta_new <- theta_hat - ginv(new_hess) %*% score_vec
         } else{
@@ -182,6 +188,7 @@ computeG <- function(u_hats, cluster_levels, curr_G, diag=FALSE){
 
     G_score <- varScore(G_inv=curr_G, u_hat=u_bars)
     G_hess <- varHess(G_inv=curr_G, u_hat=u_bars)
+
     G <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=curr_G)$theta
 
     return(G)
