@@ -69,7 +69,8 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     # use igraph if it's square
     if(is.square){
         if(!is.binary){
-            bin.x <- as(matrix(as.numeric(x > 0), nrow=nrow(x)), "dgCMatrix")
+            bin.x <- as((x > 0) + 0, "dgCMatrix")
+            # bin.x <- as(matrix(as.numeric(x > 0), nrow=nrow(x)), "dgCMatrix")
             nn.graph <- graph_from_adjacency_matrix(bin.x, mode="undirected",
                                                     weighted=NULL,
                                                     diag=FALSE)
@@ -94,6 +95,9 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
         message("Adding nhoodDistances to Milo object")
         nhoodDistances(mylo) <- NULL
     }
+
+    # set internal k slot
+    mylo@.k <- k.val
 
     return(mylo)
 }

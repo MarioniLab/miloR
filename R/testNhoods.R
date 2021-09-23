@@ -28,6 +28,8 @@
 #' method by Anders & Huber, 2010, to compute normalisation factors relative to a reference computed from
 #' the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 #' when there are very large compositional differences between samples.
+#' @param reduced.dim A character scalar referring to the reduced dimensional slot used to compute distances for
+#' the spatial FDR. This should be the same as used for graph building.
 #'
 #'
 #' @details
@@ -102,7 +104,7 @@ NULL
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
-                       min.mean=0, model.contrasts=NULL, robust=TRUE,
+                       min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
                        norm.method=c("TMM", "RLE", "logMS"),
                        error.model=c("glm", "glmm")){
     if(is(design, "formula")){
@@ -134,6 +136,10 @@ testNhoods <- function(x, design, design.df,
 
     if(!any(norm.method %in% c("TMM", "logMS", "RLE"))){
         stop("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS")
+    }
+
+    if(!reduced.dim %in% reducedDimNames(x)){
+        stop(reduced.dim, " is not found in reducedDimNames. Avaiable options are ", paste(reducedDimNames(x), collapse=","))
     }
 
     subset.counts <- FALSE
@@ -226,7 +232,7 @@ testNhoods <- function(x, design, design.df,
                                       pvalues=res[order(res$Nhood), ]$PValue,
                                       indices=nhoodIndex(x),
                                       distances=nhoodDistances(x),
-                                      reduced.dimensions=reducedDim(x, "PCA"))
+                                      reduced.dimensions=reducedDim(x, reduced.dim))
 
     res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
     res
