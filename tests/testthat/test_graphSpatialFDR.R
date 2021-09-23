@@ -227,7 +227,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
         pvalues <- pvalues[haspval]
     }
     k <- sim1.mylo@.k
-    non.zero.nhoods <- which(x.nhoods!=0, arr.ind = TRUE)
+    non.zero.nhoods <- which(nhoods!=0, arr.ind = TRUE)
     t.dists <- lapply(indices, FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[,2] == which(indices == X),][,1] == X),])
     t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
 
