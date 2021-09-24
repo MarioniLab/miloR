@@ -11,10 +11,10 @@
 # need theta_hat and tau_hat, will need to iterate between the two to acheive convergence?
 
 
-#' Perform differential abundance testing using a (generalised) linear mixed model
+#' Perform differential abundance testing using a NB-generalised linear mixed model
 #'
-#' This function will perform DA testing on all nhoods using a linear mixed model using either a
-#' normal (LMM) or negative binomial (NB-LMM) error model
+#' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
+#'
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty
 #' \code{nhoodCounts} slot.
 #' @param error.model A string vector dictating the type of error model to use for the LMM - either
@@ -24,74 +24,205 @@
 #'
 #' @importFrom MASS ginv
 #' @export
-runLMM <- function(X, Z, y, error.model=c('normal', 'negbinom')){
+runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
+                    glmm.control=list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6, likli.tol=1e-6, max.iter=100, lambda=1e-1)){
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
     # A - genetic relationship matrix
     # y - observed phenotype
-    out.list <- list()
 
-    # initial parameter values
-    init.params <- list("alpha"=exp(runif(1)), "betas"=exp(runif(ncol(X))), "us"=runif(ncol(Z)), "sigmas"=exp(runif(ncol(Z))))
-    init.params$zi <- (X %*% init.params$betas) + (Z %*%  init.params$us)
+    # check the input X and Z variables for factor levels. Can we assume that if the Z's are discrete integers then
+    # these are group levels, otherwise, treat them as continuous
 
-    total.var <- var(y)
-    exp.y <- init.params$zi
-    var.y <- exp.y + exp.y/init.params$alpha
+    # I need to keep track of the levels/clusters in each random effect
+    theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
+    loglihood.eps <- glmm.control[["likli.tol"]] # convergence for the loglihood
 
-    init.taus <- c(init.params$alpha, init.params$sigmas)
-    init.theta <- c(init.params$betas, init.params$us)
+    if(is.null(init.theta)){
+        curr_u <- matrix(rnorm(ncol(Z), mean=1, sd=0.1), ncol=1)
+        rownames(curr_u) <- colnames(Z)
 
-    # eta is the log-linked predictor
-    eta <- exp((X %*% init.params$betas) + (Z %*% init.params$us))
+        curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) # OLS for the betas is usually a good starting point for NR
+        rownames(curr_beta) <- colnames(X)
 
-    # compute the derivatives for NR
-    v <- computeV(y, init.params$alpha, init.params$zi)
+    } else{
+        curr_beta <- matrix(init.theta[["beta"]], ncol=1)
+        rownames(curr_beta) <- colnames(X)
 
-    # fixed effect betas
-    beta.deriv <- logLikBeta(X, v)
-    # invert G
-    G <- computeG(init.params$sigmas)
-    Ginv <- solve(G)
+        curr_u <- matrix(init.theta[["rand"]] , ncol=1)
+        rownames(curr_u) <- colnames(Z)
+    }
 
-    # random effects u
-    u.deriv <- logLikU(Z, v, Ginv, init.params$us)
+    init.u <- curr_u
+    init.beta <- curr_beta
+    init.theta <- do.call(rbind, list(init.beta, init.u))
+    curr_theta <- init.theta
 
-    # compute R (co-)variance matrix
-    R <- computeR(init.params$alpha, y, init.params$zi)
+    # failure mode when the exp(Zu) estimates are infinite <- call this a convergence failure?
+    inf.zu <- any(is.infinite(exp(Z %*% curr_u))) | any(is.na(exp(Z %*% curr_u)))
 
-    # compute the hessian
-    out.list[["hessian"]] <- computeHessian(X, R, Z, Ginv)
+    if(inf.zu){
+        stop("Infinite estimates of u")
+    }
 
-    # return results
-    out.list[["estimates"]] <- do.call(rbind, list(beta.deriv, u.deriv))
+    mu.vec <- exp((X %*% curr_beta) + (Z %*% curr_u))
 
-    y_bar <- computeYbar(X, init.params$betas, Z, init.params$us, R, v)
+    # use y_bar as the sample mean and s_hat as the sample variance
+    y_bar <- mean(y)
+    s_hat <- var(y)
+    r.val <- (y_bar ** 2)/(s_hat + y_bar)
+    max.hit <- glmm.control[["max.iter"]]
 
-    # test solving for new thetas
-    new.thetas <- solveMME(X, Z, out.list[["hessian"]], y_bar, R)
+    theta_diff <- rep(Inf, nrow(curr_theta))
+    abs_diff <- abs(theta_diff)
+    sigma_diff <- Inf
+    loglihood.diff <- Inf
+    lambda <- glmm.control[["lambda"]] # lambda used in the Levenberg-Marquardt adjustment
+    init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
 
-    # update the zis
-    new.zis <- (X %*% new.thetas[1:ncol(X)]) + (Z %*%  new.thetas[(ncol(X)+1):length(new.thetas)])
+    # initialise G as the covariance between random effects
+    Z.star <- sapply(random.levels, FUN=function(ZX) Z[, ZX, drop=FALSE] %*% matrix(seq_along(ZX)))
+    ones.mat <- (matrix(rep(1, nrow(Z)), ncol=1) %*% t(matrix(rep(1, nrow(Z)), ncol=1)))
 
-    tau.hessian <- as.matrix(out.list[["hessian"]][((ncol(X)+1):length(new.thetas)), (ncol(X)+1):length(new.thetas)])
+    Z.star <- Z.star - ((1/nrow(Z))*(ones.mat %*% Z.star))
+    init.G <- (t(Z.star) %*% Z.star)/(nrow(Z.star) - 1)
 
-    tau.likelihood <- laplaceApprox(alpha=init.params$alpha, y=y, zi=new.zis, G, Ginv,
-                                    u=new.thetas[(ncol(X)+1):length(new.thetas)], tau.hessian=tau.hessian)
+    dimnames(init.G) <- list(names(random.levels), names(random.levels))
+    curr_G <- init.G
 
+    # broadcast G to the correct dimensions
+    G.broad <- diag(length(unlist(random.levels)))
+    dimnames(G.broad) <- list(colnames(Z), colnames(Z))
+
+    for(q in seq_len(ncol(init.G))){
+        q.eff <- names(random.levels)[q]
+        q.levels <- random.levels[[names(random.levels)[q]]]
+
+        for(k in seq_len(ncol(init.G))){
+            k.eff <- names(random.levels)[k]
+            k.levels <- random.levels[[names(random.levels)[k]]]
+
+            G.broad[q.levels, k.levels] <- init.G[q, k]
+            G.broad[k.levels, q.levels] <- init.G[k, q]
+        }
+    }
+
+    # do a quick loglihood evaluation
+    G_inv <- ginv(G.broad)
+    init.loglihood  <- 0
+    loglihood <- init.loglihood
+
+    init.res.var <- (s_hat - sum(diag(init.G)))
+    init.var.comps <- c(diag(init.G), init.res.var)/s_hat
+    names(init.var.comps) <- c(rownames(init.G), "residual")
+
+    var.comps <- init.var.comps
+    conv.list <- list()
+    iters <- 1
+
+    meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (loglihood.diff < loglihood.eps) & (sigma_diff < theta.conv) | iters >= max.hit)
+
+    while(meet.conditions){
+        D_inv <- computeDinv(mu.vec)
+        V_inv <- computeVinv(mu=mu.vec, y=y, r=r.val)
+        B <- computeB(y=y, r=r.val, mu=mu.vec)
+        W <- computeW(mu=mu.vec, r=r.val)
+        Q <- computeQ(mu=mu.vec, r=r.val)
+
+        # broadcast G to the correct dimensions
+        G.broad <- diag(length(unlist(random.levels)))
+        dimnames(G.broad) <- list(colnames(Z), colnames(Z))
+
+        for(q in seq_len(ncol(curr_G))){
+            q.eff <- names(random.levels)[q]
+            q.levels <- random.levels[[names(random.levels)[q]]]
+
+            for(k in seq_len(ncol(curr_G))){
+                k.eff <- names(random.levels)[k]
+                k.levels <- random.levels[[names(random.levels)[k]]]
+
+                G.broad[q.levels, k.levels] <- curr_G[q, k]
+                G.broad[k.levels, q.levels] <- curr_G[k, q]
+            }
+        }
+
+        if(det(G.broad) < 1e-10){
+            # use a generalized inverse if numerically singular
+            G_inv <- ginv(G.broad)
+        } else{
+            G_inv <- solve(G.broad)
+        }
+
+        score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=r.val)
+        score_u <- randScore(Z=Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u)
+        full.score <- rbind(score_beta, score_u)
+        full.hess <- jointHess(X=X, Z=Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q)
+
+        theta_nr.out <- singleNR(score_vec=full.score, hess_mat=full.hess, theta_hat=curr_theta)
+        theta_update <- theta_nr.out$theta
+        hess_theta <- theta_nr.out$hessian
+        theta_diff <- theta_update - curr_theta # this needs to be all negative
+
+        curr_theta <- theta_update
+        curr_beta <- curr_theta[colnames(X), , drop=FALSE]
+        curr_u <- curr_theta[colnames(Z), , drop=FALSE]
+        mu.vec <- exp((X %*% curr_beta) + (Z %*% curr_u))
+
+        curr_G.inv <- ginv(curr_G)
+        G.out <- computeG(u_hats=curr_u, curr_G=curr_G, G_inv=curr_G.inv, cluster_levels=random.levels) # need to be PD, what to do about negative components?
+        sigma_diff <- curr_G - G.out$G
+        curr_G <- G.out$G
+        G.hess <- G.out$G.Hess
+        abs_diff <- abs(theta_diff)
+
+        res.var <- (s_hat - sum(diag(curr_G)))
+        curr_var.comps <- c(diag(curr_G), res.var)/s_hat
+        names(curr_var.comps) <- c(rownames(curr_G), "residual")
+
+        # loglihood integrating over the linear predictor
+        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, G.broad, G_inv, curr_u, hess_theta)
+        loglihood.diff <- curr.loglihood - loglihood
+
+        meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (abs(loglihood.diff) < loglihood.eps) &
+                                 loglihood.diff > 0 & (all(sigma_diff < theta.conv))| iters >= max.hit)
+        loglihood <- curr.loglihood
+        var.comps.diff <- curr_var.comps - var.comps
+
+        # with these variance components we can evaluate the _full_ likelihood
+        full.loglihood <- nbLogLikelihood(mu=mu.vec, r=r.val, y=y) + normLogLikelihood(G.broad, G_inv, curr_u)
+
+        curr.u_bars <- do.call(rbind, lapply(random.levels, FUN=function(X) mean(curr_theta[X, ])))
+
+        conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
+                                           "Hessian"=hess_theta, "r"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
+                                            "G.Hessian"=G.hess, "Rand.Mean"=curr.u_bars,
+                                           "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
+        iters <- iters + 1
+
+        var.comps <- curr_var.comps
+        # failure mode when the exp(Zu) estimates are infinite <- call this a convergence failure?
+        inf.zu <- any(is.infinite(exp(Z %*% curr_u))) | any(is.na(exp(Z %*% curr_u)))
+
+        if(inf.zu){
+            warning("Infinite estimates of u - estimates are diverging. Restarting estimation")
+            break
+        }
+    }
+
+    return(conv.list)
 }
 
 
 singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
     # theta ~= theta_hat - hess^-1 * score
+    # this needs to be in a direction of descent towards a minimum
 
-    # need to check that hess is positive definite - if not then use a modification simialar to the
+    # need to check that hess is positive definite - if not then use a modification similar to the
     # Levenberg-Marquardt method to make it slightly pd
     # a pd matrix has all positive eigen values
     # if eigen values have opposite signs then we have a saddle point
-
     hess.eigen <- eigen(hess_mat)
     hess.condition <- 1/kappa(hess_mat)
 
@@ -103,7 +234,7 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10,
         pos.eigens <- all(hess.eigen$values > 0)
     }
 
-    if(pos.eigens | complex.eigens | hess.condition < det.tol){
+    if(pos.eigens){
         if(det(hess_mat) < det.tol | hess.condition < cond.tol){
             theta_new <- theta_hat - ginv(hess_mat) %*% score_vec
         } else{
@@ -116,7 +247,13 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10,
         is.pd <- FALSE
         while(isFALSE(is.pd)){
             try_hess <- hess_mat + (diag(ncol(hess_mat)) * lambda)
-            is.pd <- all(eigen(try_hess)$values > 0)
+            complex.eigens <- any(is.complex(eigen(try_hess)$values))
+
+            if(isTRUE(complex.eigens)){
+                is.pd <- FALSE
+            } else{
+                is.pd <- all(eigen(try_hess)$values > 0)
+            }
 
             if(isFALSE(is.pd)){
                 lambda <- lambda + (2*lambda) # double lambda each time, this is very crude
@@ -125,7 +262,8 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10,
             }
         }
 
-        if(det(new_hess) < det.tol){
+        hess.condition <- 1/kappa(new_hess)
+        if(det(new_hess) < det.tol | hess.condition < cond.tol){
             theta_new <- theta_hat - ginv(new_hess) %*% score_vec
         } else{
             theta_new <- theta_hat - solve(new_hess) %*% score_vec
@@ -170,28 +308,27 @@ computeQ <- function(r, mu){
 }
 
 ## setup functions
-computeG <- function(u_hats, cluster_levels, curr_G, diag=FALSE){
-    # compute G from the estimates of u=u_hat
-    if(length(u_hats) > 1){
-        c <- length(u_hats) - 1
-    } else{
-        c <- 1
-    }
+computeG <- function(u_hats, cluster_levels, curr_G, G_inv, diag=FALSE){
 
     # cluster_levels should be a list with the component clusters for each random effect
-    # I also need to consider the covariances between random effect cluster levels
     u_bars <- do.call(rbind, lapply(cluster_levels,
                                     FUN=function(UX) {
                                         mean(u_hats[UX, ])
                                         }))
     rownames(u_bars) <- names(cluster_levels)
 
-    G_score <- varScore(G_inv=curr_G, u_hat=u_bars)
-    G_hess <- varHess(G_inv=curr_G, u_hat=u_bars)
+    G_score <- varScore(G_inv=G_inv, u_hat=u_bars)
+    G_hess <- varHess(G_inv=G_inv, u_hat=u_bars)
 
-    G <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=curr_G)$theta
+    # check G.hess is PD
+    G.out <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=curr_G)
+    G <- G.out$theta
+    G.hess <- G.out$hessian
 
-    return(G)
+    # constrain the sigmas to max(0, G_update)
+    # diag(G) <- as.numeric(sapply(diag(G), FUN=function(gx) max(0, gx)))
+
+    return(list("G"=G, "G.Hess"=G.hess))
 }
 
 computeVinv <- function(mu, y, r){
@@ -316,17 +453,22 @@ varScore <- function(G_inv, u_hat){
 
 varHess <- function(G_inv, u_hat){
     # compute the Hessian for the sigmas
-    (0.5 * (G_inv %*% G_inv)) - (2*(u_hat %*% t(u_hat)) %*% G_inv)
+    (0.5 * (G_inv %*% G_inv)) - (2*(u_hat %*% t(u_hat)) %*% (G_inv %*% G_inv %*% G_inv))
 }
 
 
 laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
-    ## compute the Laplace approximation to the full extended likelihood
+    ## compute the Laplace approximation to the marginal loglihood for the variance components
     nb.liklihood <- nbLogLikelihood(mu=mu, r=r, y=y)
     norm.liklihood <- normLogLikelihood(G, G_inv, curr_u)
 
     det.hess <- det(hessian)
-    nb.liklihood + norm.liklihood - ((2*pi) * det.hess)
+    if(det.hess > 0){
+        log.det.hess <- log(det.hess)
+    } else{
+        log.det.hess <- 0
+    }
+    nb.liklihood + norm.liklihood - ((1/2) * log.det.hess)
 }
 
 
@@ -348,7 +490,7 @@ normLogLikelihood <- function(G, Ginv, u){
     u.mat <- as.matrix(u, ncol=1)
     c <- length(u)
 
-    sum(-((c/2) * log(2*pi)) -0.5 * log.detG - (0.5 * (t(u) %*% Ginv %*% u)))
+    sum(-((c/2) * log(2*pi)) - (0.5 * log.detG) - (0.5 * (t(u) %*% Ginv %*% u)))
 }
 
 
