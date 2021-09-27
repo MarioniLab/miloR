@@ -53,6 +53,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
 
     # Discarding NA pvalues.
     haspval <- !is.na(pvalues)
+
     if (!all(haspval)) {
         coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
@@ -99,6 +100,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
         if(is.null(k)){
             stop("K must be non-null to use k-distance. Please provide a valid integer value")
         }
+
         # do we have a distance matrix for the vertex cell to it's kth NN?
         if(!is.null(distances) & !is.null(indices)){
             # use distances first as they are already computed
@@ -109,15 +111,19 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
                 t.connect <- unlist(lapply(indices, FUN=function(X) distances[X, ][order(distances[X, ], decreasing=FALSE)[k]]))
             } else if(class(distances) %in% c("list")){
                 # check if row names are set
-                if(!is.null(rownames(distances))){
-                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][as.character(X), ]))
-                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+                # distances is a list, so need to loop over slots to check for rownames
+                null.names <- any(unlist(lapply(distances, FUN=function(RX) is.null(rownames(RX)))))
+                if(isFALSE(null.names)){
+                    # nhood indices are _always_ numeric, distance slot names are strings - use the rownames of reducedDim to get the ID
+                    # this will need to be fixed properly across the whole code base
+                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][rownames(reduced.dimensions)[X], ]))
+                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) ((Q[Q>0])[order(Q[Q>0], decreasing=FALSE)])[k]))
                 } else {
-                # if row names are not set, extract numeric indices
-                non.zero.nhoods <- which(x.nhoods!=0, arr.ind = TRUE)
-                t.dists <- lapply(indices,
-                                  FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[,2] == which(indices == X),][,1] == X),])
-                t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+                    # if row names are not set, extract numeric indices
+                    non.zero.nhoods <- which(x.nhoods != 0, arr.ind = TRUE)
+                    t.dists <- lapply(indices,
+                                      FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[, 2] == which(indices == X),][, 1] == X),])
+                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
                 }
             } else{
                 stop("Neighbourhood distances must be either a matrix or a list of matrices")
