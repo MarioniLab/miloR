@@ -85,7 +85,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     Z.star <- sapply(random.levels, FUN=function(ZX) Z[, ZX, drop=FALSE] %*% matrix(seq_along(ZX)))
     ones.mat <- (matrix(rep(1, nrow(Z)), ncol=1) %*% t(matrix(rep(1, nrow(Z)), ncol=1)))
 
-    Z.star <- Z.star - ((1/nrow(Z))*(ones.mat %*% Z.star))
+    Z.star <- Z.star - ((1/nrow(Z))*(ones.mat %*% Z.star)) # standardise the random covariates
     init.G <- (t(Z.star) %*% Z.star)/(nrow(Z.star) - 1)
 
     dimnames(init.G) <- list(names(random.levels), names(random.levels))
@@ -196,7 +196,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
                                            "Hessian"=hess_theta, "r"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
-                                            "G.Hessian"=G.hess, "Rand.Mean"=curr.u_bars,
+                                           "G.Hessian"=G.hess, "Rand.Mean"=curr.u_bars,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
         iters <- iters + 1
 
