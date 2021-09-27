@@ -53,6 +53,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
 
     # Discarding NA pvalues.
     haspval <- !is.na(pvalues)
+
     if (!all(haspval)) {
         coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
@@ -99,6 +100,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
         if(is.null(k)){
             stop("K must be non-null to use k-distance. Please provide a valid integer value")
         }
+
         # do we have a distance matrix for the vertex cell to it's kth NN?
         if(!is.null(distances) & !is.null(indices)){
             # use distances first as they are already computed
@@ -111,9 +113,11 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
                 # check if row names are set
                 # distances is a list, so need to loop over slots to check for rownames
                 null.names <- any(unlist(lapply(distances, FUN=function(RX) is.null(rownames(RX)))))
-                if(!isFALSE(null.names)){
-                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][as.character(X), ]))
-                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
+                if(isFALSE(null.names)){
+                    # nhood indices are _always_ numeric, distance slot names are strings - use the rownames of reducedDim to get the ID
+                    # this will need to be fixed properly across the whole code base
+                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][rownames(reduced.dimensions)[X], ]))
+                    t.connect <- unlist(lapply(t.dists, FUN=function(Q) ((Q[Q>0])[order(Q[Q>0], decreasing=FALSE)])[k]))
                 } else {
                     # if row names are not set, extract numeric indices
                     non.zero.nhoods <- which(x.nhoods != 0, arr.ind = TRUE)
