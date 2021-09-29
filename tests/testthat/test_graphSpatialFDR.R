@@ -129,16 +129,6 @@ test_that("Incorrect parameter values produce errors", {
                                  distances=NULL,
                                  reduced.dimensions=NULL),
                  "k-distance weighting requires")
-
-    expect_error(graphSpatialFDR(x.nhoods=NULL,
-                                 graph=graph(sim1.mylo),
-                                 weighting="graph-overlap",
-                                 pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
-                                 indices=nhoodIndex(sim1.mylo),
-                                 k=sim1.mylo@.k,
-                                 distances=NULL,
-                                 reduced.dimensions=reducedDim(sim1.mylo, "PCA")),
-                 "No neighborhoods found - please run makeNhoods first")
     
     expect_error(graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
                                  graph=graph(sim1.mylo),
