@@ -331,7 +331,7 @@ test_that("graphSpatialFDR produces reproducible results for graph-overlap weigh
         pvalues <- pvalues[haspval]
     }
     
-    intersect_mat <- crossprod(x.nhoods)
+    intersect_mat <- crossprod(nhoods)
     diag(intersect_mat) <- 0
     t.connect <- unname(rowSums(intersect_mat))
     
