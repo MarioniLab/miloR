@@ -144,9 +144,13 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
     } else if(weighting == "graph-overlap"){
         # no distance matrix is required here
         # compute overlap between neighborhoods
-        intersect_mat <- Matrix::crossprod(x.nhoods)
-        diag(intersect_mat) <- 0
-        t.connect <- unname(Matrix::rowSums(intersect_mat))
+        if (!is.null(x.nhoods)) {
+            intersect_mat <- crossprod(x.nhoods)
+            diag(intersect_mat) <- 0
+            t.connect <- unname(rowSums(intersect_mat))
+        } else{
+            stop("No neighborhoods found - please run makeNhoods first")
+        }
         
     } else{
         stop("Weighting option not recognised - must be either k-distance, neighbour-distance, max or graph-overlap")
