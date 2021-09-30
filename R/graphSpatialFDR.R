@@ -13,7 +13,7 @@
 #' @param k A numeric integer that determines the kth nearest neighbour distance to use for
 #' the weighted FDR. Only applicaple when using \code{weighting="k-distance"}.
 #' @param weighting A string scalar defining which weighting scheme to use.
-#' Choices are: max, k-distance, neighbour-distance.
+#' Choices are: max, k-distance, neighbour-distance or graph-overlap.
 #' @param reduced.dimensions (optional) A \code{matrix} of cells X reduced dimensions used
 #' to calculate the kNN graph. Only necessary if this function is being used
 #' outside of \code{testNhoods} where the \code{\linkS4class{Milo}}
@@ -27,9 +27,10 @@
 #'
 #' @details Each neighbourhood is weighted according to the weighting scheme
 #' defined. k-distance uses the distance to the kth nearest neighbour
-#' of the index vertex, while neighbour-distance uses the average within-neighbourhood
-#' Euclidean distance in reduced dimensional space, and max uses the largest within-neighbourhood distance
-#' from the index vertex. The frequency-weighted version of the
+#' of the index vertex, neighbour-distance uses the average within-neighbourhood
+#' Euclidean distance in reduced dimensional space, max uses the largest within-neighbourhood distance
+#' from the index vertex, and graph-overlap uses the total number of cells overlapping between 
+#' neighborhoods (distance-independent measure). The frequency-weighted version of the
 #' BH method is then applied to the p-values, as in \code{cydar}.
 #'
 #' @return A vector of adjusted p-values
@@ -44,7 +45,7 @@ NULL
 
 #' @export
 #' @importFrom igraph induced_subgraph
-#' @importFrom Matrix rowMeans tril
+#' @importFrom Matrix rowMeans tril crossprod rowSums
 #' @importFrom stats dist
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom BiocGenerics which
@@ -139,8 +140,20 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
         } else{
             stop("k-distance weighting requires either a distance matrix or reduced dimensions.")
         }
+        
+    } else if(weighting == "graph-overlap"){
+        # no distance matrix is required here
+        # compute overlap between neighborhoods
+        if (!is.null(x.nhoods)) {
+            intersect_mat <- crossprod(x.nhoods)
+            diag(intersect_mat) <- 0
+            t.connect <- unname(rowSums(intersect_mat))
+        } else{
+            stop("No neighborhoods found - please run makeNhoods first")
+        }
+        
     } else{
-        stop("Weighting option not recognised - must be either edge, vertex neighbour-distance or k-distance")
+        stop("Weighting option not recognised - must be either k-distance, neighbour-distance, max or graph-overlap")
     }
 
     # use 1/connectivity as the weighting for the weighted BH adjustment from Cydar
