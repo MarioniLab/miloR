@@ -501,31 +501,18 @@ sigmaUHess <- function(Z_inv, M_inv, G_inv, u_hat){
 }
 
 jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat){
-    # construct the full hessian
-    U <- diag(length(u_hat))
-    diag(U) <- u_hat
-    Z_inv <- ginv(Z)
-    M_inv <- ginv(M)
+    # construct the joint hessian for the beta's and u's
 
     beta.beta <- betaHess(X, D_inv, V_inv, B, W, Q)
     rand.rand <- randHess(Z, D_inv, V_inv, G_inv, B, W, Q)
-    sigma.sigma <- varHess(G_inv=G_inv, u_hat=u_hat)
 
     beta.rand <- betaUHess(X, Z, D_inv, V_inv, B, W, Q)
-    beta.sigma <- betaSigmaHess(X, D_inv, V_inv, B, W, Q, M)
-
     rand.beta <- uBetaHess(X, Z, D_inv, V_inv, B, W, Q)
-    rand.sigma <- uSigmaHess(Z, D_inv, V_inv, G_inv, B, W, Q, M, U)
 
-    sigma.rand <- sigmaBetaHess(X, Z_inv, M_inv, G_inv, u_hat)
-    sigma.beta <- sigmaUHess(Z_inv, M_inv, G_inv, u_hat)
+    top.hess <- cbind(beta.beta, beta.rand)
+    midd.hess <- cbind(rand.beta, rand.rand)
 
-
-    top.hess <- cbind(beta.beta, beta.rand, beta.sigma)
-    midd.hess <- cbind(rand.beta, rand.rand, rand.sigma)
-    bottom.hess <- cbind(sigma.beta, sigma.rand, sigma.sigma)
-
-    full.hess <- do.call(rbind, list(top.hess, midd.hes, bottom.hess))
+    full.hess <- do.call(rbind, list(top.hess, midd.hes))
     return(full.hess)
 }
 
