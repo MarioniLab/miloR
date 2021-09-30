@@ -53,6 +53,7 @@ milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
 
 milo.design <- as.data.frame(xtabs(~ Condition + Sample, data=milo.meta))
 milo.design <- milo.design[milo.design$Freq > 0, ]
+rownames(milo.design) <- milo.design$Sample
 
 milo.res <- testNhoods(milo.obj, design=~Condition, design.df=milo.design)
 head(milo.res)
