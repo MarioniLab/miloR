@@ -88,15 +88,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     lambda <- glmm.control[["lambda"]] # lambda used in the Levenberg-Marquardt adjustment
     init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
 
-    # initialise G as the covariance between random effects
-    # Z.star <- sapply(random.levels, FUN=function(ZX) Z[, ZX, drop=FALSE] %*% matrix(seq_along(ZX)))
-    # ones.mat <- (matrix(rep(1, nrow(Z)), ncol=1) %*% t(matrix(rep(1, nrow(Z)), ncol=1)))
-    #
-    # Z.star <- Z.star - ((1/nrow(Z))*(ones.mat %*% Z.star)) # standardise the random covariates
-    # # init.G <- (t(Z.star) %*% Z.star)/(nrow(Z.star) - 1)
-
     init.G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=init.sigma)
     curr_G <- init.G
+    G_partials <- computeGPartials(curr_G, curr_sigma)
 
     # do a quick loglihood evaluation
     G_inv <- ginv(curr_G)
@@ -119,16 +113,16 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         B <- computeB(y=y, r=r.val, mu=mu.vec)
         W <- computeW(mu=mu.vec, r=r.val)
         Q <- computeQ(mu=mu.vec, r=r.val)
-        M <- computeM(u_hats=curr_u, cluster_levels=random.levels)
+
         score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=r.val)
         score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u)
 
-        score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u, G_partials=G_partials)
+        score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u, G_partials=G_partials, n.comps=nrow(curr_sigma))
 
-        print(score_sigma)
-        print(score_u)
-        print(score_beta)
-        full.score <- do.call(rbind, list(score_beta, score_u, score_sigma))
+        re.hess <- randHess(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q)
+        fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q)
+
+        full.score <- do.call(rbind, list(score_beta, score_u))
         full.hess <- jointHess(X=X, Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q)
 
         theta_nr.out <- singleNR(score_vec=full.score, hess_mat=full.hess, theta_hat=curr_theta)
@@ -136,7 +130,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         hess_theta <- theta_nr.out$hessian
 
         # update sigmas _after_ thetas
-        sigma.hess <- varHess(G_inv=G_inv, u_hat=curr_theta[colnames(full.Z), , drop=FALSE])
+        det.G <- det(curr_G)
+        sigma.hess <- varHess(G_inv=G_inv, u_hat=curr_theta[colnames(full.Z), , drop=FALSE],
+                              det.G=det.G, curr_G=curr_G, G_partials=G_partials)
         sigma_nr.out <- singleNR(score_vec=score_sigma, hess_mat=sigma.hess, theta_hat=curr_sigma)
         sigma_update <- sigma_nr.out$theta
         hess_sigma <- sigma_nr.out$hessian
@@ -166,8 +162,8 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_var.comps <- c(curr_sigma[, 1], res.var)/s_hat
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
 
-        # loglihood integrating over the linear predictor
-        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, hess_theta)
+        # loglihood integrating over the random effects only
+        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, fe.hess)
         loglihood.diff <- curr.loglihood - loglihood
 
         meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (abs(loglihood.diff) < loglihood.eps) &
@@ -180,13 +176,20 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         curr.u_bars <- do.call(rbind, lapply(random.levels, FUN=function(X) mean(curr_theta[X, ])))
 
+        bigV <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
+        v.vec <- (mu.vec**2 * (1/r.val)) - mu.vec
+        diag(bigV) <- v.vec
+        R <- bigV - full.Z %*% curr_G %*% t(full.Z)
+
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
                                            "Hessian"=hess_theta, "r"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
                                            "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, "Sigma.Hess"=hess_sigma,
+                                           "V"=bigV, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
         iters <- iters + 1
 
         var.comps <- curr_var.comps
+
         # failure mode when the exp(Zu) estimates are infinite <- call this a convergence failure?
         inf.zu <- any(is.infinite(exp(full.Z %*% curr_u))) | any(is.na(exp(full.Z %*% curr_u)))
 
@@ -199,9 +202,16 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     return(conv.list)
 }
 
-computeGPartials <- function(Z, sigmas){
+computeGPartials <- function(curr_G, sigmas){
     # compute the partial derivatives dG/dsigma
-    sapply(seq_len(ncol(Z)), FUN=function(XZ) Z[, XZ, drop=FALSE] %*% t(Z[, XZ, drop=FALSE]))
+    # return a list
+
+    partial.list <- list()
+    for(x in seq_len(nrow(sigmas))){
+        partial.list[[x]] <- (curr_G == sigmas[x, ]) + 0
+    }
+
+    return(partial.list)
 }
 
 
@@ -216,7 +226,7 @@ initialiseG <- function(Z, cluster_levels, sigmas){
 
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
-        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ]
+        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] #* (Z[, c(i:(i+x.q-1)), drop=FALSE] %*% t(Z[, c(i:(i+x.q-1)), drop=FALSE]))
         i <- j <- i+x.q
     }
     return(as.matrix(G))
@@ -349,28 +359,9 @@ computeQ <- function(r, mu){
     return(Q)
 }
 
-computeM <- function(u_hats, cluster_levels){
-    # compute \d u \d sigma
-    c.num <- length(cluster_levels)
-
-    u_bar <- do.call(rbind, lapply(cluster_levels,
-                                   FUN=function(UX) {
-                                       mean(u_hats[UX, ])
-                                   }))
-
-    u_squares <- do.call(rbind, lapply(cluster_levels,
-                                       FUN=function(UX) {
-                                           mean(u_hats[UX, ]) ** 2
-                                    }))
-    m <- (c.num * sqrt((1/c.num) * colSums(u_squares)))/u_bar
-    M <- diag(c.num)
-    diag(M) <- m
-
-    return(M)
-}
 
 ## setup functions
-computeG <- function(u_hats, cluster_levels, curr_G, G_inv, diag=FALSE){
+computeG <- function(u_hats, cluster_levels, curr_G, G_inv, sigmas, diag=FALSE){
 
     # cluster_levels should be a list with the component clusters for each random effect
     u_bars <- do.call(rbind, lapply(cluster_levels,
@@ -379,11 +370,13 @@ computeG <- function(u_hats, cluster_levels, curr_G, G_inv, diag=FALSE){
                                         }))
     rownames(u_bars) <- names(cluster_levels)
 
-    G_score <- varScore(G_inv=G_inv, u_hat=u_bars)
-    G_hess <- varHess(G_inv=G_inv, u_hat=u_bars)
+    detG <- det(curr_G)
+    G.partials <- computeGPartials(curr_G, sigmas=sigmas)
+    G_score <- varScore(G_inv=G_inv, u_hat=u_bars, G_partials=G.partials, n.comps=nrow(sigmas))
+    G_hess <- varHess(G_inv=G_inv, u_hat=u_bars, G_partials=G.partials, det.G=detG)
 
     # check G.hess is PD
-    G.out <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=curr_G)
+    G.out <- singleNR(score_vec=G_score, hess_mat=G_hess, theta_hat=sigmas)
     G <- G.out$theta
     G.hess <- G.out$hessian
 
@@ -512,7 +505,7 @@ jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat){
     top.hess <- cbind(beta.beta, beta.rand)
     midd.hess <- cbind(rand.beta, rand.rand)
 
-    full.hess <- do.call(rbind, list(top.hess, midd.hes))
+    full.hess <- do.call(rbind, list(top.hess, midd.hess))
     return(full.hess)
 }
 
@@ -540,16 +533,34 @@ randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q){
 }
 
 
-varScore <- function(G_inv, u_hat, G_partials){
+varScore <- function(G_inv, u_hat, G_partials, n.comps){
     # compute the score function for the sigmas
-    (-0.5 * trace(G_inv %*% G_partials)) + (0.5 * t(u_hat) %*% G_inv %*% G_partials %*% G_inv %*% u)
-
-    # (-0.5 * G_inv) + (0.5 * ((u_hat %*% t(u_hat)) %*% G_inv %*% G_inv))
+    svec <- matrix(0L, nrow=n.comps, ncol=1)
+    for(i in seq_len(n.comps)){
+        svec[i,] <- (-0.5 * matrix.trace(G_inv %*% G_partials[[i]])) + (0.5 * t(u_hat) %*% G_inv %*% G_partials[[i]] %*% G_inv %*% u_hat)
+    }
+    return(svec)
 }
 
-varHess <- function(G_inv, u_hat){
+varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
     # compute the Hessian for the sigmas
-    (0.5 * (G_inv %*% G_inv)) - ((u_hat %*% t(u_hat)) %*% G_inv)
+    # G_partials is a list of single-entry matrices for each dG/dsigma
+    n.dims <- length(G_partials)
+    var.hess <- matrix(0L, ncol=n.dims, nrow=n.dims)
+
+    inv.det <- 1/(2*det.G)
+    for(i in seq_len(n.dims)){
+        i.partial <- G_partials[[i]]
+        for(j in seq_len(n.dims)){
+            j.partial <- G_partials[[j]]
+            part.1 <- inv.det - (0.5 * (matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
+            part.2 <- - t(u_hat) %*% G_inv %*% i.partial %*% G_inv %*% j.partial %*% G_inv %*% u_hat
+            ij.hess <- part.1 + part.2
+            var.hess[i, j] <- ij.hess
+        }
+    }
+
+    return(var.hess)
 }
 
 
@@ -587,6 +598,18 @@ normLogLikelihood <- function(G, Ginv, u){
     c <- length(u)
 
     sum(-((c/2) * log(2*pi)) - (0.5 * log.detG) - (0.5 * (t(u) %*% Ginv %*% u)))
+}
+
+### utility functions
+
+matrix.trace <- function(x){
+    # check is square matrix first
+    x.dims <- dim(x)
+    if(x.dims[1] != x.dims[2]){
+        stop("matrix is not square")
+    } else{
+        return(sum(diag(x)))
+    }
 }
 
 
