@@ -117,7 +117,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
                 if(isFALSE(null.names)){
                     # nhood indices are _always_ numeric, distance slot names are strings - use the rownames of reducedDim to get the ID
                     # this will need to be fixed properly across the whole code base
-                    t.dists <- lapply(indices, FUN=function(X) as.numeric(distances[[as.character(X)]][rownames(reduced.dimensions)[X], ]))
+                    t.dists <- lapply(indices, FUN=function(X) as.numeric((distances[[as.character(X)]])[rownames(reduced.dimensions)[X], ]))
                     t.connect <- unlist(lapply(t.dists, FUN=function(Q) ((Q[Q>0])[order(Q[Q>0], decreasing=FALSE)])[k]))
                 } else {
                     # if row names are not set, extract numeric indices
