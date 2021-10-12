@@ -176,7 +176,7 @@ embryo_milo <- calcNhoodDistance(embryo_milo, d=30, reduced.dim = "pca.corrected
 Now we can do the DA test, explicitly defining our experimental design. In this case, we want to test for differences between experimental stages, while accounting for the variability between technical batches (You can find more info on how to use formulas to define a testing design in R [here](https://r4ds.had.co.nz/model-basics.html#formulas-and-model-families))
 
 ```{r}
-da_results <- testNhoods(embryo_milo, design = ~ sequencing.batch + stage, design.df = embryo_design)
+da_results <- testNhoods(embryo_milo, design = ~ sequencing.batch + stage, design.df = embryo_design, reduced.dim="pca.corrected")
 head(da_results)
 ```
 
