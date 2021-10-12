@@ -429,6 +429,7 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
                       size=4,
                       xlim = c(max(pl_df$logFC_rank) + 0.01, max(pl_df$logFC_rank) + 0.02),
                       min.segment.length = 0,
+                      max.overlaps=Inf,
                       seed=42
       )
 
