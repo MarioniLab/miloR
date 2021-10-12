@@ -114,16 +114,18 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W <- computeW(mu=mu.vec, r=r.val)
         Q <- computeQ(mu=mu.vec, r=r.val)
 
+        # compute dG\dus
+        Gu_partials <- computeGuPartials(curr_G=curr_G, u_hat=curr_u, cluster_levels=random.levels, sigmas=curr_sigma)
         score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=r.val)
-        score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u)
+        score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u, Gu_partials=Gu_partials)
 
         score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u, G_partials=G_partials, n.comps=nrow(curr_sigma))
 
-        re.hess <- randHess(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q)
-        fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q)
+        # re.hess <- randHess(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q, Gu_partials=Gu_partials)
+        # fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q)
 
         full.score <- do.call(rbind, list(score_beta, score_u))
-        full.hess <- jointHess(X=X, Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q)
+        full.hess <- jointHess(X=X, Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q, Gu_partials=Gu_partials)
 
         theta_nr.out <- singleNR(score_vec=full.score, hess_mat=full.hess, theta_hat=curr_theta)
         theta_update <- theta_nr.out$theta
@@ -163,7 +165,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
 
         # loglihood integrating over the random effects only
-        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, fe.hess)
+        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, full.hess)
         loglihood.diff <- curr.loglihood - loglihood
 
         meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (abs(loglihood.diff) < loglihood.eps) &
@@ -209,6 +211,20 @@ computeGPartials <- function(curr_G, sigmas){
     partial.list <- list()
     for(x in seq_len(nrow(sigmas))){
         partial.list[[x]] <- (curr_G == sigmas[x, ]) + 0
+    }
+
+    return(partial.list)
+}
+
+computeGuPartials <- function(curr_G, u_hat, cluster_levels, sigmas){
+    # compute the partial derivatives dG/du
+    # return a list
+    n.re <- length(cluster_levels)
+    partial.list <- list()
+    for(x in seq_len(n.re)){
+        x.G <- matrix(0L, ncol=ncol(curr_G), nrow=nrow(curr_G))
+        x.G[curr_G == sigmas[x, ]] <- 2*u_hat[cluster_levels[[x]], ]
+        partial.list[[x]] <- x.G
     }
 
     return(partial.list)
@@ -422,6 +438,20 @@ computeVinv <- function(mu, y, r){
     return(Vinv)
 }
 
+computeC <- function(G_inv, Gu_partials){
+    # compute the cxc diagonal matrix of trace partial derivatives
+
+    part.4.trace <- matrix(0L, ncol=ncol(G_inv), nrow=nrow(G_inv))
+    for(i in seq_len(length(Gu_partials))){
+        i.partial <- Gu_partials[[i]]
+        for(j in seq_len(length(Gu_partials))){
+            j.partial <- Gu_partials[[j]]
+            part.4.trace[i, j] <- 0.5 * matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial))
+        }
+    }
+    return(part.4.trace)
+}
+
 betaScore <- function(X, D_inv, V_inv, mu, y, r){
     # score vector for fixed effects
     # kx1 vector
@@ -452,13 +482,17 @@ betaUHess <- function(X, Z, D_inv, V_inv, B, W, Q){
 }
 
 
-uBetaHess <- function(X, Z, D_inv, V_inv, B, W, Q){
+uBetaHess <- function(X, Z, D_inv, V_inv, B, W, Q, G_inv, C){
     # compute the d S(u)/dbeta
+    Z_Tinv <- ginv(Z) # note this also returns the transpose
+
     part.1 <- t(Z) %*% D_inv %*% V_inv %*% B %*% X
     part.2 <- t(Z) %*% D_inv %*% W %*% D_inv %*% B %*% X
     part.3 <- t(Z) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% X
+    part.4 <- C %*% Z_Tinv %*% X
+    part.5 <- G_inv %*% Z_Tinv %*% X
 
-    hess <- part.1 + part.2 + part.3
+    hess <- part.1 + part.2 + part.3 - part.4 - part.5
     return(hess)
 }
 
@@ -493,14 +527,15 @@ sigmaUHess <- function(Z_inv, M_inv, G_inv, u_hat){
     0.5 * (G_inv %*% G_inv) - (u_hat %*% t(u_hat) %*% G_inv %*% M_inv)
 }
 
-jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat){
-    # construct the joint hessian for the beta's and u's
 
+jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat, Gu_partials){
+    # construct the joint hessian for the beta's and u's
+    C <- computeC(G_inv, Gu_partials)
     beta.beta <- betaHess(X, D_inv, V_inv, B, W, Q)
-    rand.rand <- randHess(Z, D_inv, V_inv, G_inv, B, W, Q)
+    rand.rand <- randHess(Z, D_inv, V_inv, G_inv, B, W, Q, Gu_partials=Gu_partials)
 
     beta.rand <- betaUHess(X, Z, D_inv, V_inv, B, W, Q)
-    rand.beta <- uBetaHess(X, Z, D_inv, V_inv, B, W, Q)
+    rand.beta <- uBetaHess(X, Z, D_inv, V_inv, B, W, Q, G_inv=G_inv, C=C)
 
     top.hess <- cbind(beta.beta, beta.rand)
     midd.hess <- cbind(rand.beta, rand.rand)
@@ -509,23 +544,39 @@ jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat){
     return(full.hess)
 }
 
-randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, r, u_hat){
+randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, r, u_hat, Gu_partials){
     # score function for random effects
     # c X 1 vector
     n <- length(y)
     y_diff <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     LHS <- t(Z) %*% D_inv %*% V_inv %*% y_diff
-    RHS <- 0.5 * (G_inv %*% u_hat) - (G_inv %*% u_hat)
+    RHS <- matrix(0L, ncol=1, nrow=nrow(u_hat))
+    for(i in seq_len(length(Gu_partials))){
+        RHS[i, ] <- 0.5 * matrix.trace(G_inv %*% Gu_partials[[i]])
+    }
+
+    RHS <- RHS - G_inv %*% u_hat
+    # RHS <- 0.5 * (G_inv %*% u_hat) - (G_inv %*% u_hat)
     return(LHS - RHS)
 }
 
-randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q){
+randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q, Gu_partials){
     # compute Hessian for the random effects
     # c x c matrix
     part.1 <- t(Z) %*% D_inv %*% V_inv %*% B %*% Z
     part.2 <- t(Z) %*% D_inv %*% W %*% D_inv %*% B %*% Z
     part.3 <- t(Z) %*% D_inv %*% V_inv %*% Q %*% D_inv %*% Z
-    part.4 <- (0.5 * G_inv) - G_inv
+
+    part.4.trace <- matrix(0L, ncol=ncol(G_inv), nrow=nrow(G_inv))
+    for(i in seq_len(length(Gu_partials))){
+        i.partial <- Gu_partials[[i]]
+        for(j in seq_len(length(Gu_partials))){
+            j.partial <- Gu_partials[[j]]
+            part.4.trace[i, j] <- 0.5 * matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial))
+        }
+    }
+
+    part.4 <- part.4.trace - G_inv
 
     hess <- part.1 + part.2 + part.3 - part.4
 
@@ -553,7 +604,9 @@ varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
         i.partial <- G_partials[[i]]
         for(j in seq_len(n.dims)){
             j.partial <- G_partials[[j]]
-            part.1 <- inv.det - (0.5 * (matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
+            # this is almost there, but which dG\d sigma should it be that multiplies the 1/2|G| ?
+            # part.1 <- (inv.det * matrix.trace(G_inv %*% i.partial)) - (0.5 * (matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
+            part.1 <- (0.5 * matrix.trace(G_inv %*% j.partial)) * ((matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
             part.2 <- - t(u_hat) %*% G_inv %*% i.partial %*% G_inv %*% j.partial %*% G_inv %*% u_hat
             ij.hess <- part.1 + part.2
             var.hess[i, j] <- ij.hess
