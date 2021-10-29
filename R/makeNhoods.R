@@ -210,7 +210,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
 }
 
-#' @importFrom igraph ego_size neighborhood set_vertex_attr induced_subgraph V
+#' @importFrom igraph count_triangles neighborhood set_vertex_attr induced_subgraph V
 .graph_refined_sampling <- function(random_vertices, graph){
     message("Running refined sampling with graph")
     random_vertices <- as.vector(random_vertices)
@@ -219,12 +219,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         target_vertices <- unlist(neighborhood(X_graph, order = 1, nodes = random_vertices[i])) #get neighborhood of random vertex
         target_vertices <- target_vertices[-1] #remove first entry which is the random vertex itself
         rv_induced_subgraph <- induced_subgraph(graph = X_graph, vids = target_vertices)
-        ego_sizes <- ego_size(rv_induced_subgraph, mode = "all")
-        max_ego_size <- max(ego_sizes)
-        max_ego_size_indices <- which(ego_sizes == max_ego_size)
-        max_ego_index <- max_ego_size_indices
+        triangles <- count_triangles(rv_induced_subgraph)
+        max_triangles <- max(triangles)
+        max_triangles_indices <- which(triangles == max_triangles)
         #note - take first max_ego_index in the next line of code
-        resulting_vertices <- V(rv_induced_subgraph)[max_ego_index]$name[1]
+        resulting_vertices <- V(rv_induced_subgraph)[max_triangles_indices]$name[1]
         return(resulting_vertices)
     }) %>% unlist() %>% as.integer()
     return(refined_vertices)
