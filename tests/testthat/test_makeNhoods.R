@@ -86,9 +86,15 @@ test_that("Incorrect input gives informative error", {
 
     # pass a graph but no reduced dimensions
     expect_error(makeNhoods(sim1.graph, d=30), "No reduced dimensions matrix provided")
+    
+    # pass a graph but no reduced dimensions - this should not throw and error for refinement_scheme = graph
+    expect_error(makeNhoods(sim1.graph, d=30, refined = TRUE, refinement_scheme = "graph", regexp = NA))
 
     # unexpected input type
     expect_error(makeNhoods(list(), d=30), paste0("Data format: ", class(list()), " not recognised."))
+    
+    # wrong refinement scheme given
+    expect_error(makeNhoods(sim1.graph, d = 30, refined = TRUE, refinement_scheme = "NA"), "When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
 })
 
 
@@ -119,6 +125,7 @@ test_that("Refined sampling strictly returns equal to or fewer neighbourhoods th
     set.seed(101)
     random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE))
     expect_true(ncol(nhoods(makeNhoods(sim1.mylo, refined=TRUE))) <= ncol(random.vertices))
+    expect_true(ncol(nhoods(makeNhoods(sim1.mylo, refined = TRUE, refinement_scheme = "graph"))) <= ncol(random.vertices))
 })
 
 
