@@ -73,7 +73,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             mat_cols <- ncol(x)
             match.ids <- all(rownames(X_reduced_dims) == colnames(x))
             if(!match.ids){
-                stop("Rownames of mareduced dimensions do not match cell IDs")
+                stop("Rownames of reduced dimensions do not match cell IDs")
             }
         }
         
