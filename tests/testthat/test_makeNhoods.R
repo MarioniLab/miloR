@@ -88,7 +88,7 @@ test_that("Incorrect input gives informative error", {
     expect_error(makeNhoods(sim1.graph, d=30), "No reduced dimensions matrix provided")
     
     # pass a graph but no reduced dimensions - this should not throw and error for refinement_scheme = graph
-    expect_error(makeNhoods(sim1.graph, d=30, refined = TRUE, refinement_scheme = "graph", regexp = NA))
+    expect_error(makeNhoods(sim1.graph, d=30, refined = TRUE, refinement_scheme = "graph"), regexp = NA)
 
     # unexpected input type
     expect_error(makeNhoods(list(), d=30), paste0("Data format: ", class(list()), " not recognised."))
