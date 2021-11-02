@@ -51,7 +51,7 @@
 #' @export
 #' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN 
-#' @importFrom igraph neighbors neighborhood as_ids
+#' @importFrom igraph neighbors neighborhood as_ids V
 #' @importFrom stats setNames
 makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", refinement_scheme = "reduced_dim") {
     if(is(x, "Milo")){
@@ -114,8 +114,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
     
     sampled_vertices <- unique(sampled_vertices)
-
-    nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    
+    if(is(x, "Milo")){
+        nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    } else if(is(x, "igraph")){
+        nh_mat <- Matrix(data = 0, nrow=length(V(x)), ncol=length(sampled_vertices), sparse = TRUE)
+    }
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
     v.class <- class(V(graph)$name)
