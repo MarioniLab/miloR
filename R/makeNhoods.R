@@ -3,8 +3,8 @@
 #' This function randomly samples vertices on a graph to define neighbourhoods.
 #' These are then refined by either computing the median profile for the neighbourhood
 #' in reduced dimensional space and selecting the nearest vertex to this
-#' position (refinement_scheme = "reduced_dim"), or by computing the vertex with the highest degree within the neighborhood
-#' (refinement_scheme = "graph"). 
+#' position (refinement_scheme = "reduced_dim"), or by computing the vertex with the highest number of 
+#' triangles within the neighborhood (refinement_scheme = "graph"). 
 #' Thus, multiple neighbourhoods may be collapsed down together to
 #' prevent over-sampling the graph space.
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{graph}
