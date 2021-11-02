@@ -124,7 +124,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
     v.class <- class(V(graph)$name)
 
-    if(!is.null(v.class) & is(x, "igraph")){
+    if(!is.null(v.class) & is(x, "igraph") & refinement_scheme == "reduced_dim"){
         rownames(nh_mat) <- rownames(X_reduced_dims)
     } else if(!is.null(v.class) & is(x, "Milo")){
         rownames(nh_mat) <- colnames(x)
