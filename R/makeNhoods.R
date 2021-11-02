@@ -32,8 +32,8 @@
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
-#' isIndex slot. If the input is a \code{igraph} object then the output
-#' is a list of vertices and the indices of vertices that constitute the
+#' nhoods slot. If the input is a \code{igraph} object then the output
+#' is a matrix containing a list of vertices and the indices of vertices that constitute the
 #' neighbourhoods.
 #'
 #' @author
@@ -122,14 +122,18 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
-    v.class <- class(V(graph)$name)
+    v.class <- V(graph)$name
 
-    if(!is.null(v.class) & is(x, "igraph") & refinement_scheme == "reduced_dim"){
-        rownames(nh_mat) <- rownames(X_reduced_dims)
-    } else if(!is.null(v.class) & is(x, "Milo")){
+    if(is(x, "Milo")){
         rownames(nh_mat) <- colnames(x)
+    } else if(is(x, "igraph")){
+        if(is.null(v.class) & refinement_scheme == "reduced_dim"){
+            rownames(nh_mat) <- rownames(X_reduced_dims)
+        } else if(!is.null(v.class)){
+            rownames(nh_mat) <- V(graph)$name
+        }
     }
-
+    
     for (X in seq_len(length(sampled_vertices))){
         nh_mat[unlist(neighborhood(graph, order = 1, nodes = sampled_vertices[X])), X] <- 1 #changed to include index cells
     }
