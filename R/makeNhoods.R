@@ -78,8 +78,9 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         }
         
     } else if(is(x, "igraph")){
-        if(!is.matrix(reduced_dims) & isTRUE(refined) & refinement_scheme == "reduced_dim"){
-            stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
+        
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim") & !is.matrix(reduced_dims)) {
+                stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
         }
         
         graph <- x
@@ -87,11 +88,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
             X_reduced_dims  <- reduced_dims
             mat_cols <- nrow(X_reduced_dims)
-            
             if(is.null(rownames(X_reduced_dims))){
                 stop("Reduced dim rownames are missing - required to assign cell IDs to neighbourhoods")
             }
-        } else if(isTRUE(refined) & refinement_scheme == "graph" & is.matrix(reduced_dim)){
+        }
+        
+        if(isTRUE(refined) & refinement_scheme == "graph" & is.matrix(reduced_dims)){
             warning("Ignoring reduced dimensions matrix because refinement_scheme = graph was selected.")
         }
         
