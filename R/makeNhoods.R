@@ -79,8 +79,8 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         
     } else if(is(x, "igraph")){
         
-        if(isTRUE(refined) & refinement_scheme == "reduced_dim") & !is.matrix(reduced_dims)) {
-                stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim" & !is.matrix(reduced_dims)) {
+            stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
         }
         
         graph <- x
