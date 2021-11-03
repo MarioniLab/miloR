@@ -79,7 +79,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         
     } else if(is(x, "igraph")){
         if(!is.matrix(reduced_dims) & isTRUE(refined) & refinement_scheme == "reduced_dim"){
-            stop("No reduced dimensions matrix provided - required for refined sampling")
+            stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
         }
         
         graph <- x
@@ -91,10 +91,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             if(is.null(rownames(X_reduced_dims))){
                 stop("Reduced dim rownames are missing - required to assign cell IDs to neighbourhoods")
             }
+        } else if(isTRUE(refined) & refinement_scheme == "graph" & is.matrix(reduced_dim)){
+            warning("Ignoring reduced dimensions matrix because refinement_scheme = graph was selected.")
         }
         
     } else{
-        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
+        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph.")
     }
     
     random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
