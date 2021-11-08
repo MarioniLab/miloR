@@ -25,7 +25,8 @@
 #' @importFrom MASS ginv
 #' @export
 runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
-                    glmm.control=list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6, likli.tol=1e-6, max.iter=100, lambda=1e-1)){
+                    glmm.control=list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6,
+                                      likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe")){
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
@@ -43,7 +44,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     if(is.null(init.theta)){
-        curr_u <- matrix(rnorm(ncol(full.Z), mean=1, sd=0.1), ncol=1)
+        curr_u <- matrix(rnorm(ncol(full.Z), mean=1, sd=1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
 
         curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) # OLS for the betas is usually a good starting point for NR
@@ -57,7 +58,8 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         rownames(curr_u) <- colnames(full.Z)
     }
 
-    init.sigma <- matrix(runif(n=ncol(Z)), ncol=1, nrow=ncol(Z))
+    # start with all equal
+    init.sigma <- matrix(1L, ncol=1, nrow=ncol(Z)) - rnorm(ncol(Z), mean=1, sd=0.1) # these can't be identical
     rownames(init.sigma) <- colnames(Z)
     curr_sigma <- init.sigma
 
@@ -78,7 +80,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     # use y_bar as the sample mean and s_hat as the sample variance
     y_bar <- mean(y)
     s_hat <- var(y)
-    r.val <- (y_bar ** 2)/(s_hat + y_bar)
+    r.val <- (s_hat/y_bar) + 1# methods of moments based estimate
     max.hit <- glmm.control[["max.iter"]]
 
     theta_diff <- rep(Inf, nrow(curr_theta))
@@ -105,7 +107,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     conv.list <- list()
     iters <- 1
 
-    meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (loglihood.diff < loglihood.eps) & (sigma_diff < theta.conv) | iters >= max.hit)
+    meet.conditions <- !((all(abs_diff < theta.conv)) & (loglihood.diff < loglihood.eps) & (sigma_diff < theta.conv) | iters >= max.hit)
 
     while(meet.conditions){
         D_inv <- computeDinv(mu.vec)
@@ -119,11 +121,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=r.val)
         score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u, Gu_partials=Gu_partials)
 
-        score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u, G_partials=G_partials, n.comps=nrow(curr_sigma))
-
-        # re.hess <- randHess(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q, Gu_partials=Gu_partials)
-        # fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q)
-
         full.score <- do.call(rbind, list(score_beta, score_u))
         full.hess <- jointHess(X=X, Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q, Gu_partials=Gu_partials)
 
@@ -131,20 +128,23 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         theta_update <- theta_nr.out$theta
         hess_theta <- theta_nr.out$hessian
 
+        theta_diff <- theta_update - curr_theta # does this needs to be all negative? No, just _very_ small
+        curr_theta <- theta_update
+        curr_beta <- curr_theta[colnames(X), , drop=FALSE]
+        curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
+
+        ### sigma estimation
         # update sigmas _after_ thetas
         det.G <- det(curr_G)
-        sigma.hess <- varHess(G_inv=G_inv, u_hat=curr_theta[colnames(full.Z), , drop=FALSE],
+        score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u,
+                                G_partials=G_partials, n.comps=nrow(curr_sigma))
+        sigma.hess <- varHess(G_inv=G_inv, u_hat=curr_u,
                               det.G=det.G, curr_G=curr_G, G_partials=G_partials)
         sigma_nr.out <- singleNR(score_vec=score_sigma, hess_mat=sigma.hess, theta_hat=curr_sigma)
         sigma_update <- sigma_nr.out$theta
         hess_sigma <- sigma_nr.out$hessian
 
-        theta_diff <- theta_update - curr_theta # this needs to be all negative
-        sigma_diff <- sigma_update - curr_sigma # this needs to be all negative
-
-        curr_theta <- theta_update
-        curr_beta <- curr_theta[colnames(X), , drop=FALSE]
-        curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
+        sigma_diff <- sigma_update - curr_sigma
         curr_sigma <- sigma_update
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
@@ -160,16 +160,25 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         abs_diff <- abs(theta_diff)
 
+        # need to sum all of the variances
         res.var <- (s_hat - colSums(curr_sigma))
         curr_var.comps <- c(curr_sigma[, 1], res.var)/s_hat
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
 
         # loglihood integrating over the random effects only
-        curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, full.hess)
+        if(glmm.control$laplace.int %in% c("fe")){
+            fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q) # this is used to integrate over FEs for var comp estimation
+            curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
+        } else if(glmm.control$laplace.int %in% c("full")){
+            curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, full.hess) # integrating over both the RE and FEs
+        }
+
         loglihood.diff <- curr.loglihood - loglihood
 
-        meet.conditions <- !((all(abs_diff < theta.conv)) & (all(theta_diff <= 0)) & (abs(loglihood.diff) < loglihood.eps) &
-                                 loglihood.diff > 0 & (all(sigma_diff < theta.conv))| iters >= max.hit)
+        # the requirement for negative changes at every step is causing problems
+        meet.conditions <- !((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) &
+                                 (all(sigma_diff < theta.conv))| iters >= max.hit)
+
         loglihood <- curr.loglihood
         var.comps.diff <- curr_var.comps - var.comps
 
@@ -181,10 +190,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         bigV <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
         v.vec <- (mu.vec**2 * (1/r.val)) - mu.vec
         diag(bigV) <- v.vec
-        R <- bigV - full.Z %*% curr_G %*% t(full.Z)
+        R <- bigV - (full.Z %*% curr_G %*% t(full.Z))
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
-                                           "Hessian"=hess_theta, "r"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
+                                           "Hessian"=hess_theta, "Dispersion"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
                                            "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, "Sigma.Hess"=hess_sigma,
                                            "V"=bigV, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
@@ -242,13 +251,13 @@ initialiseG <- function(Z, cluster_levels, sigmas){
 
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
-        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] #* (Z[, c(i:(i+x.q-1)), drop=FALSE] %*% t(Z[, c(i:(i+x.q-1)), drop=FALSE]))
+        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ]
         i <- j <- i+x.q
     }
     return(as.matrix(G))
 }
 
-initializeFullZ <- function(Z, cluster_levels){
+initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # construct the full Z with all random effect levels
     n.cols <- ncol(Z)
     col.classes <- apply(Z, 2, class)
@@ -274,6 +283,15 @@ initializeFullZ <- function(Z, cluster_levels){
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
         colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
+
+        # to standardise or not?
+        if(isTRUE(stand.cols)){
+            q <- ncol(i.z)
+            i.ident <- diag(1L, nrow=nrow(i.z), ncol=nrow(i.z))
+            i.star <- i.z - ((i.ident %*% i.z)/q)
+            i.z <- i.star
+        }
+
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
@@ -484,6 +502,7 @@ betaUHess <- function(X, Z, D_inv, V_inv, B, W, Q){
 
 uBetaHess <- function(X, Z, D_inv, V_inv, B, W, Q, G_inv, C){
     # compute the d S(u)/dbeta
+    # does this return a Moore-Penrose inverse?
     Z_Tinv <- ginv(Z) # note this also returns the transpose
 
     part.1 <- t(Z) %*% D_inv %*% V_inv %*% B %*% X
@@ -605,7 +624,6 @@ varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
         for(j in seq_len(n.dims)){
             j.partial <- G_partials[[j]]
             # this is almost there, but which dG\d sigma should it be that multiplies the 1/2|G| ?
-            # part.1 <- (inv.det * matrix.trace(G_inv %*% i.partial)) - (0.5 * (matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
             part.1 <- (0.5 * matrix.trace(G_inv %*% j.partial)) * ((matrix.trace(G_inv %*% i.partial) * matrix.trace(G_inv %*% j.partial)) - matrix.trace((G_inv %*% i.partial) %*% (G_inv %*% j.partial)))
             part.2 <- - t(u_hat) %*% G_inv %*% i.partial %*% G_inv %*% j.partial %*% G_inv %*% u_hat
             ij.hess <- part.1 + part.2
@@ -628,7 +646,7 @@ laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
     } else{
         log.det.hess <- 0
     }
-    nb.liklihood + norm.liklihood - ((1/2) * log.det.hess)
+    nb.liklihood + norm.liklihood - ((1/2) * (log.det.hess/(2*pi)))
 }
 
 
@@ -666,7 +684,12 @@ matrix.trace <- function(x){
 }
 
 
-
+#### utils
+glmmControl.defaults <- function(...){
+    # return the default glmm control values
+    return(list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6,
+                likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe"))
+}
 
 
 
