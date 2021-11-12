@@ -58,8 +58,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         rownames(curr_u) <- colnames(full.Z)
     }
 
-    # start with all equal
-    init.sigma <- matrix(1L, ncol=1, nrow=ncol(Z)) - rnorm(ncol(Z), mean=1, sd=0.1) # these can't be identical
+    # initialise using solutions of variance components from ANOVA
+    init.sigma <- matrix(estimateInitialSigmas(y, Z), ncol=1) # the last one is the residual variance component
+    init.sigma <- init.sigma[-nrow(init.sigma), , drop=FALSE]
     rownames(init.sigma) <- colnames(Z)
     curr_sigma <- init.sigma
 
@@ -80,7 +81,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     # use y_bar as the sample mean and s_hat as the sample variance
     y_bar <- mean(y)
     s_hat <- var(y)
-    r.val <- (s_hat/y_bar) + 1# methods of moments based estimate
+    r.val <- (y_bar **2)/(s_hat + y_bar) # methods of moments based estimate
     max.hit <- glmm.control[["max.iter"]]
 
     theta_diff <- rep(Inf, nrow(curr_theta))
@@ -133,16 +134,42 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_beta <- curr_theta[colnames(X), , drop=FALSE]
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
 
-        ### sigma estimation
         # update sigmas _after_ thetas
-        det.G <- det(curr_G)
-        score_sigma <- varScore(G_inv=G_inv, u_hat=curr_u,
-                                G_partials=G_partials, n.comps=nrow(curr_sigma))
-        sigma.hess <- varHess(G_inv=G_inv, u_hat=curr_u,
-                              det.G=det.G, curr_G=curr_G, G_partials=G_partials)
-        sigma_nr.out <- singleNR(score_vec=score_sigma, hess_mat=sigma.hess, theta_hat=curr_sigma)
-        sigma_update <- sigma_nr.out$theta
-        hess_sigma <- sigma_nr.out$hessian
+        ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
+        beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
+        u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
+        res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
+        beta_df <- computeFixedDf(X)
+        rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
+        u_df <- computeRandomDf(random.levels)
+        rownames(u_df) <- names(random.levels)
+
+        res_df <- computeResDf(length(y), beta_df, u_df)
+        rownames(res_df) <- "residual"
+
+        beta_ms <- computeFixedMeanSquares(beta_ss, beta_df)
+        rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
+
+        u_ms <- computeRandomMeanSquares(u_ss, u_df)
+        rownames(u_ms) <- colnames(Z)
+
+        res_ms <- res_ss/res_df
+        rownames(res_ms) <- "residual"
+
+        ss <- rbind(beta_ss, u_ss, res_ss)
+        ms <- rbind(beta_ms, u_ms, res_ms)
+        df <- rbind(beta_df, u_df, res_df)
+
+        ems <- buildEMS(X, curr_beta, random.levels, y, df)
+        # solve the system of equations
+        ems.chol <- chol(ems)
+        ems.solve <- backsolve(ems.chol, ms)
+        rownames(ems.solve) <- rownames(ms)
+
+        # although we don't use the fixed effects we should note that this
+        # actually gives us the squared fixed effects
+        sigma_update <- ems.solve[names(random.levels), , drop=FALSE]
+        res_sigma <- ems.solve["residual", ]
 
         sigma_diff <- sigma_update - curr_sigma
         curr_sigma <- sigma_update
@@ -175,7 +202,13 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         loglihood.diff <- curr.loglihood - loglihood
 
-        # the requirement for negative changes at every step is causing problems
+        # the loglihood can bimble along at a small value but not converge with enough tolerance <- a local optimum?
+        # message("Theta convergence: ", all(abs_diff < theta.conv))
+        # message("Loglihood convergence:", abs(loglihood.diff) < loglihood.eps)
+        # message("Delta Loglihood: ", abs(loglihood.diff))
+        # message("VC convergence: ", all(sigma_diff < theta.conv))
+        # print(iters >= max.hit)
+
         meet.conditions <- !((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) &
                                  (all(sigma_diff < theta.conv))| iters >= max.hit)
 
@@ -194,7 +227,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
                                            "Hessian"=hess_theta, "Dispersion"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
-                                           "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, "Sigma.Hess"=hess_sigma,
+                                           "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, #"Sigma.Hess"=hess_sigma,
                                            "V"=bigV, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
         iters <- iters + 1
@@ -212,6 +245,133 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     return(conv.list)
 }
+
+
+buildEMS <- function(X, curr_beta, random.levels, y, df){
+    # Construct a matrix N that will be used to map the
+    # expected mean squares to the model parameters
+    # order is FE, RE, residual
+    tot.vars <- ncol(X) - 1 + length(random.levels) + 1
+    M <- matrix(0L, nrow=tot.vars, ncol=tot.vars)
+    M[, ncol(M)] <- 1 # the residual term is present for _all_ parameters
+
+    for(j in seq_len(ncol(X)-1)){
+        j.var <- colnames(X)[j+1]
+        j.scalar <- apply(df[-which(j.var == rownames(df)), , drop=FALSE], 2, prod)
+
+        M[j, j] <- j.scalar
+    }
+
+    # this currently doesn't handle interaction terms
+    for(l in seq_len(length(random.levels))){
+        l.var <- names(random.levels)[l]
+        l.scalar <- apply(df[-which(l.var == rownames(df)), , drop=FALSE], 2, prod)
+        l.idx <- ncol(X) - 1 + l
+        M[l.idx, l.idx] <- l.scalar
+    }
+
+    return(M)
+}
+
+
+
+computeResidualSimSquares <- function(y, y_bar, beta_ss, u_ss){
+    # compute the residual SS from the total - sum(beta_ss + u_ss)
+    total_ss <- sum((y - y_bar)**2)
+    residual_ss <- matrix(total_ss - (colSums(beta_ss) + colSums(u_ss)), ncol=1, nrow=1)
+    return(residual_ss)
+}
+
+
+computeFixedSumSquares <- function(curr_beta, X, y_bar){
+    # compute the fixed effect mean squares
+    # X is a matrix, curr_beta is a column vector, y_bar is a scalar
+    # note the betas are on a _log_ scale
+    ss <- matrix(0L, ncol=1, nrow=ncol(X) - 1)
+    for(j in seq_len(ncol(X)-1)){
+        ss.j <- ((colSums(exp(curr_beta[c(1, j+1), , drop=FALSE])) - y_bar)**2)
+        ss[j, ] <- ss.j
+    }
+    return(ss)
+}
+
+
+computeRandomSumSquares <- function(curr_u, random.levels, full.Z, y_bar){
+    # compute the random effect mean squares
+    # Z is a matrix, curr_u is a matrix with all of the estimated RE coefficients -
+    # these are the group means for each level.
+    # note the u's are on a _log_ scale
+    ss <- matrix(0L, ncol=1, nrow=length(random.levels))
+    for(k in seq_len(length(random.levels))){
+        k.name <- names(random.levels)[k]
+        k.levels <- random.levels[[k.name]]
+        k.ss <- colSums((exp(curr_u[k.levels, , drop=FALSE]) - y_bar)**2)
+        ss[k, ] <- k.ss
+    }
+
+    return(ss)
+}
+
+
+computeFixedDf <- function(X){
+    df <- matrix(0L, ncol=1, nrow=ncol(X)-1)
+
+    for(j in seq_len(ncol(X)-1)){
+        if(is.factor(X[, j+1])){
+            df.j <- length(levels(X[, j+1])) - 1
+        } else if(is.character(X[, j+1])){
+            df.j <- length(unique(X[, j+1])) - 1
+        } else{
+            df.j <- 1
+        }
+
+        df[j, ] <- df.j
+    }
+    return(df)
+}
+
+
+computeRandomDf <- function(random.levels){
+    df <- matrix(0L, ncol=1, nrow=length(random.levels))
+    re.levels <- names(random.levels)
+    for(k in seq_len(length(re.levels))){
+        k.re <- re.levels[k]
+        if(length(random.levels[[k.re]]) > 1){
+            df[k, ] <- length(random.levels[[k.re]]) - 1
+        } else{
+            df[k, ] <- 1
+        }
+    }
+    return(df)
+}
+
+
+computeResDf <- function(n, beta_df, u_df){
+    # compute the residual dfs
+    return(matrix(n - (colSums(beta_df) + colSums(u_df)) - 1, ncol=1, nrow=1))
+}
+
+
+computeFixedMeanSquares <- function(beta_ss, beta_df){
+    # compute the fixed effect mean squares, i.e. SS/df
+    if(nrow(beta_ss) != nrow(beta_df)){
+        stop("Rows are not concodrant")
+    } else{
+        return(beta_ss/beta_df)
+    }
+}
+
+
+computeRandomMeanSquares <- function(u_ss, u_df){
+    # compute the random effect mean squares
+    if(nrow(u_ss) != nrow(u_df)){
+        stop("Rows are not concodrant")
+    } else{
+        return(u_ss/u_df)
+    }
+}
+
+
 
 computeGPartials <- function(curr_G, sigmas){
     # compute the partial derivatives dG/dsigma
@@ -238,6 +398,41 @@ computeGuPartials <- function(curr_G, u_hat, cluster_levels, sigmas){
 
     return(partial.list)
 }
+
+
+estimateInitialSigmas <- function(y, Z){
+    ## compute the EMS given the input formula and solve for the ANOVA variance components
+    ## the plan is to use VCA here - it'll save trying to reimplement it myself
+    require(VCA)
+
+    design <- as.data.frame(Z)
+    design$y <- y
+    form <- as.formula(paste("y ~ ", paste(colnames(Z), collapse=" + ")))
+    var.comps <- anovaVCA(form, design)$VCoriginal
+    names(var.comps) <- c(colnames(Z), "residual")
+    return(var.comps)
+}
+
+
+computeQuadRoots <- function(X, curr_theta, r, S_hat){
+    # solve the quadratic formula to get the potential roots to solve for sigmas
+    a = exp(2 * X %*% curr_theta[colnames(X), ])
+    b = -exp(2 * X %*% curr_theta[colnames(X), ])
+    c = (1/r) * (exp(2 * X %*% curr_theta[colnames(X),]) - (r * exp(X %*% curr_theta[colnames(X),]))) - S_hat
+
+    x_1 = (-b + sqrt(b**2 - 4*a*c))/(2 * a)
+    x_2 = (-b - sqrt(b**2 - 4*a*c))/(2 * a)
+
+    return(list(x_1, x_2))
+}
+
+
+sigmaSolve <- function(roots, Z){
+    # Z is a vector now
+    sigma <- log(roots)/as.vector(t(Z) %*% Z)
+    return(sigma)
+}
+
 
 
 initialiseG <- function(Z, cluster_levels, sigmas){
@@ -866,6 +1061,11 @@ solveMME <- function(X, Z, hessian, y_bar, R){
     new_theta
 }
 
+computeModes <- function(x) {
+    ux <- unique(x)
+    tab <- tabulate(match(x, ux))
+    ux[tab == max(tab)]
+}
 
 # laplaceApprox <- function(alpha, y, zi, G, Ginv, u, tau.hessian){
 #     ## compute the Laplace approximation to the full extended likelihood
