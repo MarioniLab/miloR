@@ -23,11 +23,11 @@ average cell counts across samples.}
 DA testing.}
 
 \item{fdr.weighting}{The spatial FDR weighting scheme to use. Choice from max,
-neighbour-distance or k-distance (default). If \code{none} is passed no
+neighbour-distance, graph-overlap or k-distance (default). If \code{none} is passed no
 spatial FDR correction is performed and returns a vector of NAs.}
 
 \item{robust}{If robust=TRUE then this is passed to edgeR and limma which use a robust
-estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
+estimation for the global quasilikelihood dispersion distribution. See \code{edgeR} and
 Phipson et al, 2013 for details.}
 
 \item{norm.method}{A character scalar, either \code{"logMS"}, \code{"TMM"} or \code{"RLE"}.
@@ -37,6 +37,9 @@ as described in Robinson & Oshlack, 2010, whilst \code{"RLE"} uses the relative 
 method by Anders & Huber, 2010, to compute normalisation factors relative to a reference computed from
 the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 when there are very large compositional differences between samples.}
+
+\item{reduced.dim}{A character scalar referring to the reduced dimensional slot used to compute distances for
+the spatial FDR. This should be the same as used for graph building.}
 }
 \value{
 A \code{data.frame} of model results, which contain:

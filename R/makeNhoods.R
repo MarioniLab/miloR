@@ -1,6 +1,6 @@
 #' Define neighbourhoods on a graph (fast)
 #'
-#' This function randomly samples vertices on a graph to define neighbourhoods.
+#' This function randomly samples vertcies on a graph to define neighbourhoods.
 #' These are then refined by computing the median profile for the neighbourhood
 #' in reduced dimensional space and selecting the nearest vertex to this
 #' position. Thus, multiple neighbourhoods may be collapsed down together to
@@ -21,7 +21,7 @@
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
-#' be turned off by setting \code{refined=FALSE}, however, we do not recommend
+#' be turned off by setting \code{refine=FALSE}, however, we do not recommend
 #' this as neighbourhoods will contain a lot of redundancy and lead to an
 #' unnecessarily larger multiple-testing burden.
 #'
@@ -120,6 +120,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         return(nh_mat)
     }
 }
+
 
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom matrixStats colMedians

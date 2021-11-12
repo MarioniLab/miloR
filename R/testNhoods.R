@@ -16,10 +16,10 @@
 #' @param model.contrasts A string vector that defines the contrasts used to perform
 #' DA testing.
 #' @param fdr.weighting The spatial FDR weighting scheme to use. Choice from max,
-#' neighbour-distance or k-distance (default). If \code{none} is passed no
+#' neighbour-distance, graph-overlap or k-distance (default). If \code{none} is passed no
 #' spatial FDR correction is performed and returns a vector of NAs.
 #' @param robust If robust=TRUE then this is passed to edgeR and limma which use a robust
-#' estimation for the global quasilikihood dispersion distribution. See \code{edgeR} and
+#' estimation for the global quasilikelihood dispersion distribution. See \code{edgeR} and
 #' Phipson et al, 2013 for details.
 #' @param norm.method A character scalar, either \code{"logMS"}, \code{"TMM"} or \code{"RLE"}.
 #' The \code{"logMS"} method normalises the counts across samples using the log columns sums of
