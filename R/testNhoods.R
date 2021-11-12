@@ -103,7 +103,7 @@ NULL
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df,
-                       fdr.weighting=c("k-distance", "neighbour-distance", "max", "none"),
+                       fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
                        norm.method=c("TMM", "RLE", "logMS"),
                        error.model=c("glm", "glmm")){
