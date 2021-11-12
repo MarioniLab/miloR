@@ -243,7 +243,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         }
     }
 
-    return(conv.list)
+    final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ], "Loglihood"=loglihood,
+                       "VarComp"=curr_var.comps,
+                       "Sigmas"=curr_sigma, "Iterations"=conv.list)
+    return(final.list)
 }
 
 
