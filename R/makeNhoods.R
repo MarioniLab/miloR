@@ -1,9 +1,11 @@
 #' Define neighbourhoods on a graph (fast)
 #'
-#' This function randomly samples vertcies on a graph to define neighbourhoods.
-#' These are then refined by computing the median profile for the neighbourhood
+#' This function randomly samples vertices on a graph to define neighbourhoods.
+#' These are then refined by either computing the median profile for the neighbourhood
 #' in reduced dimensional space and selecting the nearest vertex to this
-#' position. Thus, multiple neighbourhoods may be collapsed down together to
+#' position (refinement_scheme = "reduced_dim"), or by computing the vertex with the highest number of
+#' triangles within the neighborhood (refinement_scheme = "graph").
+#' Thus, multiple neighbourhoods may be collapsed down together to
 #' prevent over-sampling the graph space.
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{graph}
 #' slot. Alternatively an \code{igraph} object on which neighbourhoods will
@@ -16,7 +18,10 @@
 #' @param reduced_dims If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 #' \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 #' matrix of vertices X reduced dimensions with \code{rownames()} set to correspond to the cellIDs.
-#' @param refined A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.
+#' @param refined A logical scalar that determines the sampling behavior, default=TRUE implements a refined sampling scheme,
+#' specified by the refinement_scheme argument.
+#' @refinement_scheme refinement_scheme A character scalar that defines the sampling scheme, either "reduced_dim" or "graph".
+#' Default is "reduced_dim".
 #'
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
@@ -27,8 +32,8 @@
 #'
 #' @return A \code{\linkS4class{Milo}} object containing a list of vertices and
 #' the indices of vertices that constitute the neighbourhoods in the
-#' isIndex slot. If the input is a \code{igraph} object then the output
-#' is a list of vertices and the indices of vertices that constitute the
+#' nhoods slot. If the input is a \code{igraph} object then the output
+#' is a matrix containing a list of vertices and the indices of vertices that constitute the
 #' neighbourhoods.
 #'
 #' @author
@@ -46,9 +51,9 @@
 #' @export
 #' @rdname makeNhoods
 #' @importFrom BiocNeighbors findKNN
-#' @importFrom igraph neighbors neighborhood as_ids
+#' @importFrom igraph neighbors neighborhood as_ids V
 #' @importFrom stats setNames
-makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA") {
+makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA", refinement_scheme = "reduced_dim") {
     if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
@@ -56,54 +61,81 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
         graph <- graph(x)
-        X_reduced_dims  <- reducedDim(x, reduced_dims)
-        if (d > ncol(X_reduced_dims)) {
-            warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims). Falling back to using",
-                    ncol(X_reduced_dims),"dimensions\n")
-            d <- ncol(X_reduced_dims)
-        }
-        X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
-        mat_cols <- ncol(x)
-        match.ids <- all(rownames(X_reduced_dims) == colnames(x))
-        if(!match.ids){
-            stop("Rownames of reduced dimensions do not match cell IDs")
+
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
+            X_reduced_dims  <- reducedDim(x, reduced_dims)
+            if (d > ncol(X_reduced_dims)) {
+                warning("Specified d is higher than the total number of dimensions in reducedDim(x, reduced_dims).
+                        Falling back to using",ncol(X_reduced_dims),"dimensions\n")
+                d <- ncol(X_reduced_dims)
+            }
+            X_reduced_dims  <- X_reduced_dims[,seq_len(d)]
+            mat_cols <- ncol(x)
+            match.ids <- all(rownames(X_reduced_dims) == colnames(x))
+            if(!match.ids){
+                stop("Rownames of reduced dimensions do not match cell IDs")
+            }
         }
 
     } else if(is(x, "igraph")){
-        if(!is.matrix(reduced_dims) & isTRUE(refined)){
-            stop("No reduced dimensions matrix provided - required for refined sampling")
+
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim" & !is.matrix(reduced_dims)) {
+            stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
         }
 
         graph <- x
-        X_reduced_dims <- reduced_dims
-        mat_cols <- nrow(X_reduced_dims)
 
-        if(is.null(rownames(X_reduced_dims))){
-            stop("Reduced dim rownames are missing - required to assign cell IDs to neighbourhoods")
+        if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
+            X_reduced_dims  <- reduced_dims
+            mat_cols <- nrow(X_reduced_dims)
+            if(is.null(rownames(X_reduced_dims))){
+                stop("Reduced dim rownames are missing - required to assign cell IDs to neighbourhoods")
+            }
+        }
+
+        if(isTRUE(refined) & refinement_scheme == "graph" & is.matrix(reduced_dims)){
+            warning("Ignoring reduced dimensions matrix because refinement_scheme = graph was selected.")
         }
 
     } else{
-        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph")
+        stop("Data format: ", class(x), " not recognised. Should be Milo or igraph.")
     }
+
     random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
 
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
     } else if (isTRUE(refined)) {
-        sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
+        if(refinement_scheme == "reduced_dim"){
+            sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
+        } else if (refinement_scheme == "graph") {
+            sampled_vertices <- .graph_refined_sampling(random_vertices, graph)
+        } else {
+            stop("When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
+        }
+    } else {
+        stop("refined must be TRUE or FALSE")
     }
 
     sampled_vertices <- unique(sampled_vertices)
 
-    nh_mat <- Matrix(data = 0, nrow=mat_cols, ncol=length(sampled_vertices), sparse = TRUE)
+    if(is(x, "Milo")){
+        nh_mat <- Matrix(data = 0, nrow=ncol(x), ncol=length(sampled_vertices), sparse = TRUE)
+    } else if(is(x, "igraph")){
+        nh_mat <- Matrix(data = 0, nrow=length(V(x)), ncol=length(sampled_vertices), sparse = TRUE)
+    }
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
-    v.class <- class(V(graph)$name)
+    v.class <- V(graph)$name
 
-    if(!is.null(v.class) & is(x, "igraph")){
-        rownames(nh_mat) <- rownames(X_reduced_dims)
-    } else if(!is.null(v.class) & is(x, "Milo")){
+    if(is(x, "Milo")){
         rownames(nh_mat) <- colnames(x)
+    } else if(is(x, "igraph")){
+        if(is.null(v.class) & refinement_scheme == "reduced_dim"){
+            rownames(nh_mat) <- rownames(X_reduced_dims)
+        } else if(!is.null(v.class)){
+            rownames(nh_mat) <- V(graph)$name
+        }
     }
 
     for (X in seq_len(length(sampled_vertices))){
@@ -125,6 +157,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom matrixStats colMedians
 .refined_sampling <- function(random_vertices, X_reduced_dims, k){
+    message("Running refined sampling with reduced_dim")
     vertex.knn <-
         findKNN(
             X = X_reduced_dims,
@@ -190,4 +223,21 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
 }
 
-
+#' @importFrom igraph count_triangles neighborhood set_vertex_attr induced_subgraph V
+.graph_refined_sampling <- function(random_vertices, graph){
+    message("Running refined sampling with graph")
+    random_vertices <- as.vector(random_vertices)
+    X_graph <- set_vertex_attr(graph, "name", value = 1:length(V(graph)))
+    refined_vertices <- lapply(seq_along(random_vertices), function(i){
+        target_vertices <- unlist(neighborhood(X_graph, order = 1, nodes = random_vertices[i])) #get neighborhood of random vertex
+        target_vertices <- target_vertices[-1] #remove first entry which is the random vertex itself
+        rv_induced_subgraph <- induced_subgraph(graph = X_graph, vids = target_vertices)
+        triangles <- count_triangles(rv_induced_subgraph)
+        max_triangles <- max(triangles)
+        max_triangles_indices <- which(triangles == max_triangles)
+        #note - take first max_ego_index in the next line of code
+        resulting_vertices <- V(rv_induced_subgraph)[max_triangles_indices]$name[1]
+        return(resulting_vertices)
+    }) %>% unlist() %>% as.integer()
+    return(refined_vertices)
+}
