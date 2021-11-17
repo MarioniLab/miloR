@@ -135,41 +135,48 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
 
         # update sigmas _after_ thetas
-        ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
-        beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
-        u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
-        res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
-        beta_df <- computeFixedDf(X)
-        rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
-        u_df <- computeRandomDf(random.levels)
-        rownames(u_df) <- names(random.levels)
-
-        res_df <- computeResDf(length(y), beta_df, u_df)
-        rownames(res_df) <- "residual"
-
-        beta_ms <- computeFixedMeanSquares(beta_ss, beta_df)
-        rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
-
-        u_ms <- computeRandomMeanSquares(u_ss, u_df)
-        rownames(u_ms) <- colnames(Z)
-
-        res_ms <- res_ss/res_df
-        rownames(res_ms) <- "residual"
-
-        ss <- rbind(beta_ss, u_ss, res_ss)
-        ms <- rbind(beta_ms, u_ms, res_ms)
-        df <- rbind(beta_df, u_df, res_df)
-
-        ems <- buildEMS(X, curr_beta, random.levels, y, df)
-        # solve the system of equations
-        ems.chol <- chol(ems)
-        ems.solve <- backsolve(ems.chol, ms)
-        rownames(ems.solve) <- rownames(ms)
+        # ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
+        # beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
+        # u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
+        # res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
+        # beta_df <- computeFixedDf(X)
+        # rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
+        # u_df <- computeRandomDf(random.levels)
+        # rownames(u_df) <- names(random.levels)
+        #
+        # res_df <- computeResDf(length(y), beta_df, u_df)
+        # rownames(res_df) <- "residual"
+        #
+        # beta_ms <- computeFixedMeanSquares(beta_ss, beta_df)
+        # rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
+        #
+        # u_ms <- computeRandomMeanSquares(u_ss, u_df)
+        # rownames(u_ms) <- colnames(Z)
+        #
+        # res_ms <- res_ss/res_df
+        # rownames(res_ms) <- "residual"
+        #
+        # ss <- rbind(beta_ss, u_ss, res_ss)
+        # ms <- rbind(beta_ms, u_ms, res_ms)
+        # df <- rbind(beta_df, u_df, res_df)
+        #
+        # ems <- buildEMS(X, curr_beta, random.levels, y, df)
+        # # solve the system of equations
+        # ems.chol <- chol(ems)
+        # ems.solve <- backsolve(ems.chol, ms)
+        # rownames(ems.solve) <- rownames(ms)
 
         # although we don't use the fixed effects we should note that this
         # actually gives us the squared fixed effects
-        sigma_update <- ems.solve[names(random.levels), , drop=FALSE]
-        res_sigma <- ems.solve["residual", ]
+        # sigma_update <- ems.solve[names(random.levels), , drop=FALSE]
+        # res_sigma <- ems.solve["residual", ]
+        sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
+
+        # need to check for negative variance components <- might be due to small samples sizes and instability
+        if(any(sigma_update < 0)){
+            warning("Negative variance components detected - setting to 0")
+            sigma_update[sigma_update < 0, ] <- 0
+        }
 
         sigma_diff <- sigma_update - curr_sigma
         curr_sigma <- sigma_update
@@ -202,12 +209,12 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         loglihood.diff <- curr.loglihood - loglihood
 
-        # the loglihood can bimble along at a small value but not converge with enough tolerance <- a local optimum?
+        # # the loglihood can bimble along at a small value but not converge with enough tolerance <- a local optimum?
         # message("Theta convergence: ", all(abs_diff < theta.conv))
         # message("Loglihood convergence:", abs(loglihood.diff) < loglihood.eps)
         # message("Delta Loglihood: ", abs(loglihood.diff))
         # message("VC convergence: ", all(sigma_diff < theta.conv))
-        # print(iters >= max.hit)
+        # message("Iteration: ", iters)
 
         meet.conditions <- !((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) &
                                  (all(sigma_diff < theta.conv))| iters >= max.hit)
@@ -243,10 +250,54 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         }
     }
 
+    # compute SEs for final estimates
+    converged <- ((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) & (all(sigma_diff < theta.conv)))
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ], "Loglihood"=loglihood,
-                       "VarComp"=curr_var.comps,
+                       "VarComp"=curr_var.comps, "converged"=converged,
+                       "Iters"=iters, "Dispersion"=r.val,
                        "Sigmas"=curr_sigma, "Iterations"=conv.list)
     return(final.list)
+}
+
+
+masala <- function(X, curr_beta, y_bar, full.Z, curr_u, random.levels){
+    ## convenience function for computing variance components
+    ## with mikes appalling shonky anova-like approximation
+    ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
+    beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
+    u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
+    res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
+    beta_df <- computeFixedDf(X)
+    rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
+    u_df <- computeRandomDf(random.levels)
+    rownames(u_df) <- names(random.levels)
+
+    res_df <- computeResDf(length(y), beta_df, u_df)
+    rownames(res_df) <- "residual"
+
+    beta_ms <- computeFixedMeanSquares(beta_ss, beta_df)
+    rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
+
+    u_ms <- computeRandomMeanSquares(u_ss, u_df)
+    rownames(u_ms) <- colnames(Z)
+
+    res_ms <- res_ss/res_df
+    rownames(res_ms) <- "residual"
+
+    ss <- rbind(beta_ss, u_ss, res_ss)
+    ms <- rbind(beta_ms, u_ms, res_ms)
+    df <- rbind(beta_df, u_df, res_df)
+
+    ems <- buildEMS(X, curr_beta, random.levels, y, df)
+
+    # solve the system of equations
+    ems.chol <- chol(ems)
+    ems.solve <- backsolve(ems.chol, ms)
+    rownames(ems.solve) <- rownames(ms)
+
+    # although we don't use the fixed effects we should note that this
+    # actually gives us the squared fixed effects
+    return(ems.solve[names(random.levels), , drop=FALSE])
 }
 
 
