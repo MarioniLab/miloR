@@ -135,41 +135,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
 
         # update sigmas _after_ thetas
-        # ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
-        # beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
-        # u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
-        # res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
-        # beta_df <- computeFixedDf(X)
-        # rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
-        # u_df <- computeRandomDf(random.levels)
-        # rownames(u_df) <- names(random.levels)
-        #
-        # res_df <- computeResDf(length(y), beta_df, u_df)
-        # rownames(res_df) <- "residual"
-        #
-        # beta_ms <- computeFixedMeanSquares(beta_ss, beta_df)
-        # rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
-        #
-        # u_ms <- computeRandomMeanSquares(u_ss, u_df)
-        # rownames(u_ms) <- colnames(Z)
-        #
-        # res_ms <- res_ss/res_df
-        # rownames(res_ms) <- "residual"
-        #
-        # ss <- rbind(beta_ss, u_ss, res_ss)
-        # ms <- rbind(beta_ms, u_ms, res_ms)
-        # df <- rbind(beta_df, u_df, res_df)
-        #
-        # ems <- buildEMS(X, curr_beta, random.levels, y, df)
-        # # solve the system of equations
-        # ems.chol <- chol(ems)
-        # ems.solve <- backsolve(ems.chol, ms)
-        # rownames(ems.solve) <- rownames(ms)
-
-        # although we don't use the fixed effects we should note that this
-        # actually gives us the squared fixed effects
-        # sigma_update <- ems.solve[names(random.levels), , drop=FALSE]
-        # res_sigma <- ems.solve["residual", ]
+        ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
         sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
 
         # need to check for negative variance components <- might be due to small samples sizes and instability
