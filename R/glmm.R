@@ -44,12 +44,14 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     if(is.null(init.theta)){
+        # use the group level means (on the log(y)) as the initial estimates of the random effects
         curr_u <- matrix(rnorm(ncol(full.Z), mean=1, sd=1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
+        # curr_u <- matrix(initialiseRandom(full.Z, y, mean(log(y+1))), ncol=1)
+        # rownames(curr_u) <- colnames(full.Z)
 
         curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) # OLS for the betas is usually a good starting point for NR
         rownames(curr_beta) <- colnames(X)
-
     } else{
         curr_beta <- matrix(init.theta[["beta"]], ncol=1)
         rownames(curr_beta) <- colnames(X)
@@ -79,9 +81,11 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
     # use y_bar as the sample mean and s_hat as the sample variance
-    y_bar <- mean(y)
-    s_hat <- var(y)
-    r.val <- (y_bar **2)/(s_hat + y_bar) # methods of moments based estimate
+    y_bar <- mean(log(y+1))
+    s_hat <- var(log(y+1))
+    r.val <- (y_bar **2)/(s_hat + y_bar) # methods of moments based estimate <- wrong!!
+    new.r <- computeDispersion(mu.vec, s_hat)
+
     max.hit <- glmm.control[["max.iter"]]
 
     theta_diff <- rep(Inf, nrow(curr_theta))
@@ -112,15 +116,15 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     while(meet.conditions){
         D_inv <- computeDinv(mu.vec)
-        V_inv <- computeVinv(mu=mu.vec, y=y, r=r.val)
-        B <- computeB(y=y, r=r.val, mu=mu.vec)
-        W <- computeW(mu=mu.vec, r=r.val)
-        Q <- computeQ(mu=mu.vec, r=r.val)
+        V_inv <- computeVinv(mu=mu.vec, r=new.r)
+        B <- computeB(y=y, r=new.r, mu=mu.vec)
+        W <- computeW(mu=mu.vec, r=new.r)
+        Q <- computeQ(mu=mu.vec, r=new.r)
 
         # compute dG\dus
         Gu_partials <- computeGuPartials(curr_G=curr_G, u_hat=curr_u, cluster_levels=random.levels, sigmas=curr_sigma)
-        score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=r.val)
-        score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=r.val, u_hat=curr_u, Gu_partials=Gu_partials)
+        score_beta <- betaScore(X=X, D_inv=D_inv, V_inv=V_inv, mu=mu.vec, y=y, r=new.r)
+        score_u <- randScore(Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, mu=mu.vec, y=y, r=new.r, u_hat=curr_u, Gu_partials=Gu_partials)
 
         full.score <- do.call(rbind, list(score_beta, score_u))
         full.hess <- jointHess(X=X, Z=full.Z, D_inv=D_inv, V_inv=V_inv, G_inv=G_inv, B=B, W=W, Q=Q, Gu_partials=Gu_partials)
@@ -136,7 +140,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         # update sigmas _after_ thetas
         ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
-        sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
+        sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, y=y, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
 
         # need to check for negative variance components <- might be due to small samples sizes and instability
         if(any(sigma_update < 0)){
@@ -151,8 +155,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         # update G with new sigmas
         curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
 
-        if(det(curr_G) < 1e-10){
+        if(det(curr_G) < 1e-10 | nrow(curr_sigma) == 1){
             # use a generalized inverse if numerically singular
+            # this will occur if there is a single random effect too
             G_inv <- ginv(curr_G)
         } else{
             G_inv <- solve(curr_G)
@@ -165,22 +170,21 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_var.comps <- c(curr_sigma[, 1], res.var)/s_hat
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
 
+        # compute dispersions
+        r.val <- (y_bar **2)/(s_hat + y_bar) # methods of moments based estimate <- wrong!!
+        new.r <- computeDispersion(mu.vec, s_hat)
+
+        # do we even need to do this if we aren't using Laplace for the sigmas?
         # loglihood integrating over the random effects only
+
         if(glmm.control$laplace.int %in% c("fe")){
             fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q) # this is used to integrate over FEs for var comp estimation
-            curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
+            curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
         } else if(glmm.control$laplace.int %in% c("full")){
-            curr.loglihood <- laplaceApprox(mu.vec, y, r.val, curr_G, G_inv, curr_u, full.hess) # integrating over both the RE and FEs
+            curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, full.hess) # integrating over both the RE and FEs
         }
 
         loglihood.diff <- curr.loglihood - loglihood
-
-        # # the loglihood can bimble along at a small value but not converge with enough tolerance <- a local optimum?
-        # message("Theta convergence: ", all(abs_diff < theta.conv))
-        # message("Loglihood convergence:", abs(loglihood.diff) < loglihood.eps)
-        # message("Delta Loglihood: ", abs(loglihood.diff))
-        # message("VC convergence: ", all(sigma_diff < theta.conv))
-        # message("Iteration: ", iters)
 
         meet.conditions <- !((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) &
                                  (all(sigma_diff < theta.conv))| iters >= max.hit)
@@ -189,17 +193,17 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         var.comps.diff <- curr_var.comps - var.comps
 
         # with these variance components we can evaluate the _full_ likelihood
-        full.loglihood <- nbLogLikelihood(mu=mu.vec, r=r.val, y=y) + normLogLikelihood(curr_G, G_inv, curr_u)
+        full.loglihood <- nbLogLikelihood(mu=mu.vec, r=new.r, y=y) + normLogLikelihood(curr_G, G_inv, curr_u)
 
         curr.u_bars <- do.call(rbind, lapply(random.levels, FUN=function(X) mean(curr_theta[X, ])))
 
         bigV <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-        v.vec <- (mu.vec**2 * (1/r.val)) - mu.vec
+        v.vec <- (mu.vec**2 * (1/new.r)) - mu.vec
         diag(bigV) <- v.vec
         R <- bigV - (full.Z %*% curr_G %*% t(full.Z))
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
-                                           "Hessian"=hess_theta, "Dispersion"=r.val, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
+                                           "Hessian"=hess_theta, "Dispersion"=new.r, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
                                            "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, #"Sigma.Hess"=hess_sigma,
                                            "V"=bigV, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
@@ -217,22 +221,40 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     }
 
     # compute SEs for final estimates
+    theta_se <- computeSE(hess_theta)
     converged <- ((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) & (all(sigma_diff < theta.conv)))
+
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ], "Loglihood"=loglihood,
-                       "VarComp"=curr_var.comps, "converged"=converged,
-                       "Iters"=iters, "Dispersion"=r.val,
+                       "VarComp"=curr_var.comps, "converged"=converged, "SE"=theta_se,
+                       "Iters"=iters, "Dispersion"=new.r,
                        "Sigmas"=curr_sigma, "Iterations"=conv.list)
     return(final.list)
 }
 
 
-masala <- function(X, curr_beta, y_bar, full.Z, curr_u, random.levels){
+computeSE <- function(hessian, det.tol=1e-10){
+    # compute the parameter estimate standard errors from the hessian
+    hess.kappa <- 1/kappa(hessian) # small reciprocal condition number indicates need for generalised inverse
+
+    if(hess.kappa <= det.tol){
+        hess.se <- sqrt(diag(ginv(hessian)))
+    } else{
+        hess.se <- sqrt(diag(solve(hessian)))
+    }
+
+    names(hess.se) <- rownames(hessian)
+    return(hess.se)
+}
+
+
+masala <- function(X, curr_beta, y_bar, y, full.Z, curr_u, random.levels){
     ## convenience function for computing variance components
     ## with mikes appalling shonky anova-like approximation
     ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
     beta_ss <- computeFixedSumSquares(curr_beta, X, y_bar)
     u_ss <- computeRandomSumSquares(curr_u, random.levels, full.Z, y_bar)
-    res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss)
+    res_ss <- computeResidualSimSquares(y, y_bar, beta_ss, u_ss) # don't forget to work on the log (model) scale
+
     beta_df <- computeFixedDf(X)
     rownames(beta_df) <- colnames(X[, -1, drop=FALSE])
     u_df <- computeRandomDf(random.levels)
@@ -245,7 +267,7 @@ masala <- function(X, curr_beta, y_bar, full.Z, curr_u, random.levels){
     rownames(beta_ms) <- colnames(X[, -1, drop=FALSE])
 
     u_ms <- computeRandomMeanSquares(u_ss, u_df)
-    rownames(u_ms) <- colnames(Z)
+    rownames(u_ms) <- names(random.levels)
 
     res_ms <- res_ss/res_df
     rownames(res_ms) <- "residual"
@@ -254,20 +276,19 @@ masala <- function(X, curr_beta, y_bar, full.Z, curr_u, random.levels){
     ms <- rbind(beta_ms, u_ms, res_ms)
     df <- rbind(beta_df, u_df, res_df)
 
-    ems <- buildEMS(X, curr_beta, random.levels, y, df)
+    ems <- buildEMS(X, curr_beta, random.levels, df)
 
     # solve the system of equations
     ems.chol <- chol(ems)
     ems.solve <- backsolve(ems.chol, ms)
     rownames(ems.solve) <- rownames(ms)
-
     # although we don't use the fixed effects we should note that this
     # actually gives us the squared fixed effects
     return(ems.solve[names(random.levels), , drop=FALSE])
 }
 
 
-buildEMS <- function(X, curr_beta, random.levels, y, df){
+buildEMS <- function(X, curr_beta, random.levels, df){
     # Construct a matrix N that will be used to map the
     # expected mean squares to the model parameters
     # order is FE, RE, residual
@@ -297,7 +318,7 @@ buildEMS <- function(X, curr_beta, random.levels, y, df){
 
 computeResidualSimSquares <- function(y, y_bar, beta_ss, u_ss){
     # compute the residual SS from the total - sum(beta_ss + u_ss)
-    total_ss <- sum((y - y_bar)**2)
+    total_ss <- sum((log(y+1) - y_bar)**2)
     residual_ss <- matrix(total_ss - (colSums(beta_ss) + colSums(u_ss)), ncol=1, nrow=1)
     return(residual_ss)
 }
@@ -309,7 +330,7 @@ computeFixedSumSquares <- function(curr_beta, X, y_bar){
     # note the betas are on a _log_ scale
     ss <- matrix(0L, ncol=1, nrow=ncol(X) - 1)
     for(j in seq_len(ncol(X)-1)){
-        ss.j <- ((colSums(exp(curr_beta[c(1, j+1), , drop=FALSE])) - y_bar)**2)
+        ss.j <- ((colSums((curr_beta[c(1, j+1), , drop=FALSE])) - y_bar)**2)
         ss[j, ] <- ss.j
     }
     return(ss)
@@ -325,7 +346,7 @@ computeRandomSumSquares <- function(curr_u, random.levels, full.Z, y_bar){
     for(k in seq_len(length(random.levels))){
         k.name <- names(random.levels)[k]
         k.levels <- random.levels[[k.name]]
-        k.ss <- colSums((exp(curr_u[k.levels, , drop=FALSE]) - y_bar)**2)
+        k.ss <- colSums(((curr_u[k.levels, , drop=FALSE]) - y_bar)**2)
         ss[k, ] <- k.ss
     }
 
@@ -392,6 +413,25 @@ computeRandomMeanSquares <- function(u_ss, u_df){
 }
 
 
+initialiseRandom <- function(full.Z, y, y_bar){
+    # use the difference between the grand mean and group means of log(y) as the initial
+    # estimates of the random effects coefficients
+    return(sapply(seq_len(ncol(full.Z)), FUN=function(ZX){
+        (1/sum(full.Z[, ZX])) * (t(matrix(log(y+1), ncol=1)) %*% full.Z[, ZX, drop=FALSE]) - y_bar
+        }))
+}
+
+
+computeDispersion <- function(mu, s_hat){
+    ## use my terrible methods of moments to compute a value for 'r'
+    n <- length(mu)
+    mu_bar <- mean(mu)
+    mu_square <- sum((mu ** 2))/n
+
+    r <- ((mu_square)/(s_hat + (mu_bar * (1 + mu_bar)))) - 1
+
+    return(r)
+}
 
 computeGPartials <- function(curr_G, sigmas){
     # compute the partial derivatives dG/dsigma
@@ -426,33 +466,12 @@ estimateInitialSigmas <- function(y, Z){
     require(VCA)
 
     design <- as.data.frame(Z)
-    design$y <- y
+    design$y <- log(y+1)
     form <- as.formula(paste("y ~ ", paste(colnames(Z), collapse=" + ")))
     var.comps <- anovaVCA(form, design)$VCoriginal
     names(var.comps) <- c(colnames(Z), "residual")
     return(var.comps)
 }
-
-
-computeQuadRoots <- function(X, curr_theta, r, S_hat){
-    # solve the quadratic formula to get the potential roots to solve for sigmas
-    a = exp(2 * X %*% curr_theta[colnames(X), ])
-    b = -exp(2 * X %*% curr_theta[colnames(X), ])
-    c = (1/r) * (exp(2 * X %*% curr_theta[colnames(X),]) - (r * exp(X %*% curr_theta[colnames(X),]))) - S_hat
-
-    x_1 = (-b + sqrt(b**2 - 4*a*c))/(2 * a)
-    x_2 = (-b - sqrt(b**2 - 4*a*c))/(2 * a)
-
-    return(list(x_1, x_2))
-}
-
-
-sigmaSolve <- function(roots, Z){
-    # Z is a vector now
-    sigma <- log(roots)/as.vector(t(Z) %*% Z)
-    return(sigma)
-}
-
 
 
 initialiseG <- function(Z, cluster_levels, sigmas){
@@ -462,6 +481,7 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     # sigmas must be named
     sum.levels <- sum(unlist(lapply(cluster_levels, length)))
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
+    dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
 
     for(x in seq_len(nrow(sigmas))){
@@ -471,6 +491,7 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     }
     return(as.matrix(G))
 }
+
 
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # construct the full Z with all random effect levels
@@ -512,7 +533,6 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     full.Z <- do.call(cbind, i.z.list)
     return(full.Z)
 }
-
 
 
 singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
@@ -575,12 +595,14 @@ singleNR <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10,
     return(list("theta"=theta_new, "hessian"=hess_mat))
 }
 
+
 computeDinv <- function(mu){
     # D is a matrix of 1/mu, so Dinv is diag(mu_i)
     Dinv <- matrix(0L, ncol=length(mu), nrow=length(mu))
     diag(Dinv) <- mu
     return(Dinv)
 }
+
 
 computeW <- function(mu, r){
     # diagonal matrix containing elements of dV^-1/dmu
@@ -590,6 +612,7 @@ computeW <- function(mu, r){
     return(W)
 }
 
+
 computeB <- function(y, r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/dmu
     n <- length(y)
@@ -598,6 +621,7 @@ computeB <- function(y, r, mu){
     diag(B) <- b
     return(B)
 }
+
 
 computeQ <- function(r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/du
@@ -635,7 +659,8 @@ computeG <- function(u_hats, cluster_levels, curr_G, G_inv, sigmas, diag=FALSE){
     return(list("G"=G, "G.Hess"=G.hess))
 }
 
-computeVinv <- function(mu, y, r){
+
+computeVinv <- function(mu, r){
     # compute diagonal matrix of inverse variances
     v.vec <- (mu**2 * (1/r)) - mu
     V <- matrix(0L, ncol=length(mu), nrow=length(mu))
@@ -671,6 +696,7 @@ computeVinv <- function(mu, y, r){
     return(Vinv)
 }
 
+
 computeC <- function(G_inv, Gu_partials){
     # compute the cxc diagonal matrix of trace partial derivatives
 
@@ -685,6 +711,7 @@ computeC <- function(G_inv, Gu_partials){
     return(part.4.trace)
 }
 
+
 betaScore <- function(X, D_inv, V_inv, mu, y, r){
     # score vector for fixed effects
     # kx1 vector
@@ -692,6 +719,7 @@ betaScore <- function(X, D_inv, V_inv, mu, y, r){
     rhs <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     return(t(X) %*% D_inv %*% V_inv %*% (y - rhs))
 }
+
 
 betaHess <- function(X, D_inv, V_inv, B, W, Q){
     # compute hessian for beta's
@@ -703,6 +731,7 @@ betaHess <- function(X, D_inv, V_inv, B, W, Q){
 
     return(hess)
 }
+
 
 betaUHess <- function(X, Z, D_inv, V_inv, B, W, Q){
     # compute the d S(beta)/du
@@ -730,6 +759,7 @@ uBetaHess <- function(X, Z, D_inv, V_inv, B, W, Q, G_inv, C){
     return(hess)
 }
 
+
 betaSigmaHess <- function(X, D_inv, V_inv, B, W, Q, M){
     # compute the d S(beta)\dSigma
     part.1 <- t(X) %*% D_inv %*% V_inv %*% B %*% Z %*% M
@@ -739,6 +769,7 @@ betaSigmaHess <- function(X, D_inv, V_inv, B, W, Q, M){
     hess <- part.1 + part.2 + part.3
     return(hess)
 }
+
 
 uSigmaHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q, M, U){
     #compute the dS(u)/dSigma
@@ -751,10 +782,12 @@ uSigmaHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q, M, U){
     return(hess)
 }
 
+
 sigmaBetaHess <- function(X, Z_inv, M_inv, G_inv, u_hat){
     # compute the dS(sigma)/dbeta
     (0.5 * (G_inv %*% G_inv) - (u_hat %*% t(u_hat) %*% G_inv %*% M_inv)) %*% t(Z_inv) %*% X
 }
+
 
 sigmaUHess <- function(Z_inv, M_inv, G_inv, u_hat){
     # compute the dS(sigma)/du
@@ -778,6 +811,7 @@ jointHess <- function(X, Z, D_inv, V_inv, G_inv, B, W, Q, M, u_hat, Gu_partials)
     return(full.hess)
 }
 
+
 randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, r, u_hat, Gu_partials){
     # score function for random effects
     # c X 1 vector
@@ -793,6 +827,7 @@ randScore <- function(Z, D_inv, V_inv, G_inv, mu, y, r, u_hat, Gu_partials){
     # RHS <- 0.5 * (G_inv %*% u_hat) - (G_inv %*% u_hat)
     return(LHS - RHS)
 }
+
 
 randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q, Gu_partials){
     # compute Hessian for the random effects
@@ -826,6 +861,7 @@ varScore <- function(G_inv, u_hat, G_partials, n.comps){
     }
     return(svec)
 }
+
 
 varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
     # compute the Hessian for the sigmas
@@ -868,7 +904,9 @@ laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
 nbLogLikelihood <- function(mu, r, y){
     ## compute the negative binomial log likelihood over our variables and observations
     n <- length(y)
-    sum((n * y * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (log(gamma(y+1))/log(gamma(r))))
+
+    ## need to use lgamma because gamma() can't handle larger integers
+    sum((n * y * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r))))
 }
 
 
