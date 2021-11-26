@@ -61,7 +61,14 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     }
 
     # initialise using solutions of variance components from ANOVA
-    init.sigma <- matrix(estimateInitialSigmas(y, Z), ncol=1)
+    # init.sigma <- matrix(estimateInitialSigmas(y, Z), ncol=1)
+    # rownames(init.sigma) <- colnames(Z)
+    # curr_sigma <- init.sigma
+
+    # compute sample variances of the us
+    init.sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+                                       var)),
+                         ncol=1)
     rownames(init.sigma) <- colnames(Z)
     curr_sigma <- init.sigma
 
@@ -97,6 +104,8 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     curr_G <- init.G
     G_partials <- computeGPartials(curr_G, curr_sigma)
 
+    # print(full.Z %*% init.G %*% t(full.Z))
+
     # do a quick loglihood evaluation
     G_inv <- ginv(curr_G)
     init.loglihood  <- 0
@@ -114,9 +123,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     meet.conditions <- !((all(abs_diff < theta.conv)) & (loglihood.diff < loglihood.eps) & (sigma_diff < theta.conv) | iters >= max.hit)
     while(meet.conditions){
         D_inv <- computeDinv(mu.vec)
-        V_inv <- computeVinv(mu=mu.vec, r=new.r)
+        V0 <- computeV0(mu=mu.vec, r=new.r)
+        V_inv <- computeVinv(V0=V0, D_inv=D_inv, Z=full.Z, G=curr_G)
         B <- computeB(y=y, r=new.r, mu=mu.vec)
-        W <- computeW(mu=mu.vec, r=new.r)
+        W <- computeW(mu=mu.vec, r=new.r, Z=full.Z, G=curr_G, D_inv=D_inv)
         Q <- computeQ(mu=mu.vec, r=new.r)
 
         # compute dG\dus
@@ -137,8 +147,16 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
 
         # update sigmas _after_ thetas
-        ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
-        ## u estimates are on the model scale, sigmas are on the data scale
+        # NR update for Sigmas - this leads to negative residual variance
+        # How can it be constrained so the sum is <= the total variance??
+        # det.G <- det(curr_G)
+        # sigma.score <- varScore(G_inv, u_hat=curr_u, G_partials=G_partials, n.comps=nrow(curr_sigma))
+        # sigma.hess <- varHess(curr_G=curr_G, det.G=det.G, G_inv=G_inv, u_hat=curr_u, G_partials=G_partials)
+        # sigma_nr.out <- singleNR(score_vec=sigma.score, hess_mat=sigma.hess, theta_hat=curr_sigma)
+        # sigma_update <- sigma_nr.out$theta
+
+        # ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
+        # ## u estimates are on the model scale, sigmas are on the data scale
         sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, y=y, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
 
         # need to check for negative variance components <- might be due to small samples sizes and instability
@@ -181,9 +199,18 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         if(glmm.control$laplace.int %in% c("fe")){
             fe.hess <- betaHess(X=X, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q) # this is used to integrate over FEs for var comp estimation
-            curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
+            la.y <- indivLaplace(mu.vec, y, new.r, curr_u, curr_sigma, fe.hess, random.levels, full.Z)
+            # curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
+            curr.loglihood <- sum(la.y)
+        } else if(glmm.control$laplace.int %in% c("re")){
+            re.hess <- randHess(Z=full.Z, G_inv=G_inv, Gu_partials=Gu_partials, D_inv=D_inv, V_inv=V_inv, B=B, W=W, Q=Q) # this is used to integrate over FEs for var comp estimation
+            la.y <- indivLaplace(mu.vec, y, new.r, curr_u, curr_sigma, re.hess, random.levels, full.Z)
+            # curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, fe.hess) # integrating over just the FEs
+            curr.loglihood <- sum(la.y)
         } else if(glmm.control$laplace.int %in% c("full")){
-            curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, full.hess) # integrating over both the RE and FEs
+            la.y <- indivLaplace(mu.vec, y, new.r, curr_u, curr_sigma, full.hess, random.levels, full.Z)
+            # curr.loglihood <- laplaceApprox(mu.vec, y, new.r, curr_G, G_inv, curr_u, full.hess) # integrating over both the RE and FEs
+            curr.loglihood <- sum(la.y)
         }
 
         loglihood.diff <- curr.loglihood - loglihood
@@ -206,7 +233,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
                                            "Hessian"=hess_theta, "Dispersion"=new.r, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
-                                           "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma,
+                                           "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, "LA.Y"=la.y,
                                            "V"=bigV, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
         iters <- iters + 1
@@ -227,7 +254,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     converged <- ((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) & (all(sigma_diff < theta.conv)))
 
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ], "Loglihood"=loglihood,
-                       "Theta.Converged"=abs_diff < theta.conv,
+                       "Theta.Converged"=abs_diff < theta.conv, "LA.Y"=la.y,
                        "Loglihood.Converged"=abs(loglihood.diff) < loglihood.eps,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "VarComp"=var.comps, "converged"=converged, "SE"=theta_se,
@@ -509,7 +536,8 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
     dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
-    log_sigmas <- matrix(apply(sigmas, 1, log), ncol=1)
+    # log_sigmas <- matrix(apply(sigmas, 1, log), ncol=1)
+    log_sigmas <- sigmas
     log_sigmas[!is.finite(log_sigmas), ] <- 0
     rownames(log_sigmas) <- rownames(sigmas)
 
@@ -633,11 +661,13 @@ computeDinv <- function(mu){
 }
 
 
-computeW <- function(mu, r){
+computeW <- function(mu, r, Z=full.Z, G=curr_G, D_inv=D_inv){
     # diagonal matrix containing elements of dV^-1/dmu
     w <- (((mu**2)*(1-(2*mu)))/(r)) - ((2*(mu**3))/(r**2)) - mu
-    W <- diag(length(mu))
-    diag(W) <- w
+    W0 <- diag(length(mu))
+    diag(W0) <- w
+
+    W <- W0 + (Z %*% G %*% t(Z) %*% D_inv) + (D_inv %*% Z %*% G %*% t(Z))
     return(W)
 }
 
@@ -689,26 +719,34 @@ computeG <- function(u_hats, cluster_levels, curr_G, G_inv, sigmas, diag=FALSE){
 }
 
 
-computeVinv <- function(mu, r){
+computeV0 <- function(mu, r){
     # compute diagonal matrix of inverse variances
     v.vec <- ((mu**2/r)) - mu
-    V <- matrix(0L, ncol=length(mu), nrow=length(mu))
-    diag(V) <- v.vec
+    V0 <- matrix(0L, ncol=length(mu), nrow=length(mu))
+    diag(V0) <- v.vec
+    return(V0)
+}
 
+
+computeVinv <- function(V0, D_inv, Z, G){
+    # Compute V^-1
     # need to check that V is not singular
+
+    V <- V0 + (D_inv %*% Z %*% G %*% t(Z) %*% D_inv)
+
     v.det <- det(V)
     v.kappa <- tryCatch({
         1/kappa(V)
-        },
-        error=function(err){
-            warning("V is computationally singular - cannot estimate condition number")
-            1e-20 # arbitrarily small number
-            },
-        warning=function(warn) {
-            1e-20
-        },
-        finally={
-        })
+    },
+    error=function(err){
+        warning("V is computationally singular - cannot estimate condition number")
+        1e-20 # arbitrarily small number
+    },
+    warning=function(warn) {
+        1e-20
+    },
+    finally={
+    })
 
     is.singular <- (v.det == 0) | is.infinite(v.det) | v.kappa < 1e-15
 
@@ -915,6 +953,32 @@ varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
 }
 
 
+indivLaplace <- function(mu, y, r, curr_u, curr_sigma, hessian, random.levels, full.Z){
+    ## compute the Laplace approximation to the marginal loglihood for the variance components
+    ## this returns the per-individual likelihood as an (approximately) Gaussian variable
+
+    # get a list of the G matrix for each random effect broadcast out to the number of observations
+    G <- maptoG(curr_sigma=curr_sigma)
+    Ginv <- ginv(G)
+
+    indiv_u <- mapUtoIndiv(full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
+
+    # I think I'll need to broadcast eveything out to the same dimensionality as G,
+    # i.e. c * n by c * n, where c is the number of random effects and n is the number of observations
+
+    nb.liklihood <- indivNegBinLogLikelihood(mu=mu, r=r, y=y)
+    norm.liklihood <- indivNormLogLikelihood(G, Ginv, indiv_u)
+
+    det.hess <- det(hessian)
+    if(det.hess > 0){
+        log.det.hess <- log(det.hess)
+    } else{
+        log.det.hess <- 0
+    }
+    nb.liklihood + norm.liklihood - ((1/2) * (log.det.hess/(2*pi)))
+}
+
+
 laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
     ## compute the Laplace approximation to the marginal loglihood for the variance components
     nb.liklihood <- nbLogLikelihood(mu=mu, r=r, y=y)
@@ -930,12 +994,79 @@ laplaceApprox <- function(mu, y, r, G, G_inv, curr_u, hessian){
 }
 
 
+indivNegBinLogLikelihood <- function(mu, r, y){
+    ## compute the negative binomial log likelihood over our variables for each observation
+    ## need to use lgamma because gamma() can't handle larger integers
+
+    ## _NB_ DOUBLE CHECK THIS!!
+    (y * log(1 - (r/mu))) - (r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r)))
+}
+
+
 nbLogLikelihood <- function(mu, r, y){
     ## compute the negative binomial log likelihood over our variables and observations
     n <- length(y)
+    y_bar <- mean(y)
 
     ## need to use lgamma because gamma() can't handle larger integers
-    sum((n * y * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r))))
+    sum((n * y_bar * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r))))
+}
+
+
+mapUtoIndiv <- function(full.Z, curr_u, random.levels){
+    # map the vector of random effects to the full nx1 vector
+    rand.levels <- names(random.levels)
+    indiv.u.list <- list()
+
+    for(j in seq_along(rand.levels)){
+        j.G <- matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
+        j.re <- rand.levels[j]
+        j.levels <- random.levels[[j.re]]
+        j.b <- full.Z[, j.levels] %*% curr_u[j.levels, ]
+        indiv.u.list[[j.re]] <- j.b
+    }
+
+    return(indiv.u.list)
+}
+
+
+maptoG <- function(curr_sigma){
+    # map the matrix of variances to the full nxn covariance matrix
+    G <- matrix(0L, ncol=nrow(curr_sigma), nrow=nrow(curr_sigma))
+    rand.levels <- rownames(curr_sigma)
+
+    for(j in seq_along(rand.levels)){
+        G[j, j] <- curr_sigma[j, ]
+    }
+
+    return(G)
+}
+
+
+indivNormLogLikelihood <- function(G, Ginv, u){
+    ## compute the normal log likelihood over our variables for each observation
+    ## this needs to map G to the nxn matrix
+    ## need to do this for each random effect
+    n <- unique(unlist(lapply(u, length)))
+    c <- nrow(G)
+
+    big.u <- t(matrix(do.call(cbind, u), ncol=c, nrow=n))
+
+    det.G <- det(G)
+    if(det.G > 0){
+        log.detG <- log(det.G)
+    } else{
+        log.detG <- 0
+    }
+
+    c <- length(u)
+    norm.loglihoods <- c()
+
+    for(j in seq_len(n)){
+        norm.loglihoods <- c(norm.loglihoods,
+                             sum(-((c/2) * log(2*pi)) - (0.5 * log.detG) - (0.5 * (t(big.u[, j, drop=FALSE]) %*% Ginv %*% big.u[, j, drop=FALSE]))))
+    }
+    return(norm.loglihoods)
 }
 
 
