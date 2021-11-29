@@ -44,11 +44,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     if(is.null(init.theta)){
-        # use the group level means (on the log(y)) as the initial estimates of the random effects
-        curr_u <- matrix(rnorm(ncol(full.Z), mean=1, sd=1), ncol=1)
+        # random value initiation from runif
+        # curr_u <- matrix(rnorm(ncol(full.Z), mean=0, sd=1), ncol=1)
+        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
-        # curr_u <- matrix(initialiseRandom(full.Z, y), ncol=1)
-        # rownames(curr_u) <- colnames(full.Z)
 
         curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) # OLS for the betas is usually a good starting point for NR
         rownames(curr_beta) <- colnames(X)
@@ -67,8 +66,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     # compute sample variances of the us
     init.sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-                                       var)),
-                         ncol=1)
+                                 FUN=function(Bj){
+                                     (1/(length(Bj)-1)) * crossprod(Bj, Bj)
+                                     })), ncol=1)
+
     rownames(init.sigma) <- colnames(Z)
     curr_sigma <- init.sigma
 
@@ -103,8 +104,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     init.G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=init.sigma)
     curr_G <- init.G
     G_partials <- computeGPartials(curr_G, curr_sigma)
-
-    # print(full.Z %*% init.G %*% t(full.Z))
 
     # do a quick loglihood evaluation
     G_inv <- ginv(curr_G)
@@ -157,7 +156,20 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         # ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
         # ## u estimates are on the model scale, sigmas are on the data scale
-        sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, y=y, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
+        # sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, y=y, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
+
+        # compute sample variances of the us
+        sigma_update <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+                                           FUN=function(Bj){
+                                               (1/(length(Bj)-1)) * crossprod(Bj, Bj)
+                                           })), ncol=1)
+
+        rownames(sigma_update) <- colnames(Z)
+
+        # small.G <- matrix(0L, ncol=nrow(sigma_update), nrow=nrow(sigma_update))
+        # diag(small.G) <- sigma_update[, 1]
+        # G.chol <- chol(small.G)
+        # print(G.chol)
 
         # need to check for negative variance components <- might be due to small samples sizes and instability
         if(any(sigma_update < 0)){
@@ -451,16 +463,6 @@ computeRandomMeanSquares <- function(u_ss, u_df){
 }
 
 
-initialiseRandom <- function(full.Z, y){
-    # use the difference between the grand mean and group means of log(y) as the initial
-    # estimates of the random effects coefficients
-    y_bar <- mean(log(y+1))
-    return(sapply(seq_len(ncol(full.Z)), FUN=function(ZX){
-        (1/sum(full.Z[, ZX])) * (t(matrix(log(y+1), ncol=1)) %*% full.Z[, ZX, drop=FALSE]) - y_bar
-        }))
-}
-
-
 computeDispersion <- function(mu, s_hat){
     ## use my terrible methods of moments to compute a value for 'r'
     n <- length(mu)
@@ -524,6 +526,15 @@ estimateInitialSigmas <- function(y, Z){
 
     names(var.comps) <- colnames(Z)
     return(var.comps)
+}
+
+
+updateG <- function(D_inv, V, V0, Z){
+    ## Can we compute the elements of G using some matrix algebra based on our definitions of V_0 and V?
+    Z.inv <- t(ginv(Z)) # ginv will sometimes return the _transpose_
+    ZtD.inv <- t(ginv(t(Z) %*% D_inv))
+
+    return((D_inv %*% (V - V0)) %*% (Z.inv %*% ZtD.inv))
 }
 
 
