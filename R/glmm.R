@@ -123,6 +123,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     while(meet.conditions){
         D_inv <- computeDinv(mu.vec)
         V0 <- computeV0(mu=mu.vec, r=new.r)
+        V <- V0 + (D_inv %*% full.Z %*% curr_G %*% t(full.Z) %*% D_inv)
         V_inv <- computeVinv(V0=V0, D_inv=D_inv, Z=full.Z, G=curr_G)
         B <- computeB(y=y, r=new.r, mu=mu.vec)
         W <- computeW(mu=mu.vec, r=new.r, Z=full.Z, G=curr_G, D_inv=D_inv)
@@ -146,36 +147,39 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
 
         # update sigmas _after_ thetas
-        # NR update for Sigmas - this leads to negative residual variance
-        # How can it be constrained so the sum is <= the total variance??
-        # det.G <- det(curr_G)
-        # sigma.score <- varScore(G_inv, u_hat=curr_u, G_partials=G_partials, n.comps=nrow(curr_sigma))
-        # sigma.hess <- varHess(curr_G=curr_G, det.G=det.G, G_inv=G_inv, u_hat=curr_u, G_partials=G_partials)
-        # sigma_nr.out <- singleNR(score_vec=sigma.score, hess_mat=sigma.hess, theta_hat=curr_sigma)
-        # sigma_update <- sigma_nr.out$theta
+        # Lets try BFGS
+        indiv.u <- mapUtoIndiv(full.Z, curr_u, random.levels=random.levels)
+
+        # can't call anything 'hessian' because this is an internal variable to optim
+        # both fn and gr functions need to take in the same set of arguments
+        sigma_bfgs <- optim(par=curr_sigma[, 1],
+                            fn=bfgsLaplace,
+                            gr=varScore,
+                            method="BFGS",
+                            hessian=TRUE,
+                            mu=mu.vec, y=y, r=new.r, curr_u=curr_u, curr_hess=full.hess,
+                            random.levels=random.levels, full.Z=full.Z, indiv.u=indiv.u,
+                            G_inv=G_inv, G_partials=Gu_partials)
+        # print(sigma_bfgs)
+        sigma_update <- matrix(sigma_bfgs$par, ncol=1)
 
         # ## Using Mike's appallingly shonky ANOVA-like approach (MASALA)
         # ## u estimates are on the model scale, sigmas are on the data scale
         # sigma_update <- masala(X=X, curr_beta=curr_beta, y_bar=y_bar, y=y, full.Z=full.Z, curr_u=curr_u, random.levels=random.levels)
 
-        # compute sample variances of the us
-        sigma_update <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-                                           FUN=function(Bj){
-                                               (1/(length(Bj)-1)) * crossprod(Bj, Bj)
-                                           })), ncol=1)
+        # # compute sample variances of the us
+        # sigma_update <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+        #                                    FUN=function(Bj){
+        #                                        (1/(length(Bj)-1)) * crossprod(Bj, Bj)
+        #                                    })), ncol=1)
 
         rownames(sigma_update) <- colnames(Z)
 
-        # small.G <- matrix(0L, ncol=nrow(sigma_update), nrow=nrow(sigma_update))
-        # diag(small.G) <- sigma_update[, 1]
-        # G.chol <- chol(small.G)
-        # print(G.chol)
-
         # need to check for negative variance components <- might be due to small samples sizes and instability
-        if(any(sigma_update < 0)){
-            warning("Negative variance components detected - setting to 0")
-            sigma_update[sigma_update < 0, ] <- 0
-        }
+        # if(any(sigma_update < 0)){
+        #     warning("Negative variance components detected - setting to 0")
+        #     sigma_update[sigma_update < 0, ] <- 0
+        # }
 
         sigma_diff <- sigma_update - curr_sigma
         curr_sigma <- sigma_update
@@ -198,10 +202,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         res.var <- (data_shat - colSums(curr_sigma))
         curr_var.comps <- c(curr_sigma[, 1], res.var)/data_shat
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
-
-        if(any(curr_var.comps < 0)){
-            warning("Negative variance components detected")
-        }
 
         # compute dispersions
         new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate
@@ -931,11 +931,18 @@ randHess <- function(Z, D_inv, V_inv, G_inv, B, W, Q, Gu_partials){
 }
 
 
-varScore <- function(G_inv, u_hat, G_partials, n.comps){
+varScore <- function(sigma, random.levels, indiv.u, mu, y, r, curr_u, curr_hess, full.Z, G_inv, G_partials){
+    # note some of these are unused because the fn and gradient take the same set of arguments
     # compute the score function for the sigmas
-    svec <- matrix(0L, nrow=n.comps, ncol=1)
-    for(i in seq_len(n.comps)){
-        svec[i,] <- (-0.5 * matrix.trace(G_inv %*% G_partials[[i]])) + (0.5 * t(u_hat) %*% G_inv %*% G_partials[[i]] %*% G_inv %*% u_hat)
+    curr_sigma <- matrix(sigma, ncol=1)
+    rownames(curr_sigma) <- names(random.levels)
+
+    svec <- matrix(0L, nrow=nrow(curr_sigma), ncol=1)
+
+    for(i in seq_len(length(random.levels))){
+        i.rand <- names(random.levels)[i]
+        svec[i,] <- (-0.5 * matrix.trace(G_inv %*% G_partials[[i]])) + (0.5 * t(curr_u) %*% G_inv %*% G_partials[[i]] %*% G_inv %*% curr_u)
+        # svec[i, ] <- (1/curr_sigma[i, ]) + ((4*sum(indiv.u[[i.rand]]**2))/(curr_sigma[i,]**3))
     }
     return(svec)
 }
@@ -961,6 +968,35 @@ varHess <- function(curr_G, det.G, G_inv, u_hat, G_partials){
     }
 
     return(var.hess)
+}
+
+
+bfgsLaplace <- function(sigma, mu, y, r, curr_u, curr_hess, random.levels, full.Z,
+                        indiv.u=NULL, G_inv=NULL, G_partials=NULL){
+    ## compute the Laplace approximation to the marginal loglihood for the variance components
+    ## this returns the per-individual likelihood as an (approximately) Gaussian variable
+
+    # get a list of the G matrix for each random effect broadcast out to the number of observations
+    curr_sigma <- matrix(sigma, ncol=1)
+    rownames(curr_sigma) <- names(random.levels)
+
+    G <- maptoG(curr_sigma=curr_sigma)
+    Ginv <- ginv(G)
+
+    # I think I'll need to broadcast eveything out to the same dimensionality as G,
+    # i.e. c * n by c * n, where c is the number of random effects and n is the number of observations
+
+    nb.liklihood <- indivNegBinLogLikelihood(mu=mu, r=r, y=y)
+    norm.liklihood <- indivNormLogLikelihood(G, Ginv, indiv.u)
+
+    det.hess <- det(curr_hess)
+    if(det.hess > 0){
+        log.det.hess <- log(det.hess)
+    } else{
+        log.det.hess <- 0
+    }
+
+    sum(nb.liklihood + norm.liklihood) - ((1/2) * (log.det.hess/(2*pi)))
 }
 
 
