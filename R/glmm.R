@@ -238,15 +238,12 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         curr.u_bars <- do.call(rbind, lapply(random.levels, FUN=function(X) mean(curr_theta[X, ])))
 
-        bigV <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-        v.vec <- (mu.vec**2 * (1/new.r)) - mu.vec
-        diag(bigV) <- v.vec
-        R <- bigV - (full.Z %*% curr_G %*% t(full.Z))
+        R <- V - (full.Z %*% curr_G %*% t(full.Z))
 
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Mu"=mu.vec, "Residual"=y - mu.vec, "Loglihood"=loglihood,
                                            "Hessian"=hess_theta, "Dispersion"=new.r, "Score"=full.score, "Theta.Diff"=theta_diff, "G"=curr_G,
                                            "Rand.Mean"=curr.u_bars, "Sigmas"=curr_sigma, "LA.Y"=la.y,
-                                           "V"=bigV, "R"=R,
+                                           "V"=V, "R"=R,
                                            "Var.Comps"=curr_var.comps, "Var.Comp.Diff"=var.comps.diff, "Full.Loglihood"=full.loglihood)
         iters <- iters + 1
 
@@ -731,7 +728,7 @@ computeG <- function(u_hats, cluster_levels, curr_G, G_inv, sigmas, diag=FALSE){
 
 
 computeV0 <- function(mu, r){
-    # compute diagonal matrix of inverse variances
+    # compute diagonal matrix of variances
     v.vec <- ((mu**2/r)) - mu
     V0 <- matrix(0L, ncol=length(mu), nrow=length(mu))
     diag(V0) <- v.vec
@@ -794,7 +791,7 @@ betaScore <- function(X, D_inv, V_inv, mu, y, r){
     # score vector for fixed effects
     # kx1 vector
     n <- length(y)
-    rhs <- y - (n*mu) - (n*r)/(1 - (r*(mu**-1)))
+    rhs <- (n*mu) - (n*r)/(1 - (r*(mu**-1)))
     return(t(X) %*% D_inv %*% V_inv %*% (y - rhs))
 }
 
@@ -1046,7 +1043,7 @@ indivNegBinLogLikelihood <- function(mu, r, y){
     ## need to use lgamma because gamma() can't handle larger integers
 
     ## _NB_ DOUBLE CHECK THIS!!
-    (y * log(1 - (r/mu))) - (r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r)))
+    (y * log(1 - (r/mu))) - (r * log(1 - (r/mu))) + r * log(r) - r*log(mu) + (lgamma(y+1)/log(gamma(r)))
 }
 
 
@@ -1056,7 +1053,7 @@ nbLogLikelihood <- function(mu, r, y){
     y_bar <- mean(y)
 
     ## need to use lgamma because gamma() can't handle larger integers
-    sum((n * y_bar * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) + r*log(mu) + (lgamma(y+1)/log(gamma(r))))
+    sum((n * y_bar * log(1 - (r/mu))) - (n * r * log(1 - (r/mu))) + r * log(r) - r*log(mu) + (lgamma(y+1)/log(gamma(r))))
 }
 
 
