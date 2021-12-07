@@ -16,7 +16,7 @@ statistical test for differential neighbourhood abundance}
 the weighted FDR. Only applicaple when using \code{weighting="k-distance"}.}
 
 \item{weighting}{A string scalar defining which weighting scheme to use.
-Choices are: max, k-distance, neighbour-distance.}
+Choices are: max, k-distance, neighbour-distance or graph-overlap.}
 
 \item{reduced.dimensions}{(optional) A \code{matrix} of cells X reduced dimensions used
 to calculate the kNN graph. Only necessary if this function is being used
@@ -44,9 +44,10 @@ weighted FDR calculation.
 \details{
 Each neighbourhood is weighted according to the weighting scheme
 defined. k-distance uses the distance to the kth nearest neighbour
-of the index vertex, while neighbour-distance uses the average within-neighbourhood
-Euclidean distance in reduced dimensional space, and max uses the largest within-neighbourhood distance
-from the index vertex. The frequency-weighted version of the
+of the index vertex, neighbour-distance uses the average within-neighbourhood
+Euclidean distance in reduced dimensional space, max uses the largest within-neighbourhood distance
+from the index vertex, and graph-overlap uses the total number of cells overlapping between 
+neighborhoods (distance-independent measure). The frequency-weighted version of the
 BH method is then applied to the p-values, as in \code{cydar}.
 }
 \examples{

@@ -4,7 +4,15 @@
 \alias{makeNhoods}
 \title{Define neighbourhoods on a graph (fast)}
 \usage{
-makeNhoods(x, prop = 0.1, k = 21, d = 30, refined = TRUE, reduced_dims = "PCA")
+makeNhoods(
+  x,
+  prop = 0.1,
+  k = 21,
+  d = 30,
+  refined = TRUE,
+  reduced_dims = "PCA",
+  refinement_scheme = "reduced_dim"
+)
 }
 \arguments{
 \item{x}{A \code{\linkS4class{Milo}} object with a non-empty \code{graph}
@@ -19,32 +27,35 @@ to randomly sample. Must be 0 < prop < 1.}
 \item{d}{The number of dimensions to use if the input is a matrix of cells
 X reduced dimensions.}
 
-\item{refined}{A logical scalar that determines the sampling behaviour, default=TRUE implements the refined sampling scheme.}
+\item{refined}{A logical scalar that determines the sampling behavior, default=TRUE implements a refined sampling scheme,
+specified by the refinement_scheme argument.}
 
 \item{reduced_dims}{If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
-matrix of vertices X reduced dimensions.}
+matrix of vertices X reduced dimensions with \code{rownames()} set to correspond to the cellIDs.}
 }
 \value{
 A \code{\linkS4class{Milo}} object containing a list of vertices and
 the indices of vertices that constitute the neighbourhoods in the
-isIndex slot. If the input is a \code{igraph} object then the output
-is a list of vertices and the indices of vertices that constitute the
+nhoods slot. If the input is a \code{igraph} object then the output
+is a matrix containing a list of vertices and the indices of vertices that constitute the
 neighbourhoods.
 }
 \description{
-This function randomly samples vertcies on a graph to define neighbourhoods.
-These are then refined by computing the median profile for the neighbourhood
+This function randomly samples vertices on a graph to define neighbourhoods.
+These are then refined by either computing the median profile for the neighbourhood
 in reduced dimensional space and selecting the nearest vertex to this
-position. Thus, multiple neighbourhoods may be collapsed down together to
+position (refinement_scheme = "reduced_dim"), or by computing the vertex with the highest number of 
+triangles within the neighborhood (refinement_scheme = "graph"). 
+Thus, multiple neighbourhoods may be collapsed down together to
 prevent over-sampling the graph space.
 }
 \details{
 This function randomly samples graph vertices, then refines them to collapse
 down the number of neighbourhoods to be tested. The refinement behaviour can
-be turned off by setting \code{refine=FALSE}, however, we do not recommend
+be turned off by setting \code{refined=FALSE}, however, we do not recommend
 this as neighbourhoods will contain a lot of redundancy and lead to an
-unncecessarily larger multiple-testing burden.
+unnecessarily larger multiple-testing burden.
 }
 \examples{
 
