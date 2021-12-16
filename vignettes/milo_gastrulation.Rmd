@@ -117,7 +117,7 @@ We define the neighbourhood of a cell, the index, as the group of cells connecte
 As well as $d$ and $k$, for sampling we need to define a few additional parameters:
 
 - `prop`: the proportion of cells to randomly sample to start with. We suggest using `prop=0.1` for datasets of less than 30k cells. For bigger datasets using `prop=0.05` should be sufficient (and makes computation faster).
-- `refined`: indicates whether you want to use the sampling refinement algorith, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using `random` instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
+- `refined`: indicates whether you want to use the sampling refinement algorithm, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using `random` instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
 
 ```{r}
 embryo_milo <- makeNhoods(embryo_milo, prop = 0.1, k = 30, d=30, refined = TRUE, reduced_dims = "pca.corrected")
@@ -180,7 +180,7 @@ da_results <- testNhoods(embryo_milo, design = ~ sequencing.batch + stage, desig
 head(da_results)
 ```
 
-This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between developmental stages. The main statistics we consider here are: 
+This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates whether there is significant differential abundance between developmental stages. The main statistics we consider here are: 
 
 - `logFC`: indicates the log-Fold change in cell numbers between samples from E7.5 and samples from E7.0
 - `PValue`: reports P-values before FDR correction
@@ -211,7 +211,7 @@ ggplot(da_results, aes(logFC, -log10(SpatialFDR))) +
 
 Looks like we have detected several neighbourhoods were there is a significant difference in cell abundances between developmental stages. 
 
-To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying singificant DA are colored by their log-Fold Change.
+To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying significant DA are colored by their log-Fold Change.
 
 ```{r, fig.width=15, fig.height=8, dev="jpeg"}
 embryo_milo <- buildNhoodGraph(embryo_milo)
@@ -228,7 +228,7 @@ umap_pl + nh_graph_pl +
   plot_layout(guides="collect")
 ```
 
-We might also be interested in visualizing wheather DA is particularly evident in certain cell types. To do this, we assign a cell type label to each neighbourhood by finding the most abundant cell type within cells in each neighbourhood. We can label neighbourhoods in the results `data.frame` using the function `annotateNhoods`. This also saves the fraction of cells harbouring the label.
+We might also be interested in visualizing whether DA is particularly evident in certain cell types. To do this, we assign a cell type label to each neighbourhood by finding the most abundant cell type within cells in each neighbourhood. We can label neighbourhoods in the results `data.frame` using the function `annotateNhoods`. This also saves the fraction of cells harbouring the label.
 
 ```{r}
 da_results <- annotateNhoods(embryo_milo, da_results, coldata_col = "celltype")
