@@ -232,7 +232,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
   }
 
   # check all rownames orders are the same
-  concord.rownames <- Reduce(x=marker.list, f=function(x, y) all(rownames(x) == rownames(y)))
+  concord.rownames <- Reduce(x=marker.list, f=function(X, Y) all(rownames(X) == rownames(Y)))
   if(isTRUE(all(concord.rownames))){
     marker.df <- do.call(cbind.data.frame, marker.list)
     colnames(marker.df) <- gsub(colnames(marker.df), pattern="^[0-9]+\\.", replacement="")
