@@ -95,5 +95,8 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
         nhoodDistances(mylo) <- NULL
     }
 
+    # set internal k slot
+    mylo@.k <- k.val
+
     return(mylo)
 }

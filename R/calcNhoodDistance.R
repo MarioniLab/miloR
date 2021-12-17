@@ -60,17 +60,29 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
 
     non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
 
-    if(any(names(reducedDims(x)) %in% c("PCA"))){
-            nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
-                              function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
-                                                                              seq_len(d),drop=FALSE]))
-        names(nhood.dists) <- nhoodIndex(x)
-
-    } else if(is.character(reduced.dim)){
+    if(is.character(reduced.dim)){
+        # check if it exists in the slot
+        if(!any(names(reducedDims(x)) %in% reduced.dim)){
+            stop(reduced.dim, " not found in the reducedDim slot")
+        }
         nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
                               function(X) .calc_distance(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
                                                                                     seq_len(d),drop=FALSE]))
         names(nhood.dists) <- nhoodIndex(x)
+    } else if(is(reduced.dim, "matrix")){
+        nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
+                              function(X) .calc_distance(reduced.dim[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                     seq_len(d),drop=FALSE]))
+    } else if(is.null(reduced.dim)){
+        if(any(names(reducedDims(x)) %in% c("PCA"))){
+            nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
+                                  function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                                  seq_len(d),drop=FALSE]))
+            names(nhood.dists) <- nhoodIndex(x)
+
+        } else{
+            stop("No reduced.dim slot specified")
+        }
     }
 
     nhoodDistances(x) <- nhood.dists

@@ -56,6 +56,7 @@ milo.design <- milo.design[milo.design$Freq > 0, ]
 rownames(milo.design) <- milo.design$Sample
 milo.design <- milo.design[colnames(nhoodCounts(milo.obj)),]
 
+
 milo.res <- testNhoods(milo.obj, design=~Condition, design.df=milo.design)
 head(milo.res)
 ```

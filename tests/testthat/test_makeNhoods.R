@@ -89,6 +89,52 @@ test_that("Incorrect input gives informative error", {
 
     # unexpected input type
     expect_error(makeNhoods(list(), d=30), paste0("Data format: ", class(list()), " not recognised."))
+    
+    # wrong refinement scheme given
+    expect_error(makeNhoods(sim1.graph, d = 30, refined = TRUE, refinement_scheme = "NA"), "When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
+})
+
+test_that("No errors arise with any of the possible inputs (igraph or milo object, named or unnamed)", {
+    
+    sim1.mylo <- buildGraph(sim1.mylo, k=21)
+    sim1.graph.vertex <- set_vertex_attr(sim1.graph, "name", index = V(sim1.graph), as.character(colnames(sim1.mylo)))
+    sim1.mylo.nonames <- sim1.mylo
+    colnames(sim1.mylo.nonames) <- NULL
+    reduced_dimensions <- sim1.pca$x
+    rownames(reduced_dimensions) <- colnames(sim1.sce)
+    
+    ### input is igraph 
+    
+    # pass a graph with no vertex attributes and no reduced dimensions - should not throw an error for refinement_scheme = graph
+    expect_error(makeNhoods(sim1.graph, d=30, refined = TRUE, refinement_scheme = "graph"), regexp = NA)
+    
+    # pass a graph with vertex attributes and no reduced dimensions - should not throw an error for refinement_scheme = graph
+    expect_error(makeNhoods(sim1.graph.vertex, d=30, refined = TRUE, refinement_scheme = "graph"), regexp = NA)
+    
+    # pass a graph with no vertex attributes and reduced dimensions matrix - should not throw an error for refinement_scheme = "reduced_dim"
+    expect_error(makeNhoods(sim1.graph, d=30, refined = TRUE, reduced_dims = reduced_dimensions, refinement_scheme = "reduced_dim"), regexp = NA)
+    
+    # pass a graph with vertex attributes and reduced dimensions matrix - should not throw an error for refinement_scheme = "reduced_dim"
+    expect_error(makeNhoods(sim1.graph.vertex, d=30, refined = TRUE,  reduced_dims = reduced_dimensions, refinement_scheme = "reduced_dim"), regexp = NA)
+    
+    # pass a graph with vertex attributes and reduced dimensions matrix - should throw a warning for refinement_scheme = "graph"
+    expect_warning(makeNhoods(sim1.graph.vertex, d=30, refined = TRUE,  reduced_dims = reduced_dimensions, refinement_scheme = "graph"),
+                   "Ignoring reduced dimensions matrix because refinement_scheme = graph was selected.")
+    
+    ### input is milo object 
+    
+    # pass a milo object with no colnames - should not throw an error with refinement_scheme = "reduced_dim"
+    expect_error(makeNhoods(sim1.mylo.nonames, d=30, refined = TRUE, refinement_scheme = "reduced_dim"), regexp = NA)
+    
+    # pass a milo object with colnames - should not throw an error with refinement_scheme = "reduced_dim"
+    expect_error(makeNhoods(sim1.mylo, d=30, refined = TRUE, refinement_scheme = "reduced_dim"), regexp = NA)
+    
+    # pass a milo object with no colnames - should not throw an error with refinement_scheme = "graph"
+    expect_error(makeNhoods(sim1.mylo.nonames, d=30, refined = TRUE, refinement_scheme = "graph"), regexp = NA)
+    
+    # pass a milo object with colnames - should not throw an error with refinement_scheme = "graph"
+    expect_error(makeNhoods(sim1.mylo, d=30, refined = TRUE, refinement_scheme = "graph"), regexp = NA)
+
 })
 
 
@@ -119,6 +165,7 @@ test_that("Refined sampling strictly returns equal to or fewer neighbourhoods th
     set.seed(101)
     random.vertices <- nhoods(makeNhoods(sim1.mylo, refined=FALSE))
     expect_true(ncol(nhoods(makeNhoods(sim1.mylo, refined=TRUE))) <= ncol(random.vertices))
+    expect_true(ncol(nhoods(makeNhoods(sim1.mylo, refined = TRUE, refinement_scheme = "graph"))) <= ncol(random.vertices))
 })
 
 

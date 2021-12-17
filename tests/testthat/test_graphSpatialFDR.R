@@ -129,7 +129,7 @@ test_that("Incorrect parameter values produce errors", {
                                  distances=NULL,
                                  reduced.dimensions=NULL),
                  "k-distance weighting requires")
-
+    
     expect_error(graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
                                  graph=graph(sim1.mylo),
                                  weighting="blah",
@@ -227,8 +227,8 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
         pvalues <- pvalues[haspval]
     }
     k <- sim1.mylo@.k
-    t.dists <- lapply(indices,
-                      FUN=function(X) as.numeric(tril(distances[[as.character(X)]])))
+    non.zero.nhoods <- which(nhoods!=0, arr.ind = TRUE)
+    t.dists <- lapply(indices, FUN=function(X) distances[[as.character(X)]][which(non.zero.nhoods[non.zero.nhoods[,2] == which(indices == X),][,1] == X),])
     t.connect <- unlist(lapply(t.dists, FUN=function(Q) (Q[Q>0])[order(Q[Q>0], decreasing=FALSE)[k]]))
 
     #t.connect <- unlist(lapply(indices, FUN=function(X) max(distances[[as.character(X)]])))
@@ -301,6 +301,56 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
                                 distances=NULL,
                                 reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
 
+    expect_equal(func.fdr, adjp)
+})
+
+test_that("graphSpatialFDR produces reproducible results for graph-overlap weighting", {
+    # calculate spatial FDR here using the actual code
+    da.ref <- testNhoods(sim1.mylo, design=~Condition,
+                         fdr.weighting="none",
+                         design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+    
+    nhoods <- nhoods(sim1.mylo)
+    graph <- graph(sim1.mylo)
+    reduced.dimensions <- reducedDim(sim1.mylo, "PCA")
+    
+    pvalues <- da.ref[order(da.ref$Nhood), ]$PValue
+    haspval <- !is.na(pvalues)
+    if (!all(haspval)) {
+        coords <- coords[haspval, , drop=FALSE]
+        pvalues <- pvalues[haspval]
+    }
+    
+    intersect_mat <- crossprod(nhoods)
+    diag(intersect_mat) <- 0
+    t.connect <- unname(rowSums(intersect_mat))
+    
+    w <- 1/unlist(t.connect)
+    w[is.infinite(w)] <- 0
+    
+    # Computing a density-weighted q-value.
+    o <- order(pvalues)
+    pvalues <- pvalues[o]
+    w <- w[o]
+    
+    adjp <- numeric(length(o))
+    adjp[o] <- rev(cummin(rev(sum(w)*pvalues/cumsum(w))))
+    adjp <- pmin(adjp, 1)
+    
+    if (!all(haspval)) {
+        refp <- rep(NA_real_, length(haspval))
+        refp[haspval] <- adjp
+        adjp <- refp
+    }
+    
+    func.fdr <- graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
+                                graph=graph(sim1.mylo),
+                                weighting="graph-overlap",
+                                pvalues=da.ref[order(da.ref$Nhood), ]$PValue,
+                                indices=nhoodIndex(sim1.mylo),
+                                distances=nhoodDistances(sim1.mylo),
+                                reduced.dimensions=reducedDim(sim1.mylo, "PCA"))
+    
     expect_equal(func.fdr, adjp)
 })
 
