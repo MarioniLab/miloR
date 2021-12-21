@@ -25,7 +25,7 @@ library(viridis)
 ```
 
 ```{r}
-source("~/src/miloR/R/glmm.R")
+source("~/Documents/Milo2.0/R_scripts/miloR/R/glmm.R")
 ```
 
 I'll start by writing a function that simulates a data set with N observations. This will be useful for evaluating the consistency of our model over repeated runs.
@@ -41,7 +41,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     }
     
     if(length(re.levels) != n.re){
-        stop("List entries need to match number of input fixed effects")
+        stop("List entries need to match number of input random effects")
     }
     
     # create the design matrices
@@ -68,7 +68,8 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
             X[, i+1] <- as.factor(X[, i+1])
         }
     }
-
+    X[,2] <- X[,2] - 1
+    
     for(j in seq_len(n.re)){
         if(re.levels[[j]] == 1){
             Z[, j] <- sapply(seq_len, FUN=function(R){
@@ -94,6 +95,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     
     # get a combination over random effects 
     # and sample each level from the same ~Normal(0, sigma)
+    # note that the variance would be G if we also had random slopes
     re.thetas <- list()
     for(i in seq_len(length(re.levels))){
         i.re <- names(random.levels[i])
@@ -104,78 +106,50 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
         re.thetas[[i.re]] <- i.re.list
     }
     
-    unique.re <- Z[!duplicated(Z), , drop=FALSE]
-    unique.re.df <- as.data.frame(unique.re)
-    unique.re.df$B <- NA
+    unique.re.df <- as.data.frame(Z)
+    unique.re.df$B <- full.Z %*% unlist(re.thetas)
 
-    # sample Y|b from negative binomial
-    for(i in seq_len(nrow(unique.re))){
-        i.re <- unique.re[i, ]
-        i.re.sum <- c()
-        for(j in seq_along(i.re)){
-            j.i.re <- i.re[j]
-            i.re.sum <- c(i.re.sum, exp((re.thetas[[names(j.i.re)]])[j.i.re]))
-        }
-        unique.re.df[i, ]$B <- sum(i.re.sum)
-    }
-   
     # map the fixed effects to mean values
     unique.fe <- X[!(duplicated(X)), , drop=FALSE]
     unique.fe.df <- as.data.frame(unique.fe)
     unique.fe.df$Beta <- NA
     
-    for(k in seq_len(nrow(unique.fe))){
-        k.fe <- unique.fe[k, ]
-        k.fe.sum <- c()
-        for(l in seq_along(k.fe)){
-            if(l == 1){
-                k.fe.sum <- c(grand.mean) # intercept is always the same
-            } else{
-                l.k.fe <- k.fe[l]
-                k.fe.sum  <- c(k.fe.sum, exp(fe.betas[[names(l.k.fe)]] * l.k.fe))
-            }
-        }
-        unique.fe.df[k, ]$Beta <- sum(k.fe.sum)
-    }
-    
+    betas <- c(grand.mean, unlist(fe.betas))
+    X_new <- as.matrix(unique.fe.df[ ,1:3])
+    unique.fe.df$Beta <- X_new %*% betas
 
-    y.means <- c()
-    for(i in seq_len(N)){
-        i.fe <- X[i, ]
-        i.n <- length(i.fe)
-        i.fe.mean <- unique.fe.df[colSums(t(unique.fe.df[, names(i.fe)]) == i.fe) == i.n, ]$Beta
-        
-        i.re <- Z[i, ]
-        i.n <- length(i.re)
-        i.re.mean <- unique.re.df[colSums(t(unique.re.df[, names(i.re)]) == i.re) == i.n, ]$Beta
-        
-        i.error <- rnorm(1, mean=0, sd=0.1)
-        
-        i.y <- sum(c(i.fe.mean, i.re.mean, exp(i.error)))
-        y.means <- c(y.means, i.y)
-    }
-
-    mu.mu <- mean(y.means)
-    theta.disp <- (mu.mu/2) - dispersion
+    i.error <- matrix(data = rnorm(N, mean=0, sd=0.001), ncol = 1)
     
-    y.counts <- sapply(y.means, FUN=function(YC) rnegbin(n=1, mu=YC, theta=theta.disp))
+    # construct the y.means equation, depending on desired distribution and FE/RE
+    #y.means <- unique.fe.df$Beta
+    #y.means <- unique.fe.df$Beta + unique.re.df$B
+    #y.means <- exp(unique.fe.df$Beta)
+    y.means <- exp(unique.fe.df$Beta + unique.re.df$B) 
+    
+    #y.means <- y.means
+    y.means <- y.means + i.error
+
+    #theta.disp <- (mu.mu/2) - dispersion
+    #y.counts <- rnegbin(n=nrow(y.means), mu=exp(unique.fe.df$Beta), theta=1)
+    y.counts <- rnbinom(N, mu = y.means, size = dispersion)
+
     sim.data <- data.frame("Mean"=y.means, "Mean.Count"=y.counts)
     sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
     
     return(sim.data)
-    
 }
 
 fe.levels <- list("FE1"=2, "FE2"=1)
 re.levels <- list("RE1"=3, "RE2"=5)
+
 grand.mean <- 2
 
-fe.betas <- list("FE1"=1.25, "FE2"=0.25)
+fe.betas <- list("FE1"=0.7, "FE2"=1.5)
 re.sigmas <- list("RE1"=2, "RE2"=4)
 
-r.dispersion <- 2
+r.dispersion <- 5
 set.seed(42)
-sim.df <- SimulateMMData(N=30, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
+sim.df <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
                          n.fe=2, n.re=2, re.levels=re.levels, fe.levels=fe.levels)
 
 sim.df$FE1 <- as.factor(sim.df$FE1)
@@ -214,8 +188,12 @@ ANOVA-mixed model.
 ## glmmTMB
 
 ```{r}
-nb.glm <- glmmTMB(Mean.Count ~ FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-nb.glm
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+# nb.glm <- glmmTMB(Mean ~ 1 + FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df)
+# nb.glm <- glmmTMB(Mean ~ 1 + FE1 + FE2, data=sim.df)
+#nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2, data=sim.df, family=nbinom2(link="log"))
+
+summary(nb.glm)
 ```
 
 
@@ -237,7 +215,7 @@ set.seed(42)
 random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"),
                       "RE2"=paste("RE2", levels(sim.df$RE2), sep="_"))
 
-X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=sim.df$FE2))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1), "FE2"=sim.df$FE2))
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
 y <- sim.df$Mean.Count
 
@@ -618,11 +596,11 @@ This suggests that most of the models have not converged - how quickly do they r
 
 ```{r}
 getIters <- function(glmm.list, sim){
-    data.frame("Iters"=glmm.list$iters, "Sim"=sim)
+    data.frame("Iters"=glmm.list$iters, "Sim"=sim, "Converge"=glmm.list$converged)
 }
 
 glmm.iter.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getIters(glmm.keep.list[[X]], X), simplify=FALSE))
-
+glmm.iter.df <- dplyr::filter(glmm.iter.df, Converge == TRUE)
 barplot(table(unlist(lapply(glmm.keep.list, FUN=function(X) X$iters))))
 ```
 
