@@ -34,9 +34,11 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     if(is.null(init.theta)){
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        curr_u <- matrix(c(-0.1315006, 0.3109791, -0.2375283), ncol = 1)
         rownames(curr_u) <- colnames(full.Z)
                             
         curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) # OLS for the betas is usually a good starting point for NR
+        curr_beta <- matrix(c(2, 0.04), ncol = 1)
         rownames(curr_beta) <- colnames(X)
     } else{
         curr_beta <- matrix(init.theta[["beta"]], ncol=1)
@@ -105,9 +107,15 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
    while(meet.conditions){
        
        #---- First estimate variance components with Newton Raphson procedure ---####
-       V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, D_inv=D_inv, V0=V0)
+       D_inv <- computeDinv(mu.vec)
+       D <- computeD(D_inv=D_inv)
+       V <- computeV0(mu=mu.vec, r=new.r)
+       W <- computeW(D=D, V=V)
+       
+       V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
        V_star_inv <- computeV_star_inv(V_star=V_star)
        y_star <- computey_star(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u)
+       
        score_sigma <- sigmaScore(G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials, y_star=y_star)
        hessian_sigma <- sigmaHessian(G=curr_G, G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials)
        sigma_nr.out <- singleNR(score_vec=score_sigma, hess_mat=hessian_sigma, theta_hat=curr_sigma)
@@ -128,11 +136,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
        }
        
        #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
-       D_inv <- computeDinv(mu.vec)
-       D <- computeD(D_inv=D_inv)
-       V <- computeV0(mu=mu.vec, r=new.r)
-       W <- computeW(D=D, V=V)
-       y_star <- computey_star(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u)
        theta_update <- solve_equations(X=X, W=W, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star)
                             
        theta_diff <- theta_update - curr_theta # does this needs to be all negative? No, just _very_ small
@@ -193,8 +196,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
        #                  return(final.list)
        #              }
 
-computeV_star <- function(full.Z=full.Z, curr_G=curr_G, D_inv=D_inv, V0=V0){
-    V_star = full.Z %*% curr_G %*% t(full.Z) + D_inv %*% V0 %*% D_inv
+computeV_star <- function(full.Z=full.Z, curr_G=curr_G, W=W){
+    W_inv <- ginv(W)
+    V_star = full.Z %*% curr_G %*% t(full.Z) + W_inv
     return(V_star)
 }
 
