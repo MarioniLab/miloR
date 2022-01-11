@@ -1,5 +1,5 @@
 #' Perform differential abundance testing using a NB-generalised linear mixed model
-#'
+#' 
 #' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 #'
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty
@@ -13,7 +13,8 @@
 #' @export
 runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                     glmm.control=list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6,
-                                      likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe")){
+                                      likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe"),
+                    dispersion = 0.5)){
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
@@ -72,8 +73,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     
     # use y_bar as the sample mean and s_hat as the sample variance
     y_bar <- mean(y)
-    s_hat <- var(y)
-    new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate <- wrong!! Has very little effect on outcome though
+    #s_hat <- var(y)
+    new.r <- dispersion
+    #new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate <- wrong!!
     
     max.hit <- glmm.control[["max.iter"]]
     
@@ -82,7 +84,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     sigma_diff <- Inf
     loglihood.diff <- Inf
     lambda <- glmm.control[["lambda"]] # lambda used in the Levenberg-Marquardt adjustment
-    init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
+    #init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
     
     init.G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=init.sigma)
     curr_G <- init.G
@@ -136,8 +138,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         # we have estimated the parameters, and now we need to estimate the components of G (variance components)
         
         #----   INSERT NEW CODE HERE!!!   ---####
-        G_sigma_partials <- computeGPartials(curr_G, curr_sigma)
-        score_sigma <- sigmaScore(G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials)
+        V_star <- computeV_star(full.Z-full.Z, curr_G=curr_G, D_inv=D_inv, V0=V0)
+        V_star_inv <- computeV_star_inv(V_star=V_star)
+        y_star <- computey_star(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u)
+        score_sigma <- sigmaScore(G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials, y_star=y_star)
         hessian_sigma <- sigmaHessian(G=curr_G, G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials)
         sigma_nr.out <- singleNR(score_vec=score_sigma, hess_mat=hessian_sigma, theta_hat=curr_sigma)
         sigma_update <- sigma_nr.out$theta
@@ -165,7 +169,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
         
         # compute dispersions
-        new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate
+        #new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate
         
         # do we even need to do this if we aren't using Laplace for the sigmas?
         # loglihood integrating over the random effects only
@@ -233,38 +237,51 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     return(final.list)
 }
 
+#done
+computeV_star <- function(full.Z=full.Z, curr_G=curr_G, D_inv=D_inv, V0=V0){
+    V_star = full.Z %*% curr_G %*% t(full.Z) + D_inv %*% V0 %*% D_inv
+    return(V_star)
+}
 
+#done
+computeV_star_inv <- function(V_star=V_star){
+    V_star_inv <- if(det(V_star) < 1e-10){ 
+        V_star_inv <- ginv(V_star)
+    } else{
+        V_star_inv <- solve(V_star)}
+    return(V_star_inv)
+}
+
+#done
+computey_star <- function(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u){
+    y_star <- (X %*% curr_beta) + (full.Z %*% curr_u) + D_inv %*% (y - exp((X %*% curr_beta) + (full.Z %*% curr_u)))
+    return(y_star)
+}
+
+#missing partial derivative
 sigmaScore <- function(G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials){
-
-    LHS <- matrix(0L, ncol=1, nrow=length(G_sigma_partials))
-    for(i in seq_len(length(G_sigma_partials))){
-        LHS[i, ] <- -0.5 * matrix.trace(G_inv %*% G_sigma_partials[[i]])
+    for i in seq_len(length(???)) {
+        LHS <- -0.5*matrix.trace(V_star_inv %*% ???)
+        RHS <- 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% ??? %*% V_star_inv %*% (y_star - X %*% curr_beta)
     }
-    
-    RHS <- matrix(0L, ncol=1, nrow=length(G_sigma_partials))
-    for(j in seq_len(length(G_sigma_partials))){
-        RHS[j, ] <- 0.5 * t(curr_u) %*% G_inv %*% G_sigma_partials[[j]] %*% G_inv %*% curr_u
-    }
-
     return(LHS + RHS)
 }
 
+#missing partial derivatives
 sigmaHessian <- function(G=curr_G, G_inv=G_inv, curr_u=curr_u, G_sigma_partials=G_sigma_partials) {
 
     hessian <- matrix(0L, ncol=length(G_sigma_partials), nrow=length(G_sigma_partials))
     for(i in seq_len(length(G_sigma_partials))) {
         for (j in seq_len(length(G_sigma_partials))){
-            hessian[i, j] <- 1/(2*det(G)) * matrix.trace(G_inv %*% G_sigma_partials[[i]]) - 0.5*(matrix.trace(G_inv %*% G_sigma_partials[[i]]) %*% matrix.trace(G_inv %*% G_sigma_partials[[j]])
-                                                                                - matrix.trace((G_inv %*% G_sigma_partials[[i]]) %*% (G_inv %*% G_sigma_partials[[j]]))) - t(curr_u) %*% G_inv %*% G_sigma_partials[[i]] %*% G_inv %*% G_sigma_partials[[j]] %*% G_inv %*% curr_u
+            hessian[i, j] <- -0.5*matrix.trace(V_star_inv %*% ????? - V_star_inv %*% ??? %*% V_star_inv %*% ???) +
+                0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% (????? - 2*??? %*% V_star_inv %*% ???) %*% V_star_inv %*% (y_star - X %*% curr_beta)
         }
     }
     return(hessian)
 }
 
 ### write function for V*sigma
-# ZGZ' + DVAVD and substitute this for G ???
-# y - Xbeta instead of b, where y* is the pseudo-variable Xbeta + Zb + D-1[y - h(n)], what is n???
-
+???
 
 computeSE <- function(hessian, det.tol=1e-10){
     # compute the parameter estimate standard errors from the hessian
@@ -500,7 +517,7 @@ computeW <- function(mu, r, Z=full.Z, G=curr_G, D_inv=D_inv){
 computeB <- function(y, r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/dmu
     n <- length(y)
-    b <- y - (n*mu) + (n*r)/(1 - (r*(mu**-1)))
+    b <- y - (n*mu) + (n*r)/(1 - (r*(mu**(-1))))
     B <- diag(n)
     diag(B) <- b
     return(B)
@@ -510,7 +527,7 @@ computeB <- function(y, r, mu){
 computeQ <- function(r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/du
     n <- length(mu)
-    q <- -n*(1 + (r**2)/(mu**2*(1-r*(mu**-1))**2))
+    q <- -n*(1 + (r**2)/((mu**2)*((1-r*(mu**-1))**2)))
     Q <- diag(n)
     diag(Q) <- q
     return(Q)

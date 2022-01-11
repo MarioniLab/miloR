@@ -26,7 +26,8 @@
 #' @export
 runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                     glmm.control=list(det.tol=1e-10, cond.tol=1e-12, theta.tol=1e-6,
-                                      likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe")){
+                                      likli.tol=1e-6, max.iter=100, lambda=1e-1, laplace.int="fe"), 
+                    dispersion = 0.5){
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
@@ -90,8 +91,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     # use y_bar as the sample mean and s_hat as the sample variance
     y_bar <- mean(y)
-    s_hat <- var(y)
-    new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate <- wrong!! Has very little effect on outcome though
+    #s_hat <- var(y)
+    new.r <- dispersion
+    #new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate <- wrong!!
 
     max.hit <- glmm.control[["max.iter"]]
 
@@ -100,7 +102,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     sigma_diff <- Inf
     loglihood.diff <- Inf
     lambda <- glmm.control[["lambda"]] # lambda used in the Levenberg-Marquardt adjustment
-    init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
+    #init.vars <- runif(length(random.levels)) # sample variance components from ~U(0, 1)
 
     init.G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=init.sigma)
     curr_G <- init.G
@@ -122,6 +124,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     meet.conditions <- !((all(abs_diff < theta.conv)) & (abs(loglihood.diff) < loglihood.eps) & (abs(sigma_diff) < theta.conv) | iters >= max.hit)
     while(meet.conditions){
+        print(iters)
         D_inv <- computeDinv(mu.vec)
         V0 <- computeV0(mu=mu.vec, r=new.r)
         #V <- V0 + (D_inv %*% full.Z %*% curr_G %*% t(full.Z) %*% D_inv)
@@ -206,7 +209,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         names(curr_var.comps) <- c(rownames(curr_sigma), "residual")
 
         # compute dispersions
-        new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate
+        #new.r <- computeDispersion(mu.vec, s_hat) # methods of moments based estimate
 
         # do we even need to do this if we aren't using Laplace for the sigmas?
         # loglihood integrating over the random effects only
@@ -684,7 +687,7 @@ computeW <- function(mu, r, Z=full.Z, G=curr_G, D_inv=D_inv){
 computeB <- function(y, r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/dmu
     n <- length(y)
-    b <- y - (n*mu) + (n*r)/(1 - (r*(mu**-1)))
+    b <- y - (n*mu) + (n*r)/(1 - (r*(mu**(-1))))
     B <- diag(n)
     diag(B) <- b
     return(B)
@@ -694,7 +697,7 @@ computeB <- function(y, r, mu){
 computeQ <- function(r, mu){
     # diagonal matrix containing elements of d(y - db(theta)/dtheta)/du
     n <- length(mu)
-    q <- -n*(1 + (r**2)/(mu**2*(1-r*(mu**-1))**2))
+    q <- -n*(1 + (r**2)/((mu**2)*((1-r*(mu**-1))**2)))
     Q <- diag(n)
     diag(Q) <- q
     return(Q)
