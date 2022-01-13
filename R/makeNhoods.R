@@ -26,7 +26,7 @@
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
 #' down the number of neighbourhoods to be tested. The refinement behaviour can
-#' be turned off by setting \code{refined=FALSE}, however, we do not recommend
+#' be turned off by setting \code{refine=FALSE}, however, we do not recommend
 #' this as neighbourhoods will contain a lot of redundancy and lead to an
 #' unnecessarily larger multiple-testing burden.
 #'
@@ -76,7 +76,6 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
                 stop("Rownames of reduced dimensions do not match cell IDs")
             }
         }
-
     } else if(is(x, "igraph")){
 
         if(isTRUE(refined) & refinement_scheme == "reduced_dim" & !is.matrix(reduced_dims)) {
