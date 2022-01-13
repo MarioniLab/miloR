@@ -1,5 +1,6 @@
 # 1.3.1 (2022-01-07)
 + Fix bug in `findNhoodGroupMarkers` to merge on gene IDs explicitly
++ Fix bug in `makeNhoods` to include index cell in nhoods() matrix
 + Introduce graph-based neighbourhood definition - allows full compatibility with graph-only batch correction and graphs constructed by third-party tools
 + Introduce graph-based spatial FDR correction to obviate the need for any distance calculations
 
