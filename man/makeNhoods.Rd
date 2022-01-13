@@ -56,7 +56,7 @@ prevent over-sampling the graph space.
 \details{
 This function randomly samples graph vertices, then refines them to collapse
 down the number of neighbourhoods to be tested. The refinement behaviour can
-be turned off by setting \code{refined=FALSE}, however, we do not recommend
+be turned off by setting \code{refine=FALSE}, however, we do not recommend
 this as neighbourhoods will contain a lot of redundancy and lead to an
 unnecessarily larger multiple-testing burden.
 }
