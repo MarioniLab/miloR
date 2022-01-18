@@ -118,7 +118,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     
     # construct the y.means equation, depending on desired distribution and FE/RE
     y.means <- exp(Beta + B) 
-    y.means <- y.means + i.error
+    y.means <- y.means #+ i.error
 
     #theta.disp <- (mu.mu/2) - dispersion
     #y.counts <- rnegbin(n=nrow(y.means), mu=exp(unique.fe.df$Beta), theta=1)
@@ -136,12 +136,12 @@ re.levels <- list("RE1"=3)
 
 grand.mean <- 2
 
-fe.betas <- list("FE1"=0.03)
-re.sigmas <- list("RE1"=0.04)
+fe.betas <- list("FE1"=0.25)
+re.sigmas <- list("RE1"=0.01)
 
 r.dispersion <- 0.5
 set.seed(43)
-sim.df <- SimulateMMData(N=5, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
+sim.df <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
                          n.fe=1, n.re=1, re.levels=re.levels, fe.levels=fe.levels)
 
 sim.df$FE1 <- as.factor(sim.df$FE1)
@@ -347,31 +347,16 @@ glmm.control$laplace.int <- "full"
 # glmm.control$laplace.int <- "re"
 # might need to tweak the loglihood convergence threshold
 glmm.control$likli.tol <- 1e-6
-glmm.control$max.iter <- 100
+glmm.control$max.iter <- 8  
 model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
 conv.list <- model.list$Iterations
 
-model.coef <- c(model.list$FE, model.list$RE)
+model.coef <- c(model.list$FE, model.list$RE, model.list$Sigma)
 var.comps <- model.list$VarComp
 ```
 
-
-```{r}
-X = as.matrix(cbind(c(1, 0, 1, 1, 1, 0), c(0, 1, 0, 0, 0, 1)))
-colnames(X) <- c("Intercept", "FE1")
-
-Z = as.matrix(cbind(c(1, 1, 0, 0, 0, 0), c(0, 0, 1, 1, 0, 0), c(0, 0, 0, 0, 1, 1)))
-Z = as.matrix(cbind(c(1, 1, 2, 2, 3, 3)))
-colnames(Z) <- c("RE1")
-
-y = as.matrix(cbind(c(9, 12, 11, 6, 7, 14)))
-```
-
-
-
 ```{r}
 model.coef
-var.comps * 100
 ```
 
 Above shows the coefficient and variance component estimates. We can evaluate the model a bit more by looking at the convergence and loglihood across iterations.
@@ -379,47 +364,62 @@ Above shows the coefficient and variance component estimates. We can evaluate th
 ```{r}
 diff.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Theta.Diff[, 1]
+                            x <- X$Theta.Diff
                             names(x) <- rownames(X$Theta.Diff)
                             x
                             })))
+diff.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 5)
+# likli.df <- do.call(rbind.data.frame,
+#                     lapply(conv.list, function(X){
+#                         X$Loglihood
+#                         }))
+# colnames(likli.df) <- c("Loglihood")
+# likli.df$Iters <- seq_len(nrow(likli.df))
 
-likli.df <- do.call(rbind.data.frame,
-                    lapply(conv.list, function(X){
-                        X$Loglihood
-                        }))
-colnames(likli.df) <- c("Loglihood")
-likli.df$Iters <- seq_len(nrow(likli.df))
-
-full.logli.df <- do.call(rbind.data.frame,
-                    lapply(conv.list, function(X){
-                        X$Full.Loglihood
-                        }))
-colnames(full.logli.df) <- c("Full.Loglihood")
-full.logli.df$Iters <- seq_len(nrow(full.logli.df))
+# full.logli.df <- do.call(rbind.data.frame,
+#                     lapply(conv.list, function(X){
+#                         X$Full.Loglihood
+#                         }))
+# colnames(full.logli.df) <- c("Full.Loglihood")
+# full.logli.df$Iters <- seq_len(nrow(full.logli.df))
 
 
 theta.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Theta[, 1]
+                            x <- X$Theta
                             names(x) <- rownames(X$Theta)
                             x
                             })))
+theta.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 5)
 
-var.comp.df <- melt(do.call(cbind,
-                            lapply(conv.list, function(X){
-                                x <- X$Var.Comps
-                                names(x) <- c(names(random.levels), "residual")
-                                x
-                                })))
+variance.diff.df <- melt(do.call(cbind,
+                        lapply(conv.list, function(X){
+                            x <- X$Sigma.Diff
+                            x
+                            })))
+variance.diff.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 1)
 
-diff.var.comp.df <- melt(do.call(cbind,
-                            lapply(conv.list, function(X){
-                                x <- X$Var.Comp.Diff
-                                names(x) <- c(names(random.levels), "residual")
-                                x
-                                })))
-diff.var.comp.df <- diff.var.comp.df[!is.na(diff.var.comp.df$Var1), ]
+variance.df <- melt(do.call(cbind,
+                        lapply(conv.list, function(X){
+                            x <- X$Sigma
+                            x
+                            })))
+variance.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 1)
+
+# var.comp.df <- melt(do.call(cbind,
+#                             lapply(conv.list, function(X){
+#                                 x <- X$Var.Comps
+#                                 names(x) <- c(names(random.levels), "residual")
+#                                 x
+#                                 })))
+
+# diff.var.comp.df <- melt(do.call(cbind,
+#                             lapply(conv.list, function(X){
+#                                 x <- X$Var.Comp.Diff
+#                                 names(x) <- c(names(random.levels), "residual")
+#                                 x
+#                                 })))
+# diff.var.comp.df <- diff.var.comp.df[!is.na(diff.var.comp.df$Var1), ]
 ```
 
 
@@ -449,7 +449,33 @@ ggplot(full.logli.df, aes(x=Iters, y=Full.Loglihood)) +
 ```{r}
 theta.conv <- 1e-6
 
+# ggplot(diff.df, aes(x=Var2, y=abs(value), colour=Var1)) +
+#     # geom_point() +
+#     geom_hline(yintercept=theta.conv, lty=2, col='red') +
+#     geom_line() +
+#     theme_cowplot() +
+#     scale_colour_ptol() +
+#     # scale_x_continuous(breaks=c(0:100)) +
+#     labs(x="Iteration", y=expression(theta[0] - theta["t"])) +
+#     facet_wrap(~Var1, scales="free_y") +
+#     #scale_y_log10() +
+#     # expand_limits(y=c(1e-8)) +
+#     NULL
+
 ggplot(diff.df, aes(x=Var2, y=abs(value), colour=Var1)) +
+    # geom_point() +
+    geom_hline(yintercept=theta.conv, lty=2, col='red') +
+    geom_line() +
+    theme_cowplot() +
+    scale_colour_ptol() +
+    # scale_x_continuous(breaks=c(0:100)) +
+    labs(x="Iteration", y=expression(theta[0] - theta["t"])) +
+    facet_wrap(~Var1, scales="free_y") +
+    #scale_y_log10() +
+    # expand_limits(y=c(1e-8)) +
+    NULL
+
+ggplot(variance.diff.df[2:nrow(variance.diff.df),], aes(x=Var2, y=abs(value), colour=Var1)) +
     # geom_point() +
     geom_hline(yintercept=theta.conv, lty=2, col='red') +
     geom_line() +
@@ -494,6 +520,17 @@ Currently these variance components sum to > total variance, and hence the resid
 
 ```{r, fig.height=5.15, fig.width=10.95}
 ggplot(theta.df, aes(x=Var2, y=value, colour=Var1, group=Var1)) +
+    # geom_point() +
+    geom_line() +
+    theme_cowplot() +
+    scale_colour_d3("category20c") +
+    # scale_x_continuous(breaks=c(0:100)) +
+    labs(x="Iteration", y=expression(theta["t"])) +
+    facet_wrap(~Var1, scales="free_y") +
+    # expand_limits(y=c(0)) +
+    NULL
+
+ggplot(variance.df, aes(x=Var2, y=(value), colour=Var1, group=Var1)) +
     # geom_point() +
     geom_line() +
     theme_cowplot() +
