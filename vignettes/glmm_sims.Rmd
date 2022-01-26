@@ -122,6 +122,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
 
     #theta.disp <- (mu.mu/2) - dispersion
     #y.counts <- rnegbin(n=nrow(y.means), mu=exp(unique.fe.df$Beta), theta=1)
+    #theta.disp <- (mean(y.means)/2) - dispersion
     y.counts <- rnbinom(N, mu = y.means, size = dispersion)
 
     sim.data <- data.frame("Mean"=y.means, "Mean.Count"=y.counts)
@@ -132,12 +133,12 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
 }
 
 fe.levels <- list("FE1"=2)
-re.levels <- list("RE1"=3)
+re.levels <- list("RE1"=10)
 
 grand.mean <- 2
 
 fe.betas <- list("FE1"=0.25)
-re.sigmas <- list("RE1"=0.01)
+re.sigmas <- list("RE1"=0.4)
 
 r.dispersion <- 0.5
 set.seed(43)
@@ -324,7 +325,7 @@ vca.obj
 ## My model
 
 ```{r, warning=TRUE}
-set.seed(42)
+set.seed(41) #42
 
 # random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"),
 #                       "RE2"=paste("RE2", levels(sim.df$RE2), sep="_"))
@@ -343,11 +344,11 @@ dispersion <- 0.5
 # covariance between u's
 glmm.control <- glmmControl.defaults()
 # glmm.control$laplace.int <- "fe"
-glmm.control$laplace.int <- "full"
+#glmm.control$laplace.int <- "full"
 # glmm.control$laplace.int <- "re"
 # might need to tweak the loglihood convergence threshold
-glmm.control$likli.tol <- 1e-6
-glmm.control$max.iter <- 8  
+#glmm.control$likli.tol <- 1e-6
+glmm.control$max.iter <- 15
 model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
 conv.list <- model.list$Iterations
 
@@ -362,13 +363,14 @@ model.coef
 Above shows the coefficient and variance component estimates. We can evaluate the model a bit more by looking at the convergence and loglihood across iterations.
 
 ```{r}
+
 diff.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
                             x <- X$Theta.Diff
                             names(x) <- rownames(X$Theta.Diff)
                             x
                             })))
-diff.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 5)
+diff.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 12)
 # likli.df <- do.call(rbind.data.frame,
 #                     lapply(conv.list, function(X){
 #                         X$Loglihood
@@ -390,21 +392,21 @@ theta.df <- melt(do.call(cbind,
                             names(x) <- rownames(X$Theta)
                             x
                             })))
-theta.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 5)
+theta.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 12)
 
 variance.diff.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
                             x <- X$Sigma.Diff
                             x
                             })))
-variance.diff.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 1)
+variance.diff.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 1)
 
 variance.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
                             x <- X$Sigma
                             x
                             })))
-variance.df$Var2 <- rep(1:(glmm.control$max.iter-1), each = 1)
+variance.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 1)
 
 # var.comp.df <- melt(do.call(cbind,
 #                             lapply(conv.list, function(X){
