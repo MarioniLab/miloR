@@ -29,7 +29,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                         
     # random value initiation from runif
     curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
-    curr_u <- matrix(c(0.68630309, 0.74607749, -0.88713916, 1.17212283, 0.40137774, 0.07761444, -0.43943558, -0.34976933,  0.72876610,  0.28689541), ncol=1)
+    #curr_u <- matrix(c(0.68630309, 0.74607749, -0.88713916, 1.17212283, 0.40137774, 0.07761444, -0.43943558, -0.34976933,  0.72876610,  0.28689541), ncol=1)
     rownames(curr_u) <- colnames(full.Z)
         
     # OLS for the betas is usually a good starting point for NR                    
@@ -41,7 +41,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                                        FUN=function(Bj){
                                            (1/(length(Bj)-1)) * crossprod(Bj, Bj)
                                            })), ncol=1)
-    #curr_sigma <- matrix(0.00918, ncol=1)
+    curr_sigma <- matrix(0.2, ncol=1)
     rownames(curr_sigma) <- colnames(Z)
     
     #create a single variable for the thetas
@@ -52,6 +52,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                         
     # use y_bar as the sample mean and s_hat as the sample variance
     new.r <- dispersion
+    print(new.r)
                         
     theta_diff <- rep(Inf, nrow(curr_theta))
     sigma_diff <- Inf
@@ -81,7 +82,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W_inv <- computeW_inv(W=W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
         V_star_inv <- computeV_star_inv(V_star=V_star)
-        V_partial <- computeV_partial(mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, full.Z=full.Z, Z=Z)
+        V_partial <- computeV_partial2(mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, full.Z=full.Z, Z=Z)
 
         #---- First estimate variance components with Newton Raphson procedure ---#
         print(curr_sigma)
@@ -116,7 +117,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                        "Sigma"=curr_sigma,
                        "Theta.Converged"=theta_diff < theta.conv,
                        "Sigma.Converged"=sigma_diff < theta.conv,
-                       "VarComp"=var.comps, 
                        "converged"=converged,
                        "Iters"=iters,
                        "Dispersion"=new.r, 
@@ -159,73 +159,56 @@ sigmaHessian_alt <- function(V_star_inv=V_star_inv, V_partial=V_partial) {
     return(I)
 }
 
-computeV_partial <- function(mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, full.Z=full.Z, Z=Z){
-    
-    # l <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-    #                                    FUN=function(Bj){
-    #                                        (2*nrow(Bj)*Bj/(nrow(Bj) - 1))^-1
-    #                                    })), ncol=1)
-    # first derivative of dV/dmu
-    v.vec <- (2*mu.vec)/r + 1
-    v0 <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-    diag(v0) <- v.vec
-    
-    d.vec <- -1/mu.vec^2
-    d0 <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-    diag(d0) <- d.vec
-    
-    # c <- (unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-    #                                    FUN=function(Bj){
-    #                                        sum((1/(length(Bj)-1))*2*Bj)
-    #                                    })))
-    # 
-    
-    curr_u_indiv <- t(mapUtoIndiv2(full.Z, curr_u, random.levels=random.levels))
-    a <- colSums(curr_u_indiv != 0)
-    
-    s <- ((2*curr_u)/(length(curr_u)-1))^-1
-    #s1 <- 1/sum(2*curr_u) #pretty sure this is wrong
-    s2 <- 1/(sum((2*curr_u)/(length(curr_u)-1)))
-    s3 <- 1/(sum(2*(full.Z %*% curr_u))/(nrow(full.Z)-1))
+# computeV_partial <- function(mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, full.Z=full.Z, Z=Z){
+#     
+#     # l <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+#     #                                    FUN=function(Bj){
+#     #                                        (2*nrow(Bj)*Bj/(nrow(Bj) - 1))^-1
+#     #                                    })), ncol=1)
+#     # first derivative of dV/dmu
+#     v.vec <- (2*mu.vec)/r + 1
+#     v0 <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
+#     diag(v0) <- v.vec
+#     
+#     d.vec <- -1/mu.vec^2
+#     d0 <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
+#     diag(d0) <- d.vec
+#     
+#     # c <- (unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+#     #                                    FUN=function(Bj){
+#     #                                        sum((1/(length(Bj)-1))*2*Bj)
+#     #                                    })))
+#     # 
+#     
+#     curr_u_indiv <- t(mapUtoIndiv2(full.Z, curr_u, random.levels=random.levels))
+#     a <- colSums(curr_u_indiv != 0)
+#     
+#     s <- ((2*curr_u)/(length(curr_u)-1))^-1
+#     #s1 <- 1/sum(2*curr_u) #pretty sure this is wrong
+#     s2 <- 1/(sum((2*curr_u)/(length(curr_u)-1)))
+#     s3 <- 1/(sum(2*(full.Z %*% curr_u))/(nrow(full.Z)-1))
+#     
+#     # d <- t(t(-1/mu.vec) %*% full.Z) %*% c
+#     # v <- v0 %*% D %*% Z %*% c
+#     d <- d0 %*% D %*% full.Z %*% s
+#     d <- d0 %*% D %*% full.Z %*% s
+#     v <- v0 %*% D %*% full.Z %*% s
+#     
+#     D_deriv <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
+#     diag(D_deriv) <- d
+#     V_deriv <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
+#     diag(V_deriv) <- v
+#     
+#     V_partial <- full.Z %*% t(full.Z) + (D_deriv %*% V %*% D_inv) + (D_inv %*% V_deriv %*% D_inv) + (D_inv %*% V %*% D_deriv)
+#     return(V_partial)
+# }
 
-    # d <- rep(NA, length(mu.vec))
-    # for (i in 1:length(mu.vec)) {
-    #     d[i] <- d.vec[i] * mu.vec[i] * l[1]
-    # }
-    # 
-    # v <- rep(NA, length(mu.vec))
-    # for (i in 1:length(mu.vec)) {
-    #     v[i] <- v.vec[i] * mu.vec[i] * l[1]
-    # }
+computeV_partial2 <- function(mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, full.Z=full.Z, Z=Z){
     
-    # first derivative of db/dsigma
-    # curr_u_indiv <- (mapUtoIndiv(full.Z, curr_u, random.levels=random.levels))[[1]]
-    # 
-    # curr_u_indiv <- t(mapUtoIndiv2(full.Z, curr_u, random.levels=random.levels))
-    # db_dsigma0 <- apply(curr_u_indiv, MARGIN = 2,
-    #                      FUN=function(x){
-    #                          (1/(length(x)-1) * 2 * sum(x))^-1
-    #                      })
-    # for (i in 1:ncol(curr_u_indiv)){
-    #     index <- which(curr_u_indiv[,i] > 0)
-    #     curr_u_indiv[index, i] <- db_dsigma0[i]
-    # }
-    
-    
-    # d <- t(t(-1/mu.vec) %*% full.Z) %*% c
-    # v <- v0 %*% D %*% Z %*% c
-    
-    d <- d0 %*% D %*% full.Z %*% s
-    v <- v0 %*% D %*% full.Z %*% s
-    
-    D_deriv <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-    diag(D_deriv) <- d
-    V_deriv <- matrix(0L, ncol=length(mu.vec), nrow=length(mu.vec))
-    diag(V_deriv) <- v
-    
-    V_partial <- Z %*% t(Z) + (D_deriv %*% V %*% D_inv) + (D_inv %*% V_deriv %*% D_inv) + (D_inv %*% V %*% D_deriv)
+    V_partial <- full.Z %*% t(full.Z)
     return(V_partial)
 }
+
 
 computeV_partial_second <- function(full.Z=full.Z, mu.vec=mu.vec, D=D, r=new.r, V=V, D_inv=D_inv, curr_u=curr_u, random.levels=random.levels){
     
@@ -409,7 +392,6 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     return(full.Z)
 }
 
-
 solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star){
     
     UpperLeft <- t(X) %*% W_inv %*% X
@@ -418,7 +400,7 @@ solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_b
     LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
     
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
-    RHS <- rbind((t(X) %*% W %*% y_star), (t(full.Z) %*% W %*% y_star))
+    RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
     
     theta_update <- ginv(LHS) %*% RHS
 }
@@ -466,7 +448,7 @@ computeW <- function(D_inv=D_inv, V=V){
 
 computeV0 <- function(mu, r){
     # compute diagonal matrix of variances
-    v.vec <- ((mu**2/r)) + mu
+    v.vec <- ((mu**2/r)) - mu
     V0 <- matrix(0L, ncol=length(mu), nrow=length(mu))
     diag(V0) <- v.vec
     return(V0)

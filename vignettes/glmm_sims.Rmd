@@ -123,9 +123,11 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     #theta.disp <- (mu.mu/2) - dispersion
     #y.counts <- rnegbin(n=nrow(y.means), mu=exp(unique.fe.df$Beta), theta=1)
     #theta.disp <- (mean(y.means)/2) - dispersion
+    #r <- -dispersion + mean(y.means)/2
+    r <- mean(y.means)^2/(mean(y.means)^2/dispersion + 2*mean(y.means))
     y.counts <- rnbinom(N, mu = y.means, size = dispersion)
 
-    sim.data <- data.frame("Mean"=y.means, "Mean.Count"=y.counts)
+    sim.data <- data.frame("Mean"=y.means, "Mean.Count"=y.counts, "r"=r)
     sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
     print(re.thetas)
     
@@ -306,7 +308,7 @@ ANOVA-mixed model.
 
 ```{r}
 #nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
 
 summary(nb.glm)
 ```
@@ -339,7 +341,7 @@ X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
 y <- sim.df$Mean.Count
 
-dispersion <- 0.5
+dispersion <- unique(sim.df$r)
 
 # covariance between u's
 glmm.control <- glmmControl.defaults()
@@ -347,8 +349,8 @@ glmm.control <- glmmControl.defaults()
 #glmm.control$laplace.int <- "full"
 # glmm.control$laplace.int <- "re"
 # might need to tweak the loglihood convergence threshold
-#glmm.control$likli.tol <- 1e-6
-glmm.control$max.iter <- 15
+glmm.control$theta.tol <- 1e-5
+glmm.control$max.iter <- 80
 model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
 conv.list <- model.list$Iterations
 
@@ -449,7 +451,7 @@ ggplot(full.logli.df, aes(x=Iters, y=Full.Loglihood)) +
 
 
 ```{r}
-theta.conv <- 1e-6
+theta.conv <- 1e-5
 
 # ggplot(diff.df, aes(x=Var2, y=abs(value), colour=Var1)) +
 #     # geom_point() +
