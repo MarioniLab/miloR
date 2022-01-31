@@ -54,6 +54,7 @@ Suggests:
     uwot,
     BiocStyle,
     MouseGastrulationData,
+    MouseThymusAgeing,
     magick,
     RCurl,
     curl,

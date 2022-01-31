@@ -1,5 +1,5 @@
 ---
-title: "Using contrasts for differential abundance testing"
+title: "Making comparisons for differential abundance using contrasts"
 author: "Mike Morgan"
 date: "27/01/2022"
 output:
@@ -49,7 +49,7 @@ thy.sce <- logNormCounts(thy.sce)
 thy.sce
 ```
 
-# Milo analysis
+# Define cell neighbourhoods
 
 ```{r, fig.height=4.1, fig.width=10.5}
 thy.sce <- runUMAP(thy.sce) # add a UMAP for plotting results later
@@ -60,20 +60,21 @@ reducedDim(thy.milo, "UMAP") <- reducedDim(thy.sce, "UMAP")
 plotUMAP(thy.milo, colour_by="SubType") + plotUMAP(thy.milo, colour_by="Age")
 ```
 
-These UMAPs shows how the different thymic epithelial cell subtypes and cells from different aged mice are distributed across our single-cell data set.
+These UMAPs shows how the different thymic epithelial cell subtypes and cells from different aged mice are distributed across our single-cell data set. Next 
+we build the KNN graph and define neighbourhoods to quantify cell abundance across our experimental samples.
 
 ```{r}
-# build KNN graph
+# we build KNN graph
 thy.milo <- buildGraph(thy.milo, k = 10, d = 30)
 thy.milo <- makeNhoods(thy.milo, prop = 0.1, k = 10, d=30, refined = TRUE, refinement_scheme="graph") # make nhoods using graph-only as this is faster
 colData(thy.milo)$Sample <- paste(colData(thy.milo)$SortDay, colData(thy.milo)$Age, sep="_")
 thy.milo <- countCells(thy.milo, meta.data = data.frame(colData(thy.milo)), samples="Sample") # make the nhood X sample counts matrix
 ``` 
 
-# Differential abundance testing
+# Differential abundance testing with contrasts
 
-Now we have the pieces in place for DA testing to demonstrate how to use contrasts. The essence behind using contrasts is to define concretely which groups will be 
-compared to which.
+Now we have the pieces in place for DA testing to demonstrate how to use contrasts. We will use these contrasts to explicitly define which groups will be 
+compared to each other.
 
 ```{r}
 thy.design <- data.frame(colData(thy.milo))[,c("Sample", "SortDay", "Age")]
@@ -89,8 +90,9 @@ week 4 to illustrate the syntax.
 
 ```{r}
 rownames(thy.design) <- thy.design$Sample
-contrast.1 <- c("Age1wk - Age4wk") # the syntax is <VariableName><Level>
+contrast.1 <- c("Age1wk - Age4wk") # the syntax is <VariableName><ConditionLevel> - <VariableName><ControlLevel>
 
+# we need to use the ~ 0 + Variable expression here so that we have all of the levels of our variable as separate columns in our model matrix
 da_results <- testNhoods(thy.milo, design = ~ 0 + Age, design.df = thy.design, model.contrasts = contrast.1, fdr.weighting="graph-overlap")
 table(da_results$SpatialFDR < 0.1)
 ```
@@ -116,36 +118,11 @@ mod.constrast <- makeContrasts(contrasts=contrast.all, levels=model)
 mod.constrast
 ```
 
-This shows the contrast matrix. We can then select the specific columns to define the comparisons using the edgeR code below.
+This shows the contrast matrix. If we want to test each of these comparisons then we need to pass them sequentially to `testNhoods`, then apply an additional 
+multiple testing correction to the spatial FDR values.
 
-```{r}
-model <- model.matrix(~ 0 + Age, data=thy.design)
-
-dge <- DGEList(counts=nhoodCounts(thy.milo),
-               lib.size=colSums(nhoodCounts(thy.milo)))
-dge <- calcNormFactors(dge, method="TMM")
-dge <- estimateDisp(dge, model)
-fit <- glmQLFit(dge, model, robust=TRUE)
-mod.constrast <- makeContrasts(contrasts=contrast.all, levels=model)
-res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast[, 1]), # compare wk1 vs. wk4
-                             sort.by='none', n=Inf))
-
-res$Nhood <- as.numeric(rownames(res))
-res$SpatialFDR <- graphSpatialFDR(x.nhoods=nhoods(thy.milo),
-                                  graph=graph(thy.milo),
-                                  weighting="graph-overlap",
-                                  k=thy.milo@.k,
-                                  pvalues=res[order(res$Nhood), ]$PValue,
-                                  indices=nhoodIndex(thy.milo))
-
-table(res$SpatialFDR < 0.1)
-```
-
-We get equivalent results with this code as we do using `testNhoods(..., contrasts=c("Age1wk - Age4wk"))` because they perform the same test. In this situation where you want to perform 
-sequential comparisons you will need to perform each call to `testNhoods` then apply an additional multiple testing correction to the spatial FDR values.
-
-Contrasts are not limited to these simple pair-wise comparisons, we can also group levels together for comparisons. For instance, imagine we want to know what the effect of the cell counts 
-in the week 1 mice is _compared to all other time points_.
+Contrasts are not limited to these simple pair-wise comparisons, we can also group levels together for comparisons. For instance, imagine we want to know 
+what the effect of the cell counts in the week 1 mice is _compared to all other time points_.
 
 ```{r}
 model <- model.matrix(~ 0 + Age, data=thy.design)
@@ -171,10 +148,10 @@ plotUMAP(thy.milo, colour_by="SubType") + plotNhoodGraphDA(thy.milo, da_results,
   plot_layout(guides="auto" )
 ```
 
-In these side-by-side UMAPs we can see that there is an enrichment of the Perinatal cTEC and Proliferating TEC populations in the 1 week old compared to the other 
-time points.
+In these side-by-side UMAPs we can see that there is an enrichment of the Perinatal cTEC and Proliferating TEC populations in the 1 week old compared to 
+the other time points.
 
-For a more extensive description of the uses of contrasts please take a look at the edgeR documentation.
+For a more extensive description of the uses of contrasts please take a look at the edgeR documentation \Biocpkg{edgeR}.
 
 
 <details>
