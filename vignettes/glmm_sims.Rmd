@@ -22,6 +22,7 @@ library(cowplot)
 library(glmmTMB)
 library(scales)
 library(viridis)
+library(tidyr)
 ```
 
 ```{r}
@@ -134,23 +135,21 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     return(sim.data)
 }
 
-fe.levels <- list("FE1"=2)
-re.levels <- list("RE1"=10)
+fe.levels <- list("FE1"=2, "FE2"=1)
+re.levels <- list("RE1"=10, "RE2"=7)
 
 grand.mean <- 2
 
-fe.betas <- list("FE1"=0.25)
-re.sigmas <- list("RE1"=0.4)
+fe.betas <- list("FE1"=0.3, "FE2"=0.7)
+re.sigmas <- list("RE1"=0.4, "RE2"=0.4)
 
 r.dispersion <- 0.5
 set.seed(43)
 sim.df <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
-                         n.fe=1, n.re=1, re.levels=re.levels, fe.levels=fe.levels)
+                         n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
 
 sim.df$FE1 <- as.factor(sim.df$FE1)
 sim.df$RE1 <- as.factor(sim.df$RE1)
-
-head(sim.df)
 ```
 
 ```{r}
@@ -308,21 +307,9 @@ ANOVA-mixed model.
 
 ```{r}
 #nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
-
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
 summary(nb.glm)
 ```
-
-
-## VCA ANOVA
-
-```{r}
-require(VCA)
-sim.df$log.Counts <- log(sim.df$Mean.Count + 1)
-vca.obj <- anovaMM(Mean.Count ~ FE1 + FE2  + (RE1) + (RE2), sim.df)
-vca.obj
-```
-
 
 ## My model
 
@@ -331,30 +318,24 @@ set.seed(41) #42
 
 # random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"),
 #                       "RE2"=paste("RE2", levels(sim.df$RE2), sep="_"))
-random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"))
-
-# X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1) - 1, "FE2"=sim.df$FE2))
-# Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
-# y <- sim.df$Mean.Count
-
-X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1) - 1))
-Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
+ 
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1) - 1, "FE2"=as.numeric(sim.df$FE2)))
+Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
 y <- sim.df$Mean.Count
 
-dispersion <- unique(sim.df$r)
+dispersion <- 0.5
 
 # covariance between u's
 glmm.control <- glmmControl.defaults()
-# glmm.control$laplace.int <- "fe"
-#glmm.control$laplace.int <- "full"
-# glmm.control$laplace.int <- "re"
+
 # might need to tweak the loglihood convergence threshold
 glmm.control$theta.tol <- 1e-5
-glmm.control$max.iter <- 80
-model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
+glmm.control$max.iter <- 15
+model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, glmm.control=glmm.control, dispersion=dispersion)
 conv.list <- model.list$Iterations
 
-model.coef <- c(model.list$FE, model.list$RE, model.list$Sigma)
+model.coef <- c(model.list$FE, model.list$Sigma)
 var.comps <- model.list$VarComp
 ```
 
@@ -426,30 +407,6 @@ variance.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each 
 # diff.var.comp.df <- diff.var.comp.df[!is.na(diff.var.comp.df$Var1), ]
 ```
 
-
-```{r, warning=FALSE, message=FALSE}
-ggplot(likli.df, aes(x=Iters, y=Loglihood)) +
-    # geom_point() +
-    geom_line() +
-    theme_cowplot() +
-    labs(x="Iteration", y=expression(bold(paste("log L(",sigma,"; y)")))) +
-    # scale_y_log10() +
-    NULL
-```
-
-
-```{r, warning=FALSE, message=FALSE}
-ggplot(full.logli.df, aes(x=Iters, y=Full.Loglihood)) +
-    # geom_point() +
-    geom_line() +
-    theme_cowplot() +
-    labs(x="Iteration", y=expression(bold(paste("log L(",sigma,", ", beta, ", u, ; y)")))) +
-    # scale_y_log10() +
-    NULL
-```
-
-
-
 ```{r}
 theta.conv <- 1e-5
 
@@ -490,33 +447,6 @@ ggplot(variance.diff.df[2:nrow(variance.diff.df),], aes(x=Var2, y=abs(value), co
     facet_wrap(~Var1, scales="free_y") +
     #scale_y_log10() +
     # expand_limits(y=c(1e-8)) +
-    NULL
-```
-
-
-```{r, fig.height=3.15, fig.width=8.15}
-ggplot(diff.var.comp.df, aes(x=Var2, y=value, colour=Var1)) +
-    geom_line() +
-    theme_cowplot() +
-    scale_colour_npg() +
-    labs(x="Iteration", y=expression(sigma[0] - sigma["t"])) +
-    facet_wrap(~Var1, scales="free_y") +
-    NULL
-```
-
-These are the differences in the variance component estimates over the iterations. It looks like they are starting to converge, but are definitely not there yet, especially 
-for the second random effect which I would expect to be much small than the first.
-
-```{r, fig.height=3.15, fig.width=8.15}
-ggplot(var.comp.df, aes(x=Var2, y=value*100, colour=Var1, group=Var1)) +
-    # geom_point() +
-    geom_line() +
-    theme_cowplot() +
-    scale_colour_npg() +
-    # scale_x_continuous(breaks=c(0:100)) +
-    labs(x="Iteration", y="%Variance") +
-    facet_wrap(~Var1, scales="free_y") +
-    # expand_limits(y=c(0)) +
     NULL
 ```
 
@@ -592,29 +522,25 @@ Now I will need to create a run of simulations and run my GLMM on each of these.
 
 ```{r, warning=FALSE, message=FALSE}
 runSim <- function(...){
-    fe.levels <- list("FE1"=2, "FE2"=1)
-    # re.levels <- list("RE1"=3, "RE2"=5)
-    re.levels <- list("RE1"=3)
-    grand.mean <- 0.5
     
-    fe.betas <- list("FE1"=1.25, "FE2"=0.25)
+    set.seed(43)
+
+    fe.levels <- list("FE1"=2)
+    re.levels <- list("RE1"=10)
+    grand.mean <- 2
+    
+    fe.betas <- list("FE1"=0.25)
     n.fe <- length(fe.betas)
-    # re.sigmas <- list("RE1"=2, "RE2"=4)
-    re.sigmas <- list("RE1"=2)
+    re.sigmas <- list("RE1"=0.4)
     n.re <- length(re.sigmas)
 
-    r.dispersion <- 2
-    sim.df <- SimulateMMData(N=50, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
+    r.dispersion <- 0.5
+    sim.df <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, 
                              n.fe=n.fe, n.re=n.re, re.levels=re.levels, fe.levels=fe.levels)
-    
-    sim.df$FE1 <- as.factor(sim.df$FE1)
-    sim.df$RE1 <- as.factor(sim.df$RE1)
-    # sim.df$RE2 <- as.factor(sim.df$RE2)
-    
     return(sim.df)
 }
 
-n.sims <- 100
+n.sims <- 5
 sim.list <- replicate(n.sims, runSim(), simplify=FALSE)
 ```
 
@@ -623,35 +549,27 @@ that th model might be a bit over-specified, therefore I'll only test 1 of the r
 
 ```{r, warning=FALSE, message=FALSE, error=FALSE}
 glmmWrapper <- function(sim.df){
-    # random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"),
-    #                       "RE2"=paste("RE2", levels(sim.df$RE2), sep="_"))
-    # random.levels <- list("RE2"=paste("RE2", levels(sim.df$RE2), sep="_"))
-    random.levels <- list("RE1"=paste("RE1", levels(sim.df$RE1), sep="_"))
 
-    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=sim.df$FE2))
-    # Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
     Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
-    Z <- Z[, c("RE1"), drop=FALSE]
     y <- sim.df$Mean.Count
-    
-    # covariance between u's
+    dispersion <- 0.5 #unique(sim.df$r)
+
     glmm.control <- glmmControl.defaults()
-    # glmm.control$laplace.int <- "fe"
-    glmm.control$laplace.int <- "full"
-    # might need to tweak the loglihood convergence threshold
-    glmm.control$likli.tol <- 1e-6
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
     try({
         i.start <- proc.time()
-        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control)
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
         i.end <- proc.time()
         conv.list <- model.list$Iterations
 
         out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
-                         "varcomps"=model.list$VarComp,
+                         "sigma"=model.list$Sigma,
                          "iters"=model.list$Iters,
-                         "se"=model.list$SE,
                          "converged"=model.list$converged,
-                         "loglihood"=model.list$Loglihood,
                          "dispersion"=model.list$Dispersion,
                          "start"=i.start, "end"=i.end, "elapsed"=(i.end - i.start)[3])
         return(out.list)
@@ -663,252 +581,260 @@ table(unlist(lapply(glmm.sim.list, class)))
 # glmmWrapper(sim.list[[11]])
 ```
 
-`r table(unlist(lapply(glmm.sim.list, class)))[2]`% of the runs failed with an error - probably an issue with the vast range of counts. I'll assess the 
-other runs for consistency.
+```{r, warning=FALSE, message=FALSE, fig.height=2.15, fig.width=4.15}
+coeff <- lapply(glmm.sim.list, `[[`, 1)
+sigma <- lapply(glmm.sim.list, `[[`, 2)
+
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:4]
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$iter <- 1:5
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "b1", "b2", "iter")
+coeff_pivoted <- pivot_longer(coeff_mat, cols = 1:5)
+
+ggplot(coeff_pivoted, aes(x = iter, y = value, group = name)) +
+    geom_line(aes(color = name)) +
+    theme(text = element_text(size = 16)) +
+    theme_bw() +
+    NULL
+```
+
+
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+glmmWrapper <- function(sim.df, dispersion){
+
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    y <- sim.df$Mean.Count
+    dispersion <- dispersion
+
+    glmm.control <- glmmControl.defaults()
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
+    try({
+        i.start <- proc.time()
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
+        i.end <- proc.time()
+        conv.list <- model.list$Iterations
+
+        out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
+                         "sigma"=model.list$Sigma,
+                         "iters"=model.list$Iters,
+                         "converged"=model.list$converged,
+                         "dispersion"=model.list$Dispersion,
+                         "start"=i.start, "end"=i.end, "elapsed"=(i.end - i.start)[3])
+        return(out.list)
+        })
+}
+#seq(0.1, 1, 0.2)
+glmm.sim.list <- c()
+i <- 1
+for (dispersion in seq(0.1, 1, 0.2)) { 
+    glmm.sim.list[[i]] <- glmmWrapper(sim.list[[1]], dispersion)
+    i <- i + 1
+}
+```
 
 ```{r, warning=FALSE, message=FALSE, fig.height=2.15, fig.width=4.15}
-sim.means <- unlist(lapply(sim.list, FUN=function(CX) mean(CX$Mean.Count)))
-sim.vars <- unlist(lapply(sim.list, FUN=function(CX) var(CX$Mean.Count)))
-sim.sum <- data.frame("Sim"=seq_len(100), "Mean"=sim.means, "Variance"=sim.vars)
-failed.run <- which(unlist(lapply(glmm.sim.list, class)) %in% c("try-error"))
-sim.sum$Failed <- sim.sum$Sim %in% failed.run
-sim.melt <- melt(sim.sum, id.vars=c("Sim", "Failed"))
+glmm.sim.list2 <- glmm.sim.list[c(1:5)]
+coeff <- lapply(glmm.sim.list2, `[[`, 1)
+sigma <- lapply(glmm.sim.list2, `[[`, 2)
+r <- lapply(glmm.sim.list2, `[[`, 5)
 
-ggplot(sim.melt, aes(x=value, fill=variable)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    facet_wrap(~variable, scales="free") +
-    scale_fill_npg() +
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=10)) +
-    NULL
-```
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$r <- unlist(r)
 
-These are the mean and variance within each simulation - there are some with extremely large means and variances - I wonder if these are the simulations 
-that the model breaks on. I'll plot the ones where the model ran and did not to double-check this.
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "r")
+coeff_pivoted <- pivot_longer(coeff_mat, cols = 1:3)
 
-```{r}
-ggplot(sim.melt, aes(x=value, fill=Failed)) +
-    geom_histogram() +
-    theme_cowplot() +
-    facet_wrap(Failed~variable, scales="free") +
-    scale_fill_npg() +
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=10)) +
-    NULL
-```
-
-The lower panels show the simulations that failed - they do generally have a high variance and mean, but it's not clear-cut. What about the mean-variance 
-relationship?
-
-```{r, warning=FALSE, message=FALSE, fig.height=2.95, fig.width=4.95}
-ggplot(sim.sum, aes(x=Mean, y=Variance, colour=Failed)) +
-    geom_abline() + 
+ggplot(coeff_pivoted, aes(x = r, y = value, group = name)) +
     geom_point() +
-    theme_cowplot() +
-    # scale_y_log10() +
-    # scale_x_log10() +
-    scale_colour_npg() +
-    expand_limits(y=c(0), x=c(0)) +
+    theme_bw() + 
+    geom_line(aes(color = name)) +
+    theme(text = element_text(size = 16)) +
+    scale_x_continuous(breaks = seq(0.1, 1, 0.2)) +
     NULL
 ```
 
-This plot shows the mean-variance relationship for each simulation. We can see that the mean is always less than the variance confirming that our simulated 
-data are over-dispersed as we wish.
-
-## Parameter distributions
-
-```{r, fig.height=4.95, fig.width=7.95}
-getCoeffs <- function(glmm.list, sim){
-    data.frame("Param"=names(glmm.list$coefficients), "Coeff"=glmm.list$coefficients, "Sim"=sim)
-}
-
-glmm.keep.list <- glmm.sim.list[unlist(lapply(glmm.sim.list, class)) %in% c("list")] # just keep the ones that didn't fail
-remain.sims <- length(glmm.keep.list)
-glmm.coeff.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getCoeffs(glmm.keep.list[[X]], X), simplify=FALSE))
-
-ggplot(glmm.coeff.df, aes(x=Coeff, fill=Param)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    facet_wrap(~Param, scales="free") +
-    NULL
-```
-
-For the most part these parameters are fairly tightly distributed around 0, though the random effects estimates are definitely more variable.
-
-```{r, fig.height=2.15, fig.width=5.15}
-getVarComps <- function(glmm.list, sim){
-    data.frame("VarComp"=names(glmm.list$varcomps), "Est"=glmm.list$varcomps, "Sim"=sim)
-}
-
-glmm.vc.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getVarComps(glmm.keep.list[[X]], X), simplify=FALSE))
-
-ggplot(glmm.vc.df, aes(x=Est, fill=VarComp)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    facet_wrap(~VarComp, scales="free") +
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9)) +
-    scale_x_continuous(limits=c(-2, 2), oob=squish) +
-    NULL
-```
-
-A couple of things to note here in these distributions of variance components:
-
-1) There are some components that are censored at the boundary (-2, 2) which indicates unstable estimates
-2) There are negative variance components, which _should_ be constrained to 0.
-
-How many of these runs have actually converged?
+Next we are going to change one variable at a time and compare the predicted B, b and sigmas for the two versions of nb_glmm and TMB.
+Firs we need to simulate the data. 
 
 ```{r, warning=FALSE, message=FALSE}
-getConverge <- function(glmm.list, sim){
-    data.frame("Converge"=glmm.list$converge, "Sim"=sim)
-}
-glmm.conv.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getConverge(glmm.keep.list[[X]], X), simplify=FALSE))
+j <- 1
+sim.list <- c()
 
-table(unlist(lapply(glmm.keep.list, FUN=function(X) X$converged)))
-```
-
-This suggests that most of the models have not converged - how quickly do they reach convergence then?
-
-```{r}
-getIters <- function(glmm.list, sim){
-    data.frame("Iters"=glmm.list$iters, "Sim"=sim, "Converge"=glmm.list$converged)
-}
-
-glmm.iter.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getIters(glmm.keep.list[[X]], X), simplify=FALSE))
-glmm.iter.df <- dplyr::filter(glmm.iter.df, Converge == TRUE)
-barplot(table(unlist(lapply(glmm.keep.list, FUN=function(X) X$iters))))
-```
-
-It seems that most runs will generally converge in < 10 iterations, but there is also a substantial portion that hit the 100 max; these are the runs that 
-don't converge.  I wonder if this has anything to do with determining the dispersion parameter? I have sneaky feeling that I have used Var[Y] instead of 
-Var[Y|b] to compute the dispersion.
-
-```{r, fig.height=2.95, fig.width=3.95}
-getDispersion <- function(glmm.list, sim){
-    data.frame("Disp"="R", "Val"=glmm.list$dispersion, "Sim"=sim)
-}
-
-glmm.disp.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getDispersion(glmm.keep.list[[X]], X), simplify=FALSE))
-
-ggplot(glmm.disp.df, aes(x=Val, fill=Disp)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    facet_wrap(~Disp, scales="free") +
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9)) +
-    # scale_x_continuous(limits=c(-2, 2), oob=squish) +
-    NULL
-```
-
-This doesn't look too bad, most of the dispersion estimates are in the [0, 1] range which seems fairly sensible. Are there any relations between the 
-dispersion estimates and  failure to converge/out of range variance components?
-
-
-```{r, warning=FALSE, message=FALSE}
-all.param.df <- Reduce(x=list(glmm.disp.df, glmm.vc.df, glmm.coeff.df, glmm.iter.df, glmm.conv.df),
-                       f=function(x, y) merge(x, y, by='Sim'))
-```
-
-
-```{r, warning=FALSE, message=FALSE, fig.height=2.95, fig.width=4.15}
-ggplot(all.param.df, aes(x=Converge, y=Val, fill=Disp)) +
-    geom_boxplot(width=0.5) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    NULL
-```
-
-The model runs that fail to converge have a marginally higher dispersion; is this a clue to samples with very high variances being a problem?
-
-```{r, warning=FALSE, message=FALSE, fig.height=2.95, fig.width=4.15}
-ggplot(all.param.df, aes(x=Converge, y=Est, fill=VarComp)) +
-    geom_boxplot(width=0.5) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    # scale_y_continuous(limits=c(-1, 1), oob=squish) +
-    NULL
-```
-
-OK, so the model runs that fail to converge almost all have out-of-range variance components. That does indicate a stability issue. There are only 50 
-observations in these simulations, so this might be part of the problem. Are the fixed effect parameters also affected?
-
-```{r, warning=FALSE, message=FALSE, fig.height=2.95, fig.width=6.15}
-ggplot(all.param.df, aes(x=Converge, y=Coeff, fill=Param)) +
-    geom_boxplot(width=0.5) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    # scale_y_continuous(limits=c(-10, 10), oob=squish) +
-    NULL
-```
-
-This goes to show that the random effects estimation is definitely unstable, so when the model fails to converge it's because the random effects are really 
-skewed - this also goes for the intercept. I'm not super confident if it's a chicken or egg situation, i.e., are the variance components the problem or the 
-random effect estimation? If I change the dispersion computation, then this will at least give me an indication of whether or not it makes a difference.
-
-Now what about the timing? This will be important when run over 1000's of neighbourhoods.
-
-```{r, fig.height=2.95, fig.width=3.95}
-getTime <- function(glmm.list, sim){
-    data.frame("Elapsed"=glmm.list$elapsed, "Sim"=sim)
-}
-
-glmm.time.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getTime(glmm.keep.list[[X]], X), simplify=FALSE))
-
-ggplot(glmm.time.df, aes(x=Elapsed)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    theme(axis.text.x=element_text(angle=90, vjust=0.5, hjust=1, size=9)) +
-    # scale_x_continuous(limits=c(-2, 2), oob=squish) +
-    NULL
-```
-
-This looks like the majority of models run in < 1 second, but some take a lot longer. I'll need to look at how this scales with the sample size.
-
-```{r, warning=FALSE, message=FALSE}
-all.param.df <- Reduce(x=list(glmm.disp.df, glmm.vc.df, glmm.coeff.df, glmm.iter.df, glmm.conv.df, glmm.time.df),
-                       f=function(x, y) merge(x, y, by='Sim'))
-```
-
-
-
-```{r, warning=FALSE, message=FALSE, fig.height=2.95, fig.width=6.15}
-ggplot(all.param.df, aes(x=Converge, y=Elapsed)) +
-    geom_boxplot(width=0.5) +
-    theme_cowplot() +
-    # scale_fill_d3("category20c") +
-    # scale_y_continuous(limits=c(-5, 5), oob=squish) +
-    expand_limits(y=c(0)) +
-    NULL
-```
-
-Perhaps predictably, the models that converge are the fastest to run - we will really need to figure out what determines if the model fails or not...
-
-```{r}
-getSE <- function(glmm.list, sim){
-    data.frame("Param"=names(glmm.list$se), "SE"=glmm.list$se,  "Sim"=sim)
-}
-
-glmm.se.df <- do.call(rbind.data.frame, sapply(seq_len(remain.sims), FUN=function(X) getSE(glmm.keep.list[[X]], X), simplify=FALSE))
-all.param.df <- Reduce(x=list(glmm.disp.df, glmm.vc.df, glmm.coeff.df, glmm.iter.df, glmm.conv.df, glmm.time.df),
-                       f=function(x, y) merge(x, y, by='Sim'))
-all.param.df <- merge(all.param.df, glmm.se.df, by=c("Sim", "Param"))
-all.param.df$LCI <- all.param.df$Coeff - (1.96 * sqrt(all.param.df$SE))
-all.param.df$UCI <- all.param.df$Coeff + (1.96 * sqrt(all.param.df$SE))
-```
-
-
-
-```{r, warning=FALSE, message=FALSE, fig.height=5.95, fig.width=8.95}
-ggplot(all.param.df, aes(y=SE, fill=Converge)) +
-    geom_histogram(bins=30) +
-    theme_cowplot() +
-    scale_fill_d3("category20c") +
-    facet_wrap(~Param, scales="free") +
-    # scale_y_continuous(limits=c(0, 1e-7), oob=squish) +
-    NULL
-```
-
-This does look like the SE are much bigger for the runs that fail to converge. These SEs also seem extremely small...
-
+for (i in seq(0.05, 0.7, 0.15)) {
     
+    set.seed(43)
+    fe.levels <- list("FE1"=2)
+    re.levels <- list("RE1"=10)
+    r.dispersion <- 0.5
+    fe.betas=list("FE1"=0.25)
+    re.sigmas=list("RE1"=i)
+    grand.mean=2
+    
+    sim.list[[j]] <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean,
+                               n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
+    j <- j + 1
+}
+names(sim.list) <- seq(0.05, 0.7, 0.15)
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+
+glmmTMBWrapper <- function(sim.list) {
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+    var <- VarCorr(nb.glm)
+    out.list <- list("coefficients"=c(nb.glm[["fit"]][["par"]][1:2]),
+                     "sigma"=unlist(var$cond))
+}
+glmm.sim.list_TMB <- lapply(sim.list, glmmTMBWrapper)
+
+glmmTMBWrapper2 <- function(sim.list) {
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+    var <- VarCorr(nb.glm)
+    out.list <- list("coefficients"=c(nb.glm[["fit"]][["par"]][1:2]),
+                     "sigma"=unlist(var$cond))
+}
+glmm.sim.list_TMB_REML <- lapply(sim.list, glmmTMBWrapper2)
+
+glmmWrapper1 <- function(sim.df){
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    y <- sim.df$Mean.Count
+    dispersion <- 0.5 #unique(sim.df$r)
+
+    glmm.control <- glmmControl.defaults()
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
+    try({
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, glmm.control=glmm.control, dispersion=dispersion)
+        conv.list <- model.list$Iterations
+
+        out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
+                         "sigma"=model.list$Sigma,
+                         "iters"=model.list$Iters,
+                         "converged"=model.list$converged)
+        return(out.list)
+        })
+}
+glmm.sim.list_1 <- lapply(sim.list, glmmWrapper1)
+
+glmmWrapper2 <- function(sim.df){
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    y <- sim.df$Mean.Count
+    dispersion <- 0.5 #unique(sim.df$r)
+
+    glmm.control <- glmmControl.defaults()
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
+    try({
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, glmm.control=glmm.control, dispersion=dispersion)
+        conv.list <- model.list$Iterations
+
+        out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
+                         "sigma"=model.list$Sigma,
+                         "iters"=model.list$Iters,
+                         "converged"=model.list$converged)
+        return(out.list)
+        })
+}
+glmm.sim.list_REML <- lapply(sim.list, glmmWrapper2)
+
+# glmmWrapper2 <- function(sim.df){
+# 
+#     random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+#     X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+#     Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+#     y <- sim.df$Mean.Count
+#     dispersion <- unique(sim.df$r)
+# 
+#     glmm.control <- glmmControl.defaults()
+#     glmm.control$theta.tol <- 1e-5
+#     glmm.control$max.iter <- 15
+# 
+#     try({
+#         model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, glmm.control=glmm.control, dispersion=dispersion)
+#         conv.list <- model.list$Iterations
+# 
+#         out.list <- list("coefficients"=c(model.list$FE[1:2], model.list$RE),
+#                          "sigma"=model.list$Sigma,
+#                          "iters"=model.list$Iters,
+#                          "converged"=model.list$converged)
+#         return(out.list)
+#         })
+# }
+#glmm.sim.list_2 <- lapply(sim.list, glmmWrapper2)
+```
+
+```{r, warning=FALSE, message=FALSE, fig.height=2.15, fig.width=4.15}
+glmmTMB_res <- glmm.sim.list_TMB
+coeff <- lapply(glmmTMB_res, `[[`, 1)
+sigma <- lapply(glmmTMB_res, `[[`, 2)
+intercept <- names(sim.list)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "TMB"
+coeff_pivoted <- pivot_longer(coeff_mat, cols = 1:3)
+
+glmmTMB_res <- glmm.sim.list_TMB_REML
+coeff <- lapply(glmmTMB_res, `[[`, 1)
+sigma <- lapply(glmmTMB_res, `[[`, 2)
+intercept <- names(sim.list)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "TMB_REML"
+coeff_pivoted2 <- pivot_longer(coeff_mat, cols = 1:3)
+
+glmm1_res <- glmm.sim.list_1
+coeff <- lapply(glmm1_res, `[[`, 1)
+sigma <- lapply(glmm1_res, `[[`, 2)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "nb_glmm"
+coeff_pivoted3 <- pivot_longer(coeff_mat, cols = 1:3)
+
+glmm1_res <- glmm.sim.list_REML
+coeff <- lapply(glmm1_res, `[[`, 1)
+sigma <- lapply(glmm1_res, `[[`, 2)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "nb_glmm_REML"
+coeff_pivoted4 <- pivot_longer(coeff_mat, cols = 1:3)
+
+# glmm2_res <- glmm.sim.list_2
+# coeff <- lapply(glmm2_res, `[[`, 1)
+# sigma <- lapply(glmm2_res, `[[`, 2)
+# coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+# coeff_mat <- data.frame(cbind(unlist(sigma), coeff_mat))
+# coeff_mat$intercept <- intercept
+# colnames(coeff_mat) <- c("sigma", "intercept", "beta", "true_value")
+# coeff_mat$analysis <- "nb_glmm_-"
+# coeff_pivoted3 <- pivot_longer(coeff_mat, cols = 1:3)
+
+to_plot <- rbind.data.frame(coeff_pivoted, coeff_pivoted3, coeff_pivoted2, coeff_pivoted4)
+to_plot_f <- dplyr::filter(to_plot, name =="sigma")
+
+ggplot(to_plot_f, aes(y = value, x = true_value, group = analysis)) +
+    geom_bar(stat = "identity", color = "black", position = position_dodge(), aes(fill=analysis)) +
+    theme_bw() + 
+    theme(text = element_text(size = 18)) +
+    scale_y_continuous(limits = c(0, 0.8), breaks = seq(0.05, 0.7, 0.15), expand = c(0,0)) +
+    scale_fill_brewer(palette="Blues") +
+    NULL
+```
