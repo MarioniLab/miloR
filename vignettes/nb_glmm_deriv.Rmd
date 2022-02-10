@@ -1,0 +1,227 @@
+---
+title: "Estimating equations for a NB-GLMM"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+This notebook will keep a record of the various equations, functions and derivatives required to build a functioning negative binomial GLMM.
+
+### The negative binomial likelihood function in exponential family form
+
+We have the negative binomial likelihood function $L(\theta;y)$ for $\theta = [p, r]$
+
+$$L(p, r; y) = {y+r-1\choose y} (1-p)^{r}(p)^y $$
+
+We want to find the parameterisation of this function in exponential family form so that we can frame this as a GLMM. An exponential family distribution has the form:
+
+$$ f(y| \theta) = h(y)\mbox{exp}\{T(y)\eta(\theta) - A(\theta)\} $$
+
+where $T(y)$ is the sufficient statistic, $h(y)$ is a non-negative function of $y$, $\eta(\theta)$ is the natural parameter, $A(\theta)$ is the cumulant generating function, 
+and $\theta$ is the canonical parameter. Alternatively, we can frame this as in Nelder _et al._:
+
+$$ f(y|\theta) = \mbox{exp} \bigg[ \frac{t(y)\theta - b(\theta)}{a(\phi)} + c(y, \phi) \bigg]$$
+
+Where $t(y)$ is the sufficient statistic, $\theta$ is the canonical parameter, $b(\theta)$ is the cumulant generating function in the canonical parameter form and c(y, $\phi$) is 
+rescaled equivalent of $h(y)$. The new parameter $a(\phi)$ is a scale parameter for the exponential family distribution.
+
+For the negative binomial distribution we can define the likelihood function $L(p, r; y)$ in exponential family form if we treat $r$ as a known value:
+
+$$L(p; r, y) = \mbox{exp}\bigg( \underbrace{ylog[p]}_{t(y)\theta} + \overbrace{rlog[1-p] }^{b(\theta)} + \underbrace{log\big[\frac{\Gamma(y)}{\Gamma(y)}\big]}_{c(y, \phi)} \bigg)$$
+
+From this we know that $t(y)=y$, $\theta=log(p)$, $b(\theta)=-rlog(1-p)$ and $a(\phi) = 1$. Therefore $p=e^{\theta}$. Using this formulation we can determine the mean and variance, because $\frac{d b(\theta)}{d \theta} = E[Y] = \mu$ and $Var[Y]=\phi \frac{d^2b(\theta)}{d\theta^2}$.
+
+### Finding the mean and variance
+
+$$b(\theta) = -rlog[1-e^\theta]$$
+Let $u=1-e^\theta$ and $v=-rlogu$. Using the chain rule:
+
+$$E[Y]=\mu=\frac{db(\theta)}{d\theta}=(\frac{du}{d\theta}) (\frac{dv}{du})= [-e^\theta \cdot {\frac{-r}{1-e^\theta}}] = \frac{re^\theta}{1-e^\theta}$$
+
+Substituting $e^\theta = p$:
+
+$$E[Y]=\mu=\frac{db(\theta)}{d\theta}= \frac{rp}{1-p}$$
+
+Using this we can also find the variance ($Var[Y]$) as follows:
+
+$$Var[Y]=\phi\frac{d^2b(\theta)}{d\theta^2} = \phi\frac{d(db(\theta)/d\theta)}{d\theta} = \phi\frac{d\mu}{d\theta}=\phi\frac{d\frac{rp}{1-p}}{\theta}=\phi\frac{d\frac{re^{\theta}}{1-e^\theta}}{d\theta}$$
+
+As we have a quotient, we can use the quotient rule to find this derivative, where the quotient rule is:
+
+$$\frac{df}{dt}= \frac{v\frac{du}{dt} - u\frac{dv}{dt}}{v^2}$$
+
+Therefore, let $u=re^\theta$ and $v=1-e^\theta$, with $\frac{du}{d\theta} = re^\theta$ and $\frac{dv}{d\theta}=-e^\theta$ to get:
+
+$$Var[Y]=\phi\frac{d\frac{re^\theta}{1-e^\theta}}{d\theta} = \frac{(1-e^\theta) \cdot re^\theta - (re^\theta \cdot -e^\theta)}{(1-e^\theta)^2} $$
+
+Expanding brackets and simplifying:
+
+$$Var[Y]=\phi\frac{d\frac{rp}{1-e^\theta}}{d\theta} = \frac{re^\theta -r(e^\theta)^2 + r(e^\theta)^2}{(1-e^\theta)^2} = \frac{re^\theta}{(1-e^\theta)^2} $$
+
+Substituting $e^\theta=p$:
+
+$$Var[Y]=\phi\frac{d\frac{rp}{1-e^\theta}}{d\theta} = \phi\frac{rp}{(1-p)^2} $$
+where, as determined previously, $a(\phi) = 1$.
+
+### Proof for variance of negative binomial distribution
+
+To determine the value of $\phi$, we need to find the variance of the negative binomial distribution. We start with the probability mass function of the negative binomial. 
+
+$$ P(X = y) = {y+r-1\choose y} (1-p)^{r}(p)^y $$
+We know the expected value E(X) is given by $E(X) = \sum_{y=0}^{\infty} yP(X=y)$. In our case:
+
+$$E(X) = \sum_{y=0}^{\infty} yP(X=y) = \sum_{y=0}^{\infty}y{y+r-1\choose y} (1-p)^{r}(p)^y$$
+We first consider the case where r = 1. We can rewrite it as follows: 
+
+$$E(X) = \sum_{y=0}^{\infty}y{y\choose y} (1-p)(p)^y \\=p(1-p)\sum_{y=0}^{\infty}y(p)^{y-1}$$
+This trick allows us to evaluate the sum, as we know the sum to infinity of a geometric series. We can differentiate both sides to obtain an expression for $\sum_{y=0}^{\infty}y(p)^{y-1}$.
+
+$$\sum_{y=0}^{\infty}p^{y} = \frac{1}{1-p} \\
+\sum_{y=0}^{\infty}y(p)^{y-1} = \frac{1}{(1-p)^2}$$
+
+Which therefore shows that when r = 1:
+
+$$E(X) = p(1-p)\frac{1}{(1-p)^2} \\
+=\frac{p}{1-p}$$
+
+Generalising for other values of r, we get:
+$$ E(X) = \frac{rp}{1-p}$$
+To determine the variance, we know $Var(X) = E(X^2) - E(X)^2$. To find $E(X^2)$, we use the same strategy as above.
+
+$$ E(X^2) = \sum_{y=0}^{\infty}y^2P(X=y)=\sum_{y=0}^{\infty}y^2{y+r-1\choose y} (1-p)^{r}(p)^y $$
+
+Evaluating when r = 1:
+$$E(X^2) = \sum_{y=0}^{\infty}y^2{y\choose y} (1-p)(p)^y\\
+=p^2(1-p)\sum_{y=0}^{\infty}y^2(p)^{y-2} \\ 
+=p^2(1-p)\sum_{y=0}^{\infty}y(y-1)(p)^{y-2} + y(p)^{y-2} \\
+=p^2(1-p)\left(\sum_{y=0}^{\infty}y(y-1)(p)^{y-2} + p^{-1}\sum_{y=0}^{\infty}y(p)^{y-1}\right)
+\\ $$
+
+and taking the second derivative this time:
+
+$$\sum_{y=0}^{\infty}p^{y} = \frac{1}{1-p} \\
+\sum_{y=0}^{\infty}y(p)^{y-1} = \frac{1}{(1-p)^2} \\
+\sum_{y=0}^{\infty}y(y-1)(p)^{y-2} = \frac{2}{(1-p)^3}$$
+
+Putting it all together:
+
+$$E(X^2) = p^2(1-p)\left(\sum_{y=0}^{\infty}y(y-1)(p)^{y-2} + p^{-1}\sum_{y=0}^{\infty}y(p)^{y-1}\right) \\
+= p^2(1-p)\left(\frac{2}{(1-p)^3} + p^{-1}\frac{1}{(1-p)^2} \right) \\
+= \frac{2p^2}{(1-p)^2} + \frac{p}{(1-p)} \\
+= \frac{p(p+1)}{(1-p)^2}$$
+
+Thus, 
+
+$$Var(X) = E(X^2) - E(X)^2 \\
+= \frac{p(p+1)}{(1-p)^2} - (\frac{p}{1-p})^2 \\ =\frac{p}{(1-p)^2}$$
+
+And for r in general, $Var(X) = \frac{rp}{(1-p)^2}$. Trivially, we can therefore see from $Var[Y]=\phi\frac{rp}{(1-p)^2}$ that $\phi = 1$.
+
+### Mean parameterisation of the variance
+
+To build the NB-GLMM, we require the variance expressed in terms of $\mu$. First, rearrange to get an expression for p in terms of $\mu$:
+
+$$\mu=\frac{rp}{1-p} \\
+p = \frac{\mu}{\mu + r} $$
+
+Then plug $p = \frac{\mu}{\mu + r}$ back in to the equation for the variance and rearrange:
+
+$$Var[Y]=\frac{r(\frac{\mu}{\mu + r})}{(1-\frac{\mu}{\mu + r})^2} \\
+= \frac{\frac{r \mu}{\mu + r}}{\frac{r^2}{(\mu + r)^2}} \\
+= \frac{r \mu}{\mu + r}{\frac{(\mu + r)^2}{r^2}} \\
+= \frac{\mu^2 + r \mu}{r} \\
+= \frac{\mu^2}{r} + \mu$$
+
+Now that we have a mean parameterisation for the mean and variance of the negative binomial, we can begin to build our NB-GLMM.
+
+### Building a GLMM
+
+There are several components that we need to construct a GLMM, namely: (1) A linear predictor, 
+(2) a sampling distribution for the observations conditional on the random effects, (3) a sampling distribution for the random effects, (4) a link function to connect the mean value to the linear predictor 
+
+(1) Linear predictor: $\eta=X\beta + Zb$ \
+(2) Conditional distribution: $E(y|b) = \mu |b$, $Var(y|b) = V^{1/2}AV^{1/2}$ where $V^{1/2} = diag(\sqrt{\frac{\partial^2 b(\theta)}{\partial\theta^{2}}})$ and $A = diag(\frac{1}{a(\phi)})$ and $y|b$ has a distribution that belongs to the exponential family\
+(3) Random effect distribution: $b \sim Normal(0, G)$ \
+(4) Link function: $\eta = g(\mu|b)$, or alternatively, inverse link function: $g^{-1}(\eta) = X\beta + Zb$\\
+
+In our case, for a negative binomial GLMM, $V^{1/2} = diag(\sqrt {\frac{\mu^2}{r} + \mu})$ and $a(\phi)=1$, therefore $Var(y|b) = V = diag({\frac{\mu^2}{r} + \mu})$ and $y|b$ has a negative binomial distribution with fixed r. Additionally, the link function is $\eta = log(\mu|b)$ whilst the inverse link function is $e^{\eta} = X\beta + Zb$.
+
+The quasi likelihood of the observations conditional on the random effects is $ql(y|b)$ and the log-likelihood of the random effects is l(b). Therefore, the joint log(quasi)-likelihood is $l(b) + ql(y|b)$ and the marginal quasi-likelihood is 
+
+$$ ql(y) = \int_b\int [ql(y|b) + l(b)] db$$
+Which is impossible to integrate directly. We therefore need to use some form of approximation. In this case, we use the pseudo likelihood method, based on the 1993 Wolfinger and O'Connell publication. This method involves linearization of the model based on a first order Taylor series, outlined below:
+
+We define the first order derivative of the inverse link function $g^{-1}(\eta)$ evaluated at $\hat{\eta}$ as:
+
+$$\frac{\partial g^{-1}(\hat\eta)}{\partial\hat\eta} = g^{-1'}(\hat{\eta}) \\
+\hat{D} = diag[g^{-1'}(\hat{\eta})] = diag[e^{\hat{\eta}}]$$
+
+The first order Taylor series expansion of the inverse link function is:
+
+$$ 
+h(n) \approx h(\hat{\eta}) + \hat{D}(\eta - \hat\eta)
+$$
+Rearranging terms yields:
+$$ 
+X\beta + Zb \approx X\hat\beta + Z\hat{b} + \hat{D}^{-1}(h(\eta) - h(\hat\eta))
+$$
+The mixed model pseudo-variable can now be defined as:
+
+$$ y^* = \hat{\eta} + \hat D^{-1}[y - h(\hat{\eta})] $$
+
+Where $\hat{\eta} = X\hat\beta + Z\hat{b}$ and the hats refer to the current estimate of the parameter. It follows that:
+
+$$E(y*|b) = X\hat\beta + Z\hat{b} + \hat D^{-1}[h({\eta}) - h(\hat{\eta})]\\
+Var(y|b) = \hat{D}^{-1}V\hat{D}^{-1} $$
+
+With this approach, we assume that $y*|b$ has a normal distribution. We can now look at y* as the response variable, and use the linear mixed model framework to estimate the parameters of our NB-GLMM. The GLMM pseudo-likelihood estimating equations are as follows:
+
+$$ 
+\begin{bmatrix}
+X^{'}W^{-1}X &  X^{'}W^{-1}Z\\
+Z^{'}W^{-1}X & Z^{'}W^{-1}Z + G^{-1} 
+\end{bmatrix} \begin{bmatrix}
+\beta\\
+b
+\end{bmatrix} =
+\begin{bmatrix}
+X^{'}W^{-1}y^*\\
+Z^{'}W^{-1}y^* 
+\end{bmatrix}
+$$
+Where $W = D^{-1}VD^{-1}$. Importantly, it follows that the marginal pseudo-variance is:
+ 
+$$Var(y^*) = V^*(\sigma) =  ZGZ^{'} + D^{-1}VD^{-1}$$
+
+The pseudo-log-likelihood function is therefore:
+
+$$pl = -\frac{n}{2}log(2\pi) - \frac{1}{2}log(|V^*(\sigma)|) - \frac{1}{2}(y^* - X\beta)^{'}[V^*(\sigma)]^{-1}(y^* - X\beta) $$
+and the restricted pseudo-log-likelihood function is:
+
+$$pl_{R} = -\frac{n-p}{2}log(2\pi) - \frac{1}{2}log(|V^*(\sigma)|) - \frac{1}{2}log(|X^{'} [V^*(\sigma)]^{-1}X|) -\frac{1}{2}(r^*)^{'}[V^*(\sigma)]^{-1}r^* $$
+
+It follows that the ML and REML score vectors and ML and REML information matrix terms for LMMs can be used for GLMM covariance component estimation, by replacing y with y* and V with $V^*(\sigma)$. 
+
+$$s_i(\sigma) = -(\frac{1}{2}) tr\left[V^*(\sigma) \left( \frac{\partial V^*(\sigma)}{\partial\sigma_{i}} \right)\right] + \frac{1}{2}(y^* - X\beta)^{'}V^*(\sigma) \left( \frac{\partial V^*(\sigma)}{\partial\sigma_{i}} \right)V^*(\sigma)(y - X\beta) \\
+I_{ij}(\sigma) = (\frac{1}{2})tr\left [V^*(\sigma)^{-1} \left(\frac{\partial V^*(\sigma)}{\partial\sigma_{i}}\right)V^*(\sigma)^{-1} \left( \frac{\partial V^*(\sigma)}{\partial\sigma_{j}} \right) \right] $$
+
+In our case, we use the following partial derivatives: 
+
+$$ V^*(\sigma) =  ZGZ^{'} + D^{-1}VD^{-1} \\
+\frac{\partial V^*(\sigma)}{\partial\sigma} = ZZ^{T} $$
+
+We implement the Fisher scoring algorithm with the estimating equations:
+
+$$\theta \approx \hat\theta + [I(\hat\theta)]^{-1} s(\hat\theta) $$
+where I is the information matrix defined above. $\hat\theta$ denote the value of the covariance component from the previous iteration.
+
+For REML, the following score vector and information matrix should be used:
+
+$$s_i(\sigma) = -(\frac{1}{2}) tr\left[P \left( \frac{\partial V^*(\sigma)}{\partial\sigma_{i}} \right)\right] + \frac{1}{2}(y^* - X\beta)^{'}V^*(\sigma) \left( \frac{\partial V^*(\sigma)}{\partial\sigma_{i}} \right)V^*(\sigma)(y - X\beta) \\
+I_{ij}(\sigma) = (\frac{1}{2})tr\left [P \left(\frac{\partial V^*(\sigma)}{\partial\sigma_{i}}\right)P\left( \frac{\partial  V^*(\sigma)}{\partial\sigma_{j}} \right) \right] $$
+
+where $P = [V^*(\sigma)]^{-1} - [V^*(\sigma)]^{-1}X(X^{'}[V^*(\sigma)]^{-1}X)^{-1}X^{'}[V^*(\sigma)]^{-1}$
+
+Estimation of the GLMM proceeds iteratively: the process starts by initial estimates of $\beta$, b and $\sigma$. Using these in the GLMM estimating equations to compute updated solutions for $\beta$ and b. Next, use these estimates to calculate values for the score and information matrix, and update $\sigma$ with the Fisher scoring algorithm. Estimation should continue until convergence.

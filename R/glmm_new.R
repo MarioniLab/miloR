@@ -20,7 +20,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     # Z - random effects model matrix
     # A - genetic relationship matrix
     # y - observed phenotype
-                    
+
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
 
@@ -32,14 +32,18 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     rownames(curr_u) <- colnames(full.Z)
         
     # OLS for the betas is usually a good starting point for NR                    
-    curr_beta <- ginv((t(X) %*% X)) %*% t(X) %*% log(y + 1) 
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1) 
     rownames(curr_beta) <- colnames(X)
                         
     # compute sample variances of the us
-    curr_sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+    curr_sigma <- Matrix(lapply(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
                                        FUN=function(Bj){
                                            (1/(length(Bj)-1)) * crossprod(Bj, Bj)
-                                           })), ncol=1)
+                                           }), function(y){attr(y, 'x')}), ncol=1, sparse=TRUE)
+    # curr_sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+    #                                    FUN=function(Bj){
+    #                                        (1/(length(Bj)-1)) * crossprod(Bj, Bj)
+    #                                    })), ncol=1)
     rownames(curr_sigma) <- colnames(Z)
     
     #create a single variable for the thetas
@@ -110,17 +114,19 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
   
         iters <- iters + 1
+        print(information_sigma)
         meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
     
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ],
-                       "Sigma"=curr_sigma,
+                       "Sigma"=matrix(curr_sigma),
                        "Theta.Converged"=theta_diff < theta.conv,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "converged"=converged,
                        "Iters"=iters,
                        "Dispersion"=new.r, 
+                       "Hessian"=information_sigma,
                        "Iterations"=conv.list)
     return(final.list)
 }
@@ -133,14 +139,14 @@ computeW <- function(D_inv=D_inv, V=V){
 computeV <- function(mu, r){
     # compute diagonal matrix of variances
     v.vec <- ((mu**2/r)) + mu
-    V <- matrix(0L, ncol=length(mu), nrow=length(mu))
+    V <- Matrix(0L, ncol=length(mu), nrow=length(mu), sparse = TRUE)
     diag(V) <- v.vec
     return(V)
 }
 
 computeD <- function(mu=mu.vec){
     # D is diag(mu_i)
-    D <- matrix(0L, ncol=length(mu), nrow=length(mu))
+    D <- Matrix(0L, ncol=length(mu), nrow=length(mu), sparse = TRUE)
     diag(D) <- mu
     return(D)
 }
@@ -163,7 +169,6 @@ computeV_partial <- function(full.Z=full.Z, random.levels=random.levels){
         V_partial_vec[[j]] <- Z.temp %*% t(Z.temp)
         j <- j + 1
     }
-    #V_partial <- full.Z %*% t(full.Z)
     return(V_partial_vec)
 }
 
@@ -179,10 +184,8 @@ sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star
 
 sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels) {
     info_vec <- NA
-    for (i in 1:length(random.levels)) {
-        I <- as.matrix(0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]]))
-        info_vec[i] <- I
-    }
+    info_vec <- sapply(1:length(random.levels), function(i){
+        0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]])})
     return(info_vec)
 }
 
@@ -197,11 +200,9 @@ sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_
 }
 
 sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels) {
-    info_vec <- NA
-    for (i in 1:length(random.levels)) {
-        I <- as.matrix(0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]]))
-        info_vec[i] <- I
-    }
+    info_vec <- NA    
+    info_vec <- sapply(1:length(random.levels), function(i){
+        0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])})
     return(info_vec)
 }
 
@@ -236,17 +237,12 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
     dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
-    # log_sigmas <- matrix(apply(sigmas, 1, log), ncol=1)
-    log_sigmas <- sigmas
-    log_sigmas[!is.finite(log_sigmas), ] <- 0
-    rownames(log_sigmas) <- rownames(sigmas)
-    
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
-        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- log_sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
+        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
         i <- j <- i+x.q
     }
-    return(as.matrix(G))
+    return((G))
 }
 
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
@@ -291,6 +287,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
+    full.Z <- Matrix(full.Z, sparse = TRUE)
     return(full.Z)
 }
 
@@ -304,7 +301,7 @@ solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_b
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
     
-    theta_update <- ginv(LHS) %*% RHS
+    theta_update <- solve(LHS) %*% RHS
     return(theta_update)
 }
 
@@ -328,10 +325,11 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
 computeInv <- function(x){
     # Compute x^-1 from x
     # need to check that x is not singular
-    if(det(x) < 1e-10){ 
-        x_inv <- ginv(x)
-    } else{
-        x_inv <- solve(x)}
+    
+    # if(det(x) < 1e-20){ 
+    #     x_inv <- ginv(x)
+    # } else{
+    x_inv <- solve(x)
     return(x_inv)
 }
 
