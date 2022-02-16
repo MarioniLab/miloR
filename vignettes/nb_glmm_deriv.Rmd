@@ -31,7 +31,7 @@ For the negative binomial distribution we can define the likelihood function $L(
 
 $$L(p; r, y) = \mbox{exp}\bigg( \underbrace{ylog[p]}_{t(y)\theta} + \overbrace{rlog[1-p] }^{b(\theta)} + \underbrace{log\big[\frac{\Gamma(y)}{\Gamma(y)}\big]}_{c(y, \phi)} \bigg)$$
 
-From this we know that $t(y)=y$, $\theta=log(p)$, $b(\theta)=-rlog(1-p)$ and $a(\phi) = 1$. Therefore $p=e^{\theta}$. Using this formulation we can determine the mean and variance, because $\frac{d b(\theta)}{d \theta} = E[Y] = \mu$ and $Var[Y]=\phi \frac{d^2b(\theta)}{d\theta^2}$.
+From this we know that $t(y)=y$, $\theta=log(p)$ and $b(\theta)=-rlog(1-p)$ (and $a(\phi)=1???$. Therefore $p=e^{\theta}$. Using this formulation we can determine the mean and variance, because $\frac{d b(\theta)}{d \theta} = E[Y] = \mu$ and $Var[Y]=\phi \frac{d^2b(\theta)}{d\theta^2}$.
 
 ### Finding the mean and variance
 
@@ -63,17 +63,17 @@ $$Var[Y]=\phi\frac{d\frac{rp}{1-e^\theta}}{d\theta} = \frac{re^\theta -r(e^\thet
 Substituting $e^\theta=p$:
 
 $$Var[Y]=\phi\frac{d\frac{rp}{1-e^\theta}}{d\theta} = \phi\frac{rp}{(1-p)^2} $$
-where, as determined previously, $a(\phi) = 1$.
+where, as determined previously, $a(\phi) = 1$???.
 
-### Proof for variance of negative binomial distribution
+### Proof for variance of NB distribution
 
-To determine the value of $\phi$, we need to find the variance of the negative binomial distribution. We start with the probability mass function of the negative binomial. 
+To determine the value of $\phi$, we need to find an expression for the variance of the negative binomial distribution. We start with the probability mass function of the negative binomial, as above. 
 
 $$ P(X = y) = {y+r-1\choose y} (1-p)^{r}(p)^y $$
-We know the expected value E(X) is given by $E(X) = \sum_{y=0}^{\infty} yP(X=y)$. In our case:
+We know the formula for the expected value E(X). In our case:
 
 $$E(X) = \sum_{y=0}^{\infty} yP(X=y) = \sum_{y=0}^{\infty}y{y+r-1\choose y} (1-p)^{r}(p)^y$$
-We first consider the case where r = 1. We can rewrite it as follows: 
+We first consider the simple case where r = 1, as follows: 
 
 $$E(X) = \sum_{y=0}^{\infty}y{y\choose y} (1-p)(p)^y \\=p(1-p)\sum_{y=0}^{\infty}y(p)^{y-1}$$
 This trick allows us to evaluate the sum, as we know the sum to infinity of a geometric series. We can differentiate both sides to obtain an expression for $\sum_{y=0}^{\infty}y(p)^{y-1}$.
@@ -121,7 +121,7 @@ And for r in general, $Var(X) = \frac{rp}{(1-p)^2}$. Trivially, we can therefore
 
 ### Mean parameterisation of the variance
 
-To build the NB-GLMM, we require the variance expressed in terms of $\mu$. First, rearrange to get an expression for p in terms of $\mu$:
+To build the NB-GLMM, we require the variance term expressed in terms of $\mu$. First, rearrange to get an expression for p in terms of $\mu$:
 
 $$\mu=\frac{rp}{1-p} \\
 p = \frac{\mu}{\mu + r} $$
@@ -144,19 +144,19 @@ There are several components that we need to construct a GLMM, namely: (1) A lin
 (1) Linear predictor: $\eta=X\beta + Zb$ \
 (2) Conditional distribution: $E(y|b) = \mu |b$, $Var(y|b) = V^{1/2}AV^{1/2}$ where $V^{1/2} = diag(\sqrt{\frac{\partial^2 b(\theta)}{\partial\theta^{2}}})$ and $A = diag(\frac{1}{a(\phi)})$ and $y|b$ has a distribution that belongs to the exponential family\
 (3) Random effect distribution: $b \sim Normal(0, G)$ \
-(4) Link function: $\eta = g(\mu|b)$, or alternatively, inverse link function: $g^{-1}(\eta) = X\beta + Zb$\\
+(4) Link function: $\eta = g(\mu|b)$, or alternatively, inverse link function: $h(\eta) = X\beta + Zb$\\
 
 In our case, for a negative binomial GLMM, $V^{1/2} = diag(\sqrt {\frac{\mu^2}{r} + \mu})$ and $a(\phi)=1$, therefore $Var(y|b) = V = diag({\frac{\mu^2}{r} + \mu})$ and $y|b$ has a negative binomial distribution with fixed r. Additionally, the link function is $\eta = log(\mu|b)$ whilst the inverse link function is $e^{\eta} = X\beta + Zb$.
 
 The quasi likelihood of the observations conditional on the random effects is $ql(y|b)$ and the log-likelihood of the random effects is l(b). Therefore, the joint log(quasi)-likelihood is $l(b) + ql(y|b)$ and the marginal quasi-likelihood is 
 
 $$ ql(y) = \int_b\int [ql(y|b) + l(b)] db$$
-Which is impossible to integrate directly. We therefore need to use some form of approximation. In this case, we use the pseudo likelihood method, based on the 1993 Wolfinger and O'Connell publication. This method involves linearization of the model based on a first order Taylor series, outlined below:
+which is impossible to integrate directly. We therefore need to use some form of approximation. In this case, we use the pseudo likelihood method, based on the 1993 Wolfinger and O'Connell publication. This method involves linearization of the model based on a first order Taylor series, outlined below:
 
-We define the first order derivative of the inverse link function $g^{-1}(\eta)$ evaluated at $\hat{\eta}$ as:
+We define the first order derivative of the inverse link function $h(\eta)$ evaluated at $\hat{\eta}$ as:
 
-$$\frac{\partial g^{-1}(\hat\eta)}{\partial\hat\eta} = g^{-1'}(\hat{\eta}) \\
-\hat{D} = diag[g^{-1'}(\hat{\eta})] = diag[e^{\hat{\eta}}]$$
+$$\frac{\partial h(\hat\eta)}{\partial\hat\eta} = h'(\hat{\eta}) \\
+\hat{D} = diag[h'(\hat{\eta})] = diag[e^{\hat{\eta}}]$$
 
 The first order Taylor series expansion of the inverse link function is:
 
@@ -173,10 +173,10 @@ $$ y^* = \hat{\eta} + \hat D^{-1}[y - h(\hat{\eta})] $$
 
 Where $\hat{\eta} = X\hat\beta + Z\hat{b}$ and the hats refer to the current estimate of the parameter. It follows that:
 
-$$E(y*|b) = X\hat\beta + Z\hat{b} + \hat D^{-1}[h({\eta}) - h(\hat{\eta})]\\
+$$E(y^*|b) = X\hat\beta + Z\hat{b} + \hat D^{-1}[h({\eta}) - h(\hat{\eta})]\\
 Var(y|b) = \hat{D}^{-1}V\hat{D}^{-1} $$
 
-With this approach, we assume that $y*|b$ has a normal distribution. We can now look at y* as the response variable, and use the linear mixed model framework to estimate the parameters of our NB-GLMM. The GLMM pseudo-likelihood estimating equations are as follows:
+With this approach, we assume that $y^*|b$ has a normal distribution. We can now look at y* as the response variable, and use the linear mixed model framework to estimate the parameters of our NB-GLMM. The GLMM pseudo-likelihood estimating equations are as follows:
 
 $$ 
 \begin{bmatrix}
@@ -212,7 +212,7 @@ In our case, we use the following partial derivatives:
 $$ V^*(\sigma) =  ZGZ^{'} + D^{-1}VD^{-1} \\
 \frac{\partial V^*(\sigma)}{\partial\sigma} = ZZ^{T} $$
 
-We implement the Fisher scoring algorithm with the estimating equations:
+We implement the Fisher scoring algorithm to iteratively update our variance-covariance estimate:
 
 $$\theta \approx \hat\theta + [I(\hat\theta)]^{-1} s(\hat\theta) $$
 where I is the information matrix defined above. $\hat\theta$ denote the value of the covariance component from the previous iteration.
@@ -224,4 +224,4 @@ I_{ij}(\sigma) = (\frac{1}{2})tr\left [P \left(\frac{\partial V^*(\sigma)}{\part
 
 where $P = [V^*(\sigma)]^{-1} - [V^*(\sigma)]^{-1}X(X^{'}[V^*(\sigma)]^{-1}X)^{-1}X^{'}[V^*(\sigma)]^{-1}$
 
-Estimation of the GLMM proceeds iteratively: the process starts by initial estimates of $\beta$, b and $\sigma$. Using these in the GLMM estimating equations to compute updated solutions for $\beta$ and b. Next, use these estimates to calculate values for the score and information matrix, and update $\sigma$ with the Fisher scoring algorithm. Estimation should continue until convergence.
+Estimation of the GLMM proceeds iteratively: the process starts by initial estimates of $\beta$, b and $\sigma$. These are used in the GLMM estimating equations to compute updated solutions for $\beta$ and b. Next, the currect estimates of $\beta$ and b are used to calculate values for the score and information matrix, and to update $\sigma$ with the Fisher scoring algorithm. Estimation should continue until convergence.
