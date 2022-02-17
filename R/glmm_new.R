@@ -68,7 +68,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     while(meet.conditions){
 
-        print(iters)
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Sigma"=curr_sigma,
                                            "Theta.Diff"=theta_diff, "Sigma.Diff" = sigma_diff,
                                            "Theta.Converged"=theta_diff < theta.conv,
@@ -82,7 +81,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W <- computeW(D_inv=D_inv, V=V)
         W_inv <- computeInv(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
-        V_star_inv <- computeInv(V_star)
+        V_star_inv <- computeInv(V_star) # does V_star have any structure that we can exploit?
         V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels)
 
         #---- First estimate variance components with Newton Raphson procedure ---#
@@ -90,11 +89,10 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
             score_sigma <- sigmaScore(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels)
             information_sigma <- sigmaInformation(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels)
         } else if (isTRUE(REML)) {
-            P <- computeP_REML(V_star_inv=V_star_inv, X=X)
+            P <- computeP_REML(V_star_inv=V_star_inv, X=X) # this is the other bottleneck - why?
             score_sigma <- sigmaScoreREML(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
             information_sigma <- sigmaInformationREML(V_partial=V_partial, P=P, random.levels=random.levels)
         }
-        # print(score_sigma)
         sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma)
         sigma_diff <- abs(sigma_update - curr_sigma)
 
@@ -115,7 +113,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
         iters <- iters + 1
-        # print(information_sigma)
         meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
 
@@ -127,6 +124,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                        "converged"=converged,
                        "Iters"=iters,
                        "Dispersion"=new.r,
+                       "VSTAR"=V_star,
                        "Hessian"=information_sigma,
                        "Iterations"=conv.list)
     return(final.list)
@@ -165,8 +163,8 @@ computey_star <- function(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D
 computeV_partial <- function(full.Z=full.Z, random.levels=random.levels){
     V_partial_vec <- list()
     j <- 1
-    for (i in random.levels) {
-        Z.temp <- full.Z[ , i]
+    for (i in seq_along(random.levels)) {
+        Z.temp <- full.Z[ , random.levels[[i]]]
         V_partial_vec[[j]] <- Z.temp %*% t(Z.temp)
         j <- j + 1
     }
@@ -175,7 +173,7 @@ computeV_partial <- function(full.Z=full.Z, random.levels=random.levels){
 
 sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels){
     score_vec <- NA
-    for (i in 1:length(random.levels)) {
+    for (i in seq_along(random.levels)) {
         LHS <- -0.5*matrix.trace(V_star_inv %*% V_partial[[i]])
         RHS <- 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
         score_vec[i] <- LHS + RHS
@@ -185,7 +183,7 @@ sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star
 
 sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels) {
     info_vec <- NA
-    info_vec <- sapply(1:length(random.levels), function(i){
+    info_vec <- sapply(seq_along(random.levels), function(i){
         0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]])})
     return(info_vec)
 }
@@ -202,11 +200,7 @@ sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_
 
 .iSigmaInfoREML <- function(P, i.partial, j.partial){
     xprod <- 0.5*matrix.trace(Matrix::crossprod(Matrix::crossprod(P, i.partial), Matrix::crossprod(P, j.partial)))
-    # primitive <-  0.5*matrix.trace(P %*% i.partial %*% P %*% j.partial)
-    #
-    # print(xprod == primitive)
-    # print(xprod)
-    # print(primitive)
+
     return(xprod)
 }
 
@@ -222,21 +216,16 @@ sigmaInformationREML <- function(V_partial=V_partial, P=P, random.levels=random.
     }
 
     return(sigma_info)
-    # info_vec <- unlist(lapply(V_partial, FUN=.iSigmaInfoREML, P=P))
-    # # for(i in seq_len(length(random.levels))){
-    # #     print(class(.iSigmaInfoREML(P, V_partial[[i]])))
-    # #     info_vec <- c(info_vec, .iSigmaInfoREML(P, V_partial[[i]]))
-    # # }
-    #
-    # # info_vec <- sapply(1:length(random.levels), function(i){
-    # #     0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])})
-    # return(info_vec)
 }
 
 computeP_REML <- function(V_star_inv=V_star_inv, X=X) {
-
-    x.inv <- computeInv(t(X) %*% V_star_inv %*% X)
-    P <- V_star_inv - V_star_inv %*% X %*% x.inv %*% t(X) %*% V_star_inv
+    # breaking these down to individual steps speeds up the operations considerably
+    tx.m <- t(X) %*% V_star_inv
+    x.inv <- computeInv(tx.m %*% X)
+    tx.inv <- t(X) %*% V_star_inv
+    vx <- V_star_inv %*% X
+    Pminus <- vx %*% x.inv
+    P <- V_star_inv - Pminus %*% tx.inv
 
     return(P)
 }
@@ -246,14 +235,16 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     # theta ~= theta_hat + hess^-1 * score
     # this needs to be in a direction of descent towards a minimum
 
-    theta_new <- theta_hat + solve(hess_mat) %*% score_vec
 
-    # if(det(hess_reformat) < 1e-10){
-    #     theta_new <- theta_hat + ginv(hess_reformat) %*% score_reformat
-    # } else{
-    #     theta_new <- theta_reformat + solve(hess_reformat) %*% score_reformat
-    #     theta_new <- diag(theta_new)
-    # }
+    theta_new <- tryCatch({
+        theta_hat + solve(hess_mat) %*% score_vec
+    }, error=function(cond){
+        message("Hessian is singular. Original error message:")
+        error(cond)
+        return(NULL)
+    }, finally={
+
+    })
 
     return(theta_new)
 }
@@ -356,13 +347,18 @@ computeInv <- function(x){
     # Compute x^-1 from x
     # need to check that x is not singular - use tryCatch - if matrix is singular then report error message
 
-    # for the inverse variance can we switch to the cholesky LU decomposition?
+    x_inv <- tryCatch(expr={
+        Matrix::solve(x)
+        },
+        error=function(cond){
+            message("Matrix cannot be inverted - most likely singular")
+            message(cond)
+            return(NULL)
+        },
+        finally={
 
-    # if(det(x) < 1e-20){
-    #     x_inv <- ginv(x)
-    # } else{
-    x_inv <- Matrix::solve(x)  # this uses LU for sparse and dgeMatrices
-    # }
+        })
+
     return(x_inv)
 }
 
