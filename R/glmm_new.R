@@ -28,7 +28,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     # random value initiation from runif
-    curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+    curr_u <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1)
     rownames(curr_u) <- colnames(full.Z)
 
     # OLS for the betas is usually a good starting point for NR
@@ -40,10 +40,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                                        FUN=function(Bj){
                                            (1/(length(Bj)-1)) * crossprod(Bj, Bj)
                                            }), function(y){attr(y, 'x')}), ncol=1, sparse=TRUE)
-    # curr_sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-    #                                    FUN=function(Bj){
-    #                                        (1/(length(Bj)-1)) * crossprod(Bj, Bj)
-    #                                    })), ncol=1)
     rownames(curr_sigma) <- colnames(Z)
 
     #create a single variable for the thetas
@@ -332,7 +328,7 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     indiv.u.list <- list()
 
     for(j in seq_along(rand.levels)){
-        j.G <- matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
+        j.G <- Matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
         j.re <- rand.levels[j]
         j.levels <- random.levels[[j.re]]
         j.b <- full.Z[, j.levels] %*% curr_u[j.levels, ]
