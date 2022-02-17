@@ -1,5 +1,5 @@
 #' Perform differential abundance testing using a NB-generalised linear mixed model
-#' 
+#'
 #' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 #'
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty
@@ -14,7 +14,7 @@
 runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5){
-                                        
+
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
@@ -26,15 +26,15 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     # create full Z with expanded random effect levels
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-                        
+
     # random value initiation from runif
     curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
     rownames(curr_u) <- colnames(full.Z)
-        
-    # OLS for the betas is usually a good starting point for NR                    
-    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1) 
+
+    # OLS for the betas is usually a good starting point for NR
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
     rownames(curr_beta) <- colnames(X)
-                        
+
     # compute sample variances of the us
     curr_sigma <- Matrix(lapply(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
                                        FUN=function(Bj){
@@ -45,16 +45,16 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     #                                        (1/(length(Bj)-1)) * crossprod(Bj, Bj)
     #                                    })), ncol=1)
     rownames(curr_sigma) <- colnames(Z)
-    
+
     #create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
 
-    #compute mu.vec using inverse link function                   
+    #compute mu.vec using inverse link function
     mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
-                        
+
     # use y_bar as the sample mean and s_hat as the sample variance
     new.r <- dispersion
-    
+
     theta_diff <- rep(Inf, nrow(curr_theta))
     sigma_diff <- Inf
 
@@ -65,15 +65,15 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     conv.list <- list()
     iters <- 1
     meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
-   
+
     while(meet.conditions){
-        
+
         print(iters)
         conv.list[[paste0(iters)]] <- list("Iter"=iters, "Theta"=curr_theta, "Sigma"=curr_sigma,
                                            "Theta.Diff"=theta_diff, "Sigma.Diff" = sigma_diff,
                                            "Theta.Converged"=theta_diff < theta.conv,
                                            "Sigma.Converged"=sigma_diff < theta.conv)
-        
+
         #compute all matrices - information about them found within their respective functions
         D <- computeD(mu=mu.vec)
         D_inv <- computeInv(D)
@@ -92,32 +92,33 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         } else if (isTRUE(REML)) {
             P <- computeP_REML(V_star_inv=V_star_inv, X=X)
             score_sigma <- sigmaScoreREML(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
-            information_sigma <- sigmaInformationREML(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels)
+            information_sigma <- sigmaInformationREML(V_partial=V_partial, P=P, random.levels=random.levels)
         }
+        # print(score_sigma)
         sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma)
         sigma_diff <- abs(sigma_update - curr_sigma)
-        
+
         # update sigma, G, and G_inv
         curr_sigma <- sigma_update
         curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
         G_inv <- computeInv(curr_G)
-        
+
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
-        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
+        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star)
         theta_diff <- abs(theta_update - curr_theta)
-        
+
         # update B, u and mu_vec to determine new values of score and hessian matrices
         curr_theta <- theta_update
         rownames(curr_theta) <- c(colnames(X), colnames(full.Z))
         curr_beta <- curr_theta[colnames(X), , drop=FALSE]
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
-  
+
         iters <- iters + 1
-        print(information_sigma)
+        # print(information_sigma)
         meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
-    
+
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ],
                        "Sigma"=matrix(curr_sigma),
@@ -125,7 +126,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "converged"=converged,
                        "Iters"=iters,
-                       "Dispersion"=new.r, 
+                       "Dispersion"=new.r,
                        "Hessian"=information_sigma,
                        "Iterations"=conv.list)
     return(final.list)
@@ -190,25 +191,54 @@ sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.
 }
 
 sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels){
-    score_vec <- NA
-    for (i in 1:length(random.levels)) {
-        LHS <- -0.5*matrix.trace(P %*% V_partial[[i]])
-        RHS <- 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
-        score_vec[i] <- LHS + RHS
+    score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
+    for (i in seq_along(random.levels)) {
+        LHS <- -0.5 * matrix.trace(Matrix::crossprod(P, V_partial[[i]]))
+        RHS <- 0.5 * t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
+        score_vec[i, ] <- LHS + RHS
     }
     return(score_vec)
 }
 
-sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels) {
-    info_vec <- NA    
-    info_vec <- sapply(1:length(random.levels), function(i){
-        0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])})
-    return(info_vec)
+.iSigmaInfoREML <- function(P, i.partial, j.partial){
+    xprod <- 0.5*matrix.trace(Matrix::crossprod(Matrix::crossprod(P, i.partial), Matrix::crossprod(P, j.partial)))
+    # primitive <-  0.5*matrix.trace(P %*% i.partial %*% P %*% j.partial)
+    #
+    # print(xprod == primitive)
+    # print(xprod)
+    # print(primitive)
+    return(xprod)
+}
+
+
+sigmaInformationREML <- function(V_partial=V_partial, P=P, random.levels=random.levels) {
+    # this should be a matrix
+    sigma_info <- Matrix(0L, ncol=length(V_partial), nrow=length(V_partial))
+
+    for(i in seq_along(V_partial)){
+        for(j in seq_along(V_partial)){
+            sigma_info[i, j] <- .iSigmaInfoREML(P, V_partial[[i]], V_partial[[j]])
+        }
+    }
+
+    return(sigma_info)
+    # info_vec <- unlist(lapply(V_partial, FUN=.iSigmaInfoREML, P=P))
+    # # for(i in seq_len(length(random.levels))){
+    # #     print(class(.iSigmaInfoREML(P, V_partial[[i]])))
+    # #     info_vec <- c(info_vec, .iSigmaInfoREML(P, V_partial[[i]]))
+    # # }
+    #
+    # # info_vec <- sapply(1:length(random.levels), function(i){
+    # #     0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])})
+    # return(info_vec)
 }
 
 computeP_REML <- function(V_star_inv=V_star_inv, X=X) {
-   P <- V_star_inv - V_star_inv %*% X %*% computeInv(t(X) %*% V_star_inv %*% X) %*% t(X) %*% V_star_inv
-   return(P)
+
+    x.inv <- computeInv(t(X) %*% V_star_inv %*% X)
+    P <- V_star_inv - V_star_inv %*% X %*% x.inv %*% t(X) %*% V_star_inv
+
+    return(P)
 }
 
 FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
@@ -216,15 +246,15 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     # theta ~= theta_hat + hess^-1 * score
     # this needs to be in a direction of descent towards a minimum
 
-    theta_new <- theta_hat + 1/hess_mat * score_vec
-    
+    theta_new <- theta_hat + solve(hess_mat) %*% score_vec
+
     # if(det(hess_reformat) < 1e-10){
     #     theta_new <- theta_hat + ginv(hess_reformat) %*% score_reformat
     # } else{
     #     theta_new <- theta_reformat + solve(hess_reformat) %*% score_reformat
     #     theta_new <- diag(theta_new)
     # }
-    
+
     return(theta_new)
 }
 
@@ -275,7 +305,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
         colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
-        
+
         # to standardise or not?
         if(isTRUE(stand.cols)){
             q <- ncol(i.z)
@@ -283,7 +313,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.star <- i.z - ((i.ident %*% i.z)/q)
             i.z <- i.star
         }
-        
+
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
@@ -292,15 +322,15 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
 }
 
 solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star){
-    
+
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
     LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
-    
+
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
-    
+
     theta_update <- solve(LHS) %*% RHS
     return(theta_update)
 }
@@ -309,7 +339,7 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     # map the vector of random effects to the full nx1 vector
     rand.levels <- names(random.levels)
     indiv.u.list <- list()
-    
+
     for(j in seq_along(rand.levels)){
         j.G <- matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
         j.re <- rand.levels[j]
@@ -317,19 +347,22 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
         j.b <- full.Z[, j.levels] %*% curr_u[j.levels, ]
         indiv.u.list[[j.re]] <- j.b
     }
-    
+
     return(indiv.u.list)
 }
 
 ### utility functions
 computeInv <- function(x){
     # Compute x^-1 from x
-    # need to check that x is not singular
-    
-    # if(det(x) < 1e-20){ 
+    # need to check that x is not singular - use tryCatch - if matrix is singular then report error message
+
+    # for the inverse variance can we switch to the cholesky LU decomposition?
+
+    # if(det(x) < 1e-20){
     #     x_inv <- ginv(x)
     # } else{
-    x_inv <- solve(x)
+    x_inv <- Matrix::solve(x)  # this uses LU for sparse and dgeMatrices
+    # }
     return(x_inv)
 }
 
