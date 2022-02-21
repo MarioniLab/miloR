@@ -77,8 +77,8 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W <- computeW(D_inv=D_inv, V=V)
         W_inv <- computeInv(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
-        # V_star_inv <- computeVstar_inverse(full.Z=full.Z, curr_G=curr_G, D_inv=D_inv, V_mu=V)
-        V_star_inv <- computeInv(V_star) # does V_star have any structure that we can exploit?
+        V_star_inv <- computeVstar_inverse(full.Z=full.Z, curr_G=curr_G, W_inv=W_inv)
+        # V_star_inv <- computeInv(V_star) # does V_star have any structure that we can exploit?
         V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels)
 
         # precompute all of the necessary matrices
@@ -175,48 +175,17 @@ computeV_partial <- function(full.Z, random.levels){
 }
 
 
-.invertZGZ <- function(full.Z, curr_G){
-    ## ZGZ^T in practise is probably singular because it is broadcast out to nxn
-    ## using the formula for computing the inverse for a 3 matrix product
-    ## (ABA^T)^-1 = A^+T B^-1/2 X B^-1/2 A^+
-    # ^+ is the Moore-Penrose inverse
-    require(expm)
-    require(MASS)
-
-    I <- Matrix(0L, ncol=ncol(curr_G), nrow=nrow(curr_G), sparse=TRUE)
+computeVstar_inverse <- function(full.Z, curr_G, W_inv){
+    # compute the inverse of V_star using Henderson-adjusted Woodbury formula, equation (18)
+    # (A + UBU^T)^-1 = A^-1 - A^-1UB[I + U^TA^-1UB]^-1U^TA^-1
+    # Only requires A^-1, where B = ZGZ^T, A=W, U=Z
+    I <- Matrix(0L, nrow=ncol(full.Z), ncol=ncol(full.Z))
     diag(I) <- 1
 
-    A.inv <- ginv(as.matrix(full.Z))
-    At.inv <- ginv(as.matrix(t(full.Z)))
-    B.invroot <- Matrix::solve(sqrtm(curr_G)) # just in case G isn't actually diagonal
-    left.c <- B.invroot %*% (I - A.inv %*% full.Z)
-    right.c <- (I - A.inv %*% full.Z)
-    right.inv <- MASS::ginv(as.matrix(B.invroot %*% right.c))
+    left.p <- W_inv %*% full.Z %*% curr_G
+    mid.inv <- Matrix::solve(I + t(full.Z) %*% W_inv %*% full.Z %*% curr_G)
 
-    X.mp <- as(I - left.c %*% right.inv, "dgCMatrix")
-
-    return(At.inv %*% B.invroot %*% X.mp %*% B.invroot %*% A.inv)
-}
-
-
-
-computeVstar_inverse <- function(full.Z, curr_G, D_inv, V_mu){
-    # compute the inverse of V_star using Woodbury formula
-    # (A + UBV)^-1 = A^-1 - A^-1U[B^1 + VA^-1U]^-1VA^-1
-    # Only requires A^-1 and B^-1, where A = ZGZ^T and B=V_mu, U,V = D_inv
-    # V_mu ^-1 is trivial so we only really need (ZGZ^T)^-1
-
-
-    A.inv <- .invertZGZ(full.Z=full.Z, curr_G=curr_G)
-    # A.inv <- Matrix::solve(full.Z %*% curr_G %*% t(full.Z))
-    B.inv <- 1/V_mu
-
-    mid.inv <- Matrix::solve(B.inv + (D_inv %*% A.inv %*% D_inv)) # this matrix is singular....
-
-    left.p <- Matrix::crossprod(A.inv, D_inv)
-    right.p <- Matrix::crossprod(D_inv, A.inv)
-
-    return(A.inv - left.p %*% mid.inv %*% right.p)
+    return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
 }
 
 
