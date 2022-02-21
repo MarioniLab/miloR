@@ -78,7 +78,6 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W_inv <- computeInv(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
         V_star_inv <- computeVstar_inverse(full.Z=full.Z, curr_G=curr_G, W_inv=W_inv)
-        # V_star_inv <- computeInv(V_star) # does V_star have any structure that we can exploit?
         V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels)
 
         # precompute all of the necessary matrices
@@ -189,8 +188,6 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
 }
 
 
-
-
 preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star){
     # precompute certain matrices from matrix multiplications that are needed > once
     mat.list <- list()
@@ -249,7 +246,7 @@ sigmaInformationREML <- function(matrix_list, random.levels) {
 
     for(i in seq_along(random.levels)){
         for(j in seq_along(random.levels)){
-            sigma_info[i, j] <- 0.5*matrix.trace(Matrix::crossprod(matrix_list[["PVSTARi"]][[i]], matrix_list[["PVSTARi"]][[j]]))
+            sigma_info[i, j] <- 0.5*matrix.trace(matrix_list[["PVSTARi"]][[i]] %*% matrix_list[["PVSTARi"]][[j]])
         }
     }
 
