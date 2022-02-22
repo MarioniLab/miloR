@@ -11,7 +11,7 @@
 #'
 #' @importFrom Matrix solve
 #' @export
-runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
+runGLMM <- function(X, full.Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5){
 
@@ -132,11 +132,13 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     return(final.list)
 }
 
+#' @export
 computeW <- function(D_inv, V){
     W = D_inv %*% V %*% D_inv
     return(W)
 }
 
+#' @export
 computeV <- function(mu, r){
     # compute diagonal matrix of variances
     v.vec <- ((mu**2/r)) + mu
@@ -145,6 +147,7 @@ computeV <- function(mu, r){
     return(V)
 }
 
+#' @export
 computeD <- function(mu){
     # D is diag(mu_i)
     D <- Matrix(0L, ncol=length(mu), nrow=length(mu), sparse = TRUE)
@@ -152,16 +155,19 @@ computeD <- function(mu){
     return(D)
 }
 
+#' @export
 computeV_star <- function(full.Z, curr_G, W){
     V_star <- full.Z %*% Matrix::crossprod(curr_G, t(full.Z)) + W
     return(V_star)
 }
 
+#' @export
 computey_star <- function(X, curr_beta, full.Z, D_inv, curr_u, y){
     y_star <- ((X %*% curr_beta) + (full.Z %*% curr_u)) + D_inv %*% (y - exp((X %*% curr_beta) + (full.Z %*% curr_u)))
     return(y_star)
 }
 
+#' @export
 computeV_partial <- function(full.Z, random.levels){
     V_partial_vec <- list()
     j <- 1
@@ -173,7 +179,7 @@ computeV_partial <- function(full.Z, random.levels){
     return(V_partial_vec)
 }
 
-
+#' @export
 computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     # compute the inverse of V_star using Henderson-adjusted Woodbury formula, equation (18)
     # (A + UBU^T)^-1 = A^-1 - A^-1UB[I + U^TA^-1UB]^-1U^TA^-1
@@ -190,7 +196,7 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
 }
 
-
+#' @export
 preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star){
     # precompute certain matrices from matrix multiplications that are needed > once
     mat.list <- list()
@@ -204,7 +210,7 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
     return(mat.list)
 }
 
-
+#' @export
 sigmaScore <- function(matrix_list, V_star_inv, random.levels){
     score_vec <- NA
     for (i in seq_along(random.levels)) {
@@ -217,6 +223,7 @@ sigmaScore <- function(matrix_list, V_star_inv, random.levels){
     return(score_vec)
 }
 
+#' @export
 sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
     sigma_info <- Matrix(0L, ncol=length(V_partial), nrow=length(V_partial))
@@ -233,7 +240,7 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
 
 ## some of these matrix multiplications are used multiple times throughout the code - perhaps we should store these to reduce the number?
-
+#' @export
 sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
     score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
 
@@ -248,7 +255,7 @@ sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
     return(score_vec)
 }
 
-
+#' @export
 sigmaInformationREML <- function(matrix_list, random.levels) {
     # this should be a matrix
     sigma_info <- Matrix(0L, ncol=length(random.levels), nrow=length(random.levels))
@@ -262,6 +269,7 @@ sigmaInformationREML <- function(matrix_list, random.levels) {
     return(sigma_info)
 }
 
+#' @export
 computeP_REML <- function(V_star_inv, X) {
     # breaking these down to individual steps speeds up the operations considerably
     tx.m <- t(X) %*% V_star_inv
@@ -274,6 +282,7 @@ computeP_REML <- function(V_star_inv, X) {
     return(P)
 }
 
+#' @export
 FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
     # theta ~= theta_hat + hess^-1 * score
@@ -293,6 +302,7 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     return(theta_new)
 }
 
+#' @export
 initialiseG <- function(Z, cluster_levels, sigmas){
     # construct the correct size of G given the random effects and variance components
     # names of cluster_levels and columns of Z must match
@@ -310,6 +320,7 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     return((G))
 }
 
+#' @export
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # construct the full Z with all random effect levels
     n.cols <- ncol(Z)
@@ -322,8 +333,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         } else if(i.class %in% c("character")){
-            i.levels <- unique(Z[, i, drop=FALSE])
-            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.levels <- as.factor(unique(Z[, i, drop=FALSE])) # ordering is arbitrary
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         } else if(i.class %in% c("numeric")){ # split into unique levels if integer levels
             i.mod <- all(Z[, i, drop=FALSE] %% 1 == 0)
@@ -339,6 +349,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
+
         colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
 
         # to standardise or not?
@@ -356,6 +367,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     return(full.Z)
 }
 
+#' @export
 solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
 
     UpperLeft <- t(X) %*% W_inv %*% X
@@ -370,6 +382,7 @@ solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
     return(theta_update)
 }
 
+#' @export
 mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     # map the vector of random effects to the full nx1 vector
     rand.levels <- names(random.levels)
@@ -386,7 +399,9 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     return(indiv.u.list)
 }
 
+
 ### utility functions
+#' @export
 computeInv <- function(x){
     # Compute x^-1 from x
     # need to check that x is not singular - use tryCatch - if matrix is singular then report error message
@@ -406,6 +421,7 @@ computeInv <- function(x){
     return(x_inv)
 }
 
+#' @export
 matrix.trace <- function(x){
     # check is square matrix first
     x.dims <- dim(x)
@@ -416,6 +432,7 @@ matrix.trace <- function(x){
     }
 }
 
+#' @export
 glmmControl.defaults <- function(...){
     # return the default glmm control values
     return(list(theta.tol=1e-6, max.iter=100))
