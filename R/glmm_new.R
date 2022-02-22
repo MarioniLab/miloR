@@ -44,6 +44,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     #                                    FUN=function(Bj){
     #                                        (1/(length(Bj)-1)) * crossprod(Bj, Bj)
     #                                    })), ncol=1)
+    
     rownames(curr_sigma) <- colnames(Z)
     
     #create a single variable for the thetas
@@ -60,7 +61,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
     #compute variance-covariance matrix G
     curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
-    G_inv <- computeInv(curr_G)
+    G_inv <- solve(curr_G)
 
     conv.list <- list()
     iters <- 1
@@ -76,13 +77,13 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         
         #compute all matrices - information about them found within their respective functions
         D <- computeD(mu=mu.vec)
-        D_inv <- computeInv(D)
+        D_inv <- solve(D)
         y_star <- computey_star(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u, y=y)
         V <- computeV(mu=mu.vec, r=new.r)
         W <- computeW(D_inv=D_inv, V=V)
-        W_inv <- computeInv(W)
+        W_inv <- solve(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
-        V_star_inv <- computeInv(V_star)
+        V_star_inv <- solve(V_star)
         V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels)
 
         #---- First estimate variance components with Newton Raphson procedure ---#
@@ -100,7 +101,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         # update sigma, G, and G_inv
         curr_sigma <- sigma_update
         curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
-        G_inv <- computeInv(curr_G)
+        G_inv <- solve(curr_G)
         
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
         theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
@@ -114,10 +115,13 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
   
         iters <- iters + 1
-        print(information_sigma)
         meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
     
+    SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
+    Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE) 
+    Pvalue <- computePvalue(Zscore=Zscore)
+        
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ],
                        "Sigma"=matrix(curr_sigma),
@@ -126,7 +130,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                        "converged"=converged,
                        "Iters"=iters,
                        "Dispersion"=new.r, 
-                       "Hessian"=information_sigma,
+                       "SE"=SE,
+                       "Zscore"=Zscore,
+                       "Pvalue"=Pvalue,
                        "Iterations"=conv.list)
     return(final.list)
 }
@@ -207,7 +213,7 @@ sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P
 }
 
 computeP_REML <- function(V_star_inv=V_star_inv, X=X) {
-   P <- V_star_inv - V_star_inv %*% X %*% computeInv(t(X) %*% V_star_inv %*% X) %*% t(X) %*% V_star_inv
+   P <- V_star_inv - V_star_inv %*% X %*% solve(t(X) %*% V_star_inv %*% X) %*% t(X) %*% V_star_inv
    return(P)
 }
 
@@ -321,18 +327,6 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     return(indiv.u.list)
 }
 
-### utility functions
-computeInv <- function(x){
-    # Compute x^-1 from x
-    # need to check that x is not singular
-    
-    # if(det(x) < 1e-20){ 
-    #     x_inv <- ginv(x)
-    # } else{
-    x_inv <- solve(x)
-    return(x_inv)
-}
-
 matrix.trace <- function(x){
     # check is square matrix first
     x.dims <- dim(x)
@@ -347,3 +341,71 @@ glmmControl.defaults <- function(...){
     # return the default glmm control values
     return(list(theta.tol=1e-6, max.iter=100))
 }
+
+calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
+    UpperLeft <- t(X) %*% as.matrix(W_inv) %*% X
+    UpperRight <- t(X) %*% as.matrix(W_inv) %*% (as.matrix(full.Z))
+    LowerLeft <- t(as.matrix(full.Z)) %*% as.matrix(W_inv) %*% X
+    LowerRight <- t(as.matrix(full.Z)) %*% as.matrix(W_inv) %*% (as.matrix(full.Z)) + as.matrix(G_inv)
+    
+    LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
+    C <- ginv(LHS)
+    se <- sqrt(diag(C[1:ncol(X),1:ncol(X)]))
+    return(se)
+}
+
+calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
+    Zscore <- as.matrix(curr_beta)/SE
+    return(Zscore)
+}
+
+computePvalue <- function(Zscore=Zscore) {
+    pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
+    return(pval)
+}
+
+Satterthwaite <- function() {
+    
+    
+    # Compute Jacobian of cov(beta) for each varpar and save in list:
+    Jac <- numDeriv::jacobian(func=get_covbeta, x=varpar_opt, devfun=devfun)
+    res@Jac_list <- lapply(1:ncol(Jac), function(i)
+        array(Jac[, i], dim=rep(length(res@beta), 2))) # k-list of jacobian matrices
+    res
+    
+    model <- lmer(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df)
+    summary(model)
+    anova(model)
+    
+    var_con <- qform(L, test@vcov_beta) # variance of contrast, this i know ####
+    # Compute denominator DF:
+    grad_var_con <-
+        vapply(model@Jac_list, function(x) qform(L, x), numeric(1L)) # = {L' Jac L}_i
+    satt_denom <- qform(grad_var_con, model@vcov_varpar) # g'Ag
+    ddf <- drop(2 * var_con^2 / satt_denom) # denominator DF
+    # return t-table:
+    mk_ttable(estimate, sqrt(var_con), ddf)
+    
+    ###### my code #####
+    numDeriv::jacobian(func=function2, x=1)
+    function2 <- function(x) {
+        2*x^2
+    }
+    quadratic <- function(x, B) {
+        sum(x * (B %*% x))
+    }
+    
+    V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
+    for (i in 1:length(random.levels)) {
+        V_a[i,i] <- 2*solve(matrix.trace((P %*% V_partial[[i]] %*% P %*% V_partial[[i]]))
+    }
+    V_a[1,2] = V_a[2,1] = 0
+    
+    vcov_b <- C[1:ncol(X),1:ncol(X)]
+    my_L <- c(1,0,0)
+    g <- list(vcov_b, vcov_b)
+    g1 <- vapply(g, function(x) qform(my_L, x), numeric(1L))
+    
+    2*(SE[1]^2)^2/(qform(g1, V_a))
+}
+
