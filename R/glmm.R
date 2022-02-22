@@ -9,7 +9,7 @@
 #' input variables, and the latter for overdispersed counts.
 #'
 #'
-#' @importFrom Matrix solve %*%
+#' @importFrom Matrix solve
 #' @export
 runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),

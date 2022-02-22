@@ -107,9 +107,19 @@ testNhoods <- function(x, design, design.df,
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
                        norm.method=c("TMM", "RLE", "logMS"),
                        error.model=c("glm", "glmm")){
+    is.lmm <- FALSE
     if(is(design, "formula")){
-        model <- model.matrix(design, data=design.df)
-        rownames(model) <- rownames(design.df)
+        # parse to find random and fixed effects
+        parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
+        if(any(grepl(parse, pattern="\\|1"))){
+            message("Random effects found - running PL model")
+            is.lmm <- TRUE
+            # make model matrices for fixed and random effects
+            z.model <- .parse_formula(design, design.df)
+        } else{
+            model <- model.matrix(design, data=design.df)
+            rownames(model) <- rownames(design.df)
+        }
     } else if(is(design, "matrix")){
         model <- design
         if(nrow(model) != nrow(design.df)){
