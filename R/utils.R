@@ -63,6 +63,27 @@
     x
 }
 
+
+# parse design formula
+#' @export
+.parse_formula <- function(in.form, design.df){
+    ## parse the formula and return the X and Z matrices
+    sp.form <- strsplit(gsub(in.form, pattern="~", replacement=""),
+                        split="+", fixed=TRUE)
+    re.terms <- sapply(sp.form, FUN=function(sp) {
+        ifelse(grepl(sp, pattern="\\(1\\|\\S+\\)"), .rEParse(sp), NA)
+        })
+    re.terms <- re.terms[!is.na(re.terms)]
+    z.mat <- model.frame(paste0("~ ", paste(re.terms, collapse=" + ")), design.df)
+    return(z.mat)
+}
+
+#' @export
+.rEParse <- function(re.form) {
+    return(gsub(re.form, pattern="(\\()(1)(\\|)(\\S+)(\\))", replacement="\\4"))
+}
+
+
 ######################################
 ## neighbourhood grouping functions
 ######################################
@@ -79,4 +100,6 @@
     colnames(nh_intersect_mat) <- colnames(nhoods)
     return(nh_intersect_mat)
 }
+
+
 
