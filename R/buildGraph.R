@@ -144,28 +144,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
     graph(x) <- zee.graph
 
     # adding distances
-<<<<<<< HEAD
-    message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    # set this up as a dense matrix first, then coerce to a sparse matrix
-    # starting with a sparse matrix requires a coercion at each iteration
-    # which uses up lots of memory and unncessary CPU time
-    old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
-
-    n.idx <- ncol(x)
-    for(i in seq_along(1:n.idx)){
-        sink(file="/dev/null")
-        gc()
-        sink(file=NULL)
-
-        i.knn <- nn.out$index[i, ]
-        i.dists <- nn.out$distance[i, ]
-        old.dist[i, i.knn] <- i.dists
-        old.dist[i.knn, i] <- i.dists
-    }
-    old.dist <- as(old.dist, "dgCMatrix")
-    nhoodDistances(x) <- old.dist
-
-=======
     if(isTRUE(get.distance)){
         message("Retrieving distances from ", k, " nearest neighbours")
         # set this up as a dense matrix first, then coerce to a sparse matrix
@@ -184,7 +162,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
         nhoodDistances(x) <- old.dist
     }
     x@.k <- k
->>>>>>> master
     x
 }
 

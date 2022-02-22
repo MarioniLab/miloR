@@ -181,8 +181,11 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     I <- Matrix(0L, nrow=ncol(full.Z), ncol=ncol(full.Z))
     diag(I) <- 1
 
-    left.p <- W_inv %*% full.Z %*% curr_G
-    mid.inv <- Matrix::solve(I + t(full.Z) %*% W_inv %*% full.Z %*% curr_G)
+    l.1 <- W_inv %*% full.Z
+    left.p <-  l.1 %*% curr_G
+    mid.1 <- t(full.Z) %*% W_inv
+    mid.2 <- mid.1 %*% full.Z
+    mid.inv <- Matrix::solve(I + mid.2 %*% curr_G)
 
     return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
 }
@@ -206,7 +209,9 @@ sigmaScore <- function(matrix_list, V_star_inv, random.levels){
     score_vec <- NA
     for (i in seq_along(random.levels)) {
         LHS <- -0.5*matrix.trace((matrix_list[["VSTARDi"]])[[i]])
-        RHS <- 0.5*t(matrix_list[["YSTARMINXB"]]) %*% (matrix_list[["VSTARDi"]])[[i]] %*% V_star_inv %*% (matrix_list[["YSTARMINXB"]])
+        rhs.1 <- t(matrix_list[["YSTARMINXB"]]) %*% (matrix_list[["VSTARDi"]])[[i]]
+        rhs.2 <- rhs.1 %*% V_star_inv
+        RHS <- 0.5* rhs.2 %*% (matrix_list[["YSTARMINXB"]])
         score_vec[i] <- LHS + RHS
     }
     return(score_vec)
@@ -218,7 +223,9 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
     for(i in seq_along(V_partial)){
         for(j in seq_along(V_partial)){
-            sigma_info[i, j] <- 0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[j]])
+            inner.1 <- V_star_inv %*% V_partial[[i]]
+            inner.2 <- inner.1 %*% V_star_inv
+            sigma_info[i, j] <- 0.5*matrix.trace(inner.2 %*% V_partial[[j]])
         }
     }
     return(sigma_info)
@@ -232,7 +239,9 @@ sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
 
     for (i in seq_along(random.levels)) {
         LHS <- -0.5 * matrix.trace(matrix_list[["PVSTARi"]][[i]])
-        RHS <- 0.5 * (t(y_star) %*% matrix_list[["PVSTARi"]][[i]] %*% P %*% y_star)
+        rhs.1 <- t(y_star) %*% matrix_list[["PVSTARi"]][[i]]
+        rhs.2 <- rhs.1 %*% P
+        RHS <- 0.5 * (rhs.2 %*% y_star)
         score_vec[i, ] <- LHS + RHS
     }
 
@@ -246,7 +255,7 @@ sigmaInformationREML <- function(matrix_list, random.levels) {
 
     for(i in seq_along(random.levels)){
         for(j in seq_along(random.levels)){
-            sigma_info[i, j] <- 0.5*matrix.trace(matrix_list[["PVSTARi"]][[i]] %*% matrix_list[["PVSTARi"]][[j]])
+            sigma_info[i, j] <- 0.5*matrix.trace(Matrix::crossprod(matrix_list[["PVSTARi"]][[i]], matrix_list[["PVSTARi"]][[j]]))
         }
     }
 

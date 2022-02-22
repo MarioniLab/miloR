@@ -71,6 +71,8 @@ Collate:
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
     'glmm.R'
+    'glmm_new.R'
+    'glmm_refactor.R'
     'makeNhoods.R'
     'milo.R'
     'miloR-package.R'
