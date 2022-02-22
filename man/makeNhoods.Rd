@@ -33,6 +33,9 @@ specified by the refinement_scheme argument.}
 \item{reduced_dims}{If x is an \code{\linkS4class{Milo}} object, a character indicating the name of the \code{reducedDim} slot in the
 \code{\linkS4class{Milo}} object to use as (default: 'PCA'). If x is an \code{igraph} object, a
 matrix of vertices X reduced dimensions with \code{rownames()} set to correspond to the cellIDs.}
+
+\item{refinement_scheme}{A character scalar that defines the sampling scheme, either "reduced_dim" or "graph".
+Default is "reduced_dim".}
 }
 \value{
 A \code{\linkS4class{Milo}} object containing a list of vertices and
