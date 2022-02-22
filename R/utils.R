@@ -86,6 +86,7 @@
         v.terms <- v.terms[!is.na(v.terms)]
         v.terms <- v.terms[!v.terms %in% c("0", "1", "~")]
         d.mat <- as.matrix(design.df[, trimws(v.terms)])
+        colnames(d.mat) <- trimws(v.terms)
     } else{
         stop("vtype ", vtype, " not recognised")
     }
