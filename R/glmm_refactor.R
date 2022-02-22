@@ -322,9 +322,9 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         } else if(i.class %in% c("character")){
-            i.levels <- unique(Z[, i, drop=FALSE])
-            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.levels <- as.factor(unique(Z[, i, drop=FALSE])) # ordering is arbitrary
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+            print(head(i.z))
         } else if(i.class %in% c("numeric")){ # split into unique levels if integer levels
             i.mod <- all(Z[, i, drop=FALSE] %% 1 == 0)
             if(isTRUE(i.mod)){
@@ -339,6 +339,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
+        print(head(i.z))
         colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
 
         # to standardise or not?
