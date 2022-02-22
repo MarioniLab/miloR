@@ -115,7 +115,8 @@ testNhoods <- function(x, design, design.df,
             message("Random effects found - running PL model")
             is.lmm <- TRUE
             # make model matrices for fixed and random effects
-            z.model <- .parse_formula(design, design.df)
+            z.model <- .parse_formula(design, design.df, vtype="re")
+            x.model <- .parse_formula(design, design.df, vtype="fe")
         } else{
             model <- model.matrix(design, data=design.df)
             rownames(model) <- rownames(design.df)

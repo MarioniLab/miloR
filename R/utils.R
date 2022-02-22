@@ -66,19 +66,31 @@
 
 # parse design formula
 #' @export
-.parse_formula <- function(in.form, design.df){
+.parse_formula <- function(in.form, design.df, vtype=c("re", "fe")){
     ## parse the formula and return the X and Z matrices
+    # need to decide on how to handle intercept terms - i.e. FE or RE
 
     sp.form <- unlist(strsplit(as.character(in.form),
                                split="+", fixed=TRUE))
 
-    re.terms <- unlist(lapply(sp.form, FUN=function(sp) {
-        return(ifelse(grepl(trimws(sp), pattern="\\|"), .rEParse(trimws(sp)), NA))
+    if(vtype %in% c("re")){
+        v.terms <- unlist(lapply(sp.form, FUN=function(sp) {
+            return(ifelse(grepl(trimws(sp), pattern="\\|"), .rEParse(trimws(sp)), NA))
+            }))
+        v.terms <- v.terms[!is.na(v.terms)]
+        d.mat <- as.matrix(design.df[, trimws(v.terms)])
+    } else if(vtype %in% c("fe")){
+        v.terms <- unlist(lapply(sp.form, FUN=function(sp) {
+            return(ifelse(!grepl(trimws(sp), pattern="\\|"), trimws(sp), NA))
         }))
-    re.terms <- re.terms[!is.na(re.terms)]
-    z.mat <- as.matrix(design.df[, trimws(re.terms)])
+        v.terms <- v.terms[!is.na(v.terms)]
+        v.terms <- v.terms[!v.terms %in% c("0", "1", "~")]
+        d.mat <- as.matrix(design.df[, trimws(v.terms)])
+    } else{
+        stop("vtype ", vtype, " not recognised")
+    }
 
-    return(z.mat)
+    return(d.mat)
 }
 
 #' @export
