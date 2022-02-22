@@ -184,6 +184,9 @@ sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.
     return(info_vec)
 }
 
+
+## some of these matrix multiplications are used multiple times throughout the code - perhaps we should store these to reduce the number?
+
 sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels){
     score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
     for (i in seq_along(random.levels)) {
