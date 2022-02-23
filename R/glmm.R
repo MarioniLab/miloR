@@ -183,13 +183,10 @@ computey_star <- function(X, curr_beta, full.Z, D_inv, curr_u, y){
 #' @importMethodsFrom Matrix %*%
 #' @export
 computeV_partial <- function(full.Z, random.levels){
-    V_partial_vec <- list()
-    j <- 1
-    for (i in seq_along(random.levels)) {
-        Z.temp <- full.Z[ , random.levels[[i]]]
-        V_partial_vec[[j]] <- Z.temp %*% t(Z.temp)
-        j <- j + 1
-    }
+    V_partial_vec <- sapply(random.levels, function(i) {
+        full.Z[ , random.levels[[i]]] %*% t(full.Z[ , random.levels[[i]]])
+    })
+
     return(V_partial_vec)
 }
 
