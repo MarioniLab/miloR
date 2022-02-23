@@ -100,6 +100,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         # update sigma, G, and G_inv
         curr_sigma <- sigma_update
+
         curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
         G_inv <- computeInv(curr_G)
 
@@ -319,7 +320,6 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     # theta ~= theta_hat + hess^-1 * score
     # this needs to be in a direction of descent towards a minimum
 
-
     theta_new <- tryCatch({
         theta_hat + solve(hess_mat) %*% score_vec
     }, error=function(cond){
@@ -329,7 +329,7 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     }, finally={
 
     })
-
+    rownames(theta_new) <- rownames(theta_hat) # not sure why these get stripped off during computation
     return(theta_new)
 }
 
