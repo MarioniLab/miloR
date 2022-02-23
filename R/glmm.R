@@ -9,9 +9,10 @@
 #' input variables, and the latter for overdispersed counts.
 #'
 #'
-#' @importFrom Matrix solve
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix solve
 #' @export
-runGLMM <- function(X, full.Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
+runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5){
 
@@ -32,7 +33,7 @@ runGLMM <- function(X, full.Z, y, init.theta=NULL, crossed=FALSE, random.levels=
     rownames(curr_u) <- colnames(full.Z)
 
     # OLS for the betas is usually a good starting point for NR
-    curr_beta <- Matrix::solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
     rownames(curr_beta) <- colnames(X)
 
     # compute sample variances of the us
@@ -132,12 +133,16 @@ runGLMM <- function(X, full.Z, y, init.theta=NULL, crossed=FALSE, random.levels=
     return(final.list)
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 computeW <- function(D_inv, V){
     W = D_inv %*% V %*% D_inv
     return(W)
 }
 
+
+#' @importFrom Matrix Matrix
 #' @export
 computeV <- function(mu, r){
     # compute diagonal matrix of variances
@@ -147,6 +152,8 @@ computeV <- function(mu, r){
     return(V)
 }
 
+
+#' @importFrom Matrix Matrix
 #' @export
 computeD <- function(mu){
     # D is diag(mu_i)
@@ -155,18 +162,25 @@ computeD <- function(mu){
     return(D)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix crossprod
 #' @export
 computeV_star <- function(full.Z, curr_G, W){
-    V_star <- full.Z %*% Matrix::crossprod(curr_G, t(full.Z)) + W
+    V_star <- full.Z %*% crossprod(curr_G, t(full.Z)) + W
     return(V_star)
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 computey_star <- function(X, curr_beta, full.Z, D_inv, curr_u, y){
     y_star <- ((X %*% curr_beta) + (full.Z %*% curr_u)) + D_inv %*% (y - exp((X %*% curr_beta) + (full.Z %*% curr_u)))
     return(y_star)
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 computeV_partial <- function(full.Z, random.levels){
     V_partial_vec <- list()
@@ -179,6 +193,9 @@ computeV_partial <- function(full.Z, random.levels){
     return(V_partial_vec)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix solve diag
 #' @export
 computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     # compute the inverse of V_star using Henderson-adjusted Woodbury formula, equation (18)
@@ -191,11 +208,13 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     left.p <-  l.1 %*% curr_G
     mid.1 <- t(full.Z) %*% W_inv
     mid.2 <- mid.1 %*% full.Z
-    mid.inv <- Matrix::solve(I + mid.2 %*% curr_G)
+    mid.inv <- solve(I + mid.2 %*% curr_G)
 
     return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star){
     # precompute certain matrices from matrix multiplications that are needed > once
@@ -210,6 +229,8 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
     return(mat.list)
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 sigmaScore <- function(matrix_list, V_star_inv, random.levels){
     score_vec <- NA
@@ -223,6 +244,9 @@ sigmaScore <- function(matrix_list, V_star_inv, random.levels){
     return(score_vec)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
 #' @export
 sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
@@ -240,6 +264,8 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
 
 ## some of these matrix multiplications are used multiple times throughout the code - perhaps we should store these to reduce the number?
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
 #' @export
 sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
     score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
@@ -255,6 +281,9 @@ sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
     return(score_vec)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix crossprod Matrix
 #' @export
 sigmaInformationREML <- function(matrix_list, random.levels) {
     # this should be a matrix
@@ -262,13 +291,15 @@ sigmaInformationREML <- function(matrix_list, random.levels) {
 
     for(i in seq_along(random.levels)){
         for(j in seq_along(random.levels)){
-            sigma_info[i, j] <- 0.5*matrix.trace(Matrix::crossprod(matrix_list[["PVSTARi"]][[i]], matrix_list[["PVSTARi"]][[j]]))
+            sigma_info[i, j] <- 0.5*matrix.trace(crossprod(matrix_list[["PVSTARi"]][[i]], matrix_list[["PVSTARi"]][[j]]))
         }
     }
 
     return(sigma_info)
 }
 
+
+#' @importMethodsFrom Matrix %*%
 #' @export
 computeP_REML <- function(V_star_inv, X) {
     # breaking these down to individual steps speeds up the operations considerably
@@ -282,6 +313,9 @@ computeP_REML <- function(V_star_inv, X) {
     return(P)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix solve
 #' @export
 FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
@@ -290,7 +324,7 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
 
 
     theta_new <- tryCatch({
-        theta_hat + Matrix::solve(hess_mat) %*% score_vec
+        theta_hat + solve(hess_mat) %*% score_vec
     }, error=function(cond){
         message("Hessian is singular. Original error message:")
         error(cond)
@@ -302,6 +336,8 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
     return(theta_new)
 }
 
+
+#' @importFrom Matrix sparseMatrix diag
 #' @export
 initialiseG <- function(Z, cluster_levels, sigmas){
     # construct the correct size of G given the random effects and variance components
@@ -320,6 +356,9 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     return((G))
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix diag
 #' @export
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # construct the full Z with all random effect levels
@@ -367,6 +406,9 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     return(full.Z)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix solve
 #' @export
 solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
 
@@ -378,10 +420,13 @@ solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
 
-    theta_update <- Matrix::solve(LHS) %*% RHS
+    theta_update <- solve(LHS) %*% RHS
     return(theta_update)
 }
 
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
 #' @export
 mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     # map the vector of random effects to the full nx1 vector
@@ -401,13 +446,14 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
 
 
 ### utility functions
+#' @importFrom Matrix solve
 #' @export
 computeInv <- function(x){
     # Compute x^-1 from x
     # need to check that x is not singular - use tryCatch - if matrix is singular then report error message
 
     x_inv <- tryCatch(expr={
-        Matrix::solve(x)
+        solve(x)
     },
     error=function(cond){
         message("Matrix cannot be inverted - most likely singular")
@@ -421,6 +467,8 @@ computeInv <- function(x){
     return(x_inv)
 }
 
+
+#' @importFrom Matrix diag
 #' @export
 matrix.trace <- function(x){
     # check is square matrix first
