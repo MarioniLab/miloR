@@ -13,6 +13,8 @@ Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
 BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
+LinkingTo: Rcpp,
+           RcppArmadillo
 Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,
@@ -41,7 +43,9 @@ Imports: BiocNeighbors,
          ggrepel,
          ggbeeswarm,
          RColorBrewer,
-         grDevices
+         grDevices,
+         RcppArmadillo,
+         Rcpp
 Suggests: 
     testthat,
     MASS,
@@ -87,4 +91,6 @@ Collate:
     'annotateNhoods.R'
     'groupNhoods.R'
     'findNhoodGroupMarkers.R'
+    'RcppExports.R'
+    'miloR.R'
 VignetteBuilder: knitr
