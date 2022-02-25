@@ -4,6 +4,7 @@
 + Introduce graph-based neighbourhood definition - allows full compatibility with graph-only batch correction and graphs constructed by third-party tools
 + Introduce graph-based spatial FDR correction to obviate the need for any distance calculations
 + Add vignette to describe the use and application of contrasts in `testNhoods`
++ Patch to correct SpatialFDR with sparse nhoods where density is ~0
 
 # 1.1.0 (2021-10-12)
 + Fix bug in testNhoods to use user-specific reduced dimensions
