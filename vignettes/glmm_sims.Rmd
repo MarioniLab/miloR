@@ -24,6 +24,8 @@ library(scales)
 library(viridis)
 library(tidyr)
 library(profvis)
+library(pbkrtest)
+library(lmerTest)
 ```
 
 ```{r}
@@ -179,8 +181,6 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
 
     sim.data <- data.frame("Mean"=y.means, "Mean.Count"=y.counts, "r"=r)
     sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
-    print(re.thetas)
-    
     return(sim.data)
 }
 
@@ -355,44 +355,45 @@ ANOVA-mixed model.
 ## glmmTMB
 
 ```{r}
-#nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2  + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-system.time({
-    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-})
-summary(nb.glm)
-sqrt(diag(vcov(nb.glm,full=TRUE)))
+a <- Sys.time()
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (2|RE), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+b <- Sys.time()
+
+cc <- coef(summary(nb.glm))
+#glmmTMB:::Anova.glmmTMB(nb.glm)
+#sqrt(diag(vcov(nb.glm,full=TRUE)))
+#cc[["cond"]][,"Estimate"]/cc[["cond"]][,"Std. Error"]
 ```
 
 ## My model
 
 ```{r, warning=TRUE}
 set.seed(41) #42
-system.time({ 
-    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))#, "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
-    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df))))#, "FE1"=as.numeric(sim.df$FE1) - 1, "FE2"=as.numeric(sim.df$FE2)))
-    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))#, "RE2"=as.numeric(sim.df$RE2)))
-    y <- sim.df$Mean.Count
-    dispersion <- 0.5
+
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1) - 1, "FE2"=as.numeric(sim.df$FE2)))
+Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
+y <- sim.df$Mean.Count
+dispersion <- 0.5
     
-    # covariance between u's
-    glmm.control <- glmmControl.defaults()
-    glmm.control$theta.tol <- 1e-5
-    glmm.control$max.iter <- 15
-})
-    
-system.time({        
-        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, glmm.control=glmm.control, dispersion=dispersion)
-})
+# covariance between u's
+glmm.control <- glmmControl.defaults()
+glmm.control$theta.tol <- 1e-5
+glmm.control$max.iter <- 15
+
+model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, glmm.control=glmm.control, dispersion=dispersion)
 model.coef <- c(model.list$FE, model.list$Sigma)
 ```
 
 ```{r}
+print("coefficients")
 model.coef
-H <- model.list$Hessian
-hessian <- matrix(0, ncol = length(H), nrow = length(H))
-diag(hessian) <- H
-sqrt(diag(solve(hessian)))
-sqrt(1/(H))
+print("SE")
+model.list$SE
+print("Zscore")
+model.list$Zscore
+print("pvalue")
+model.list$Pvalue
 ```
 
 Above shows the coefficient and variance component estimates. We can evaluate the model a bit more by looking at the convergence and loglihood across iterations.
@@ -891,27 +892,27 @@ ggplot(to_plot_f, aes(y = value, x = true_value, group = analysis)) +
     NULL
 ```
 
-Plotting standard errors
+Same as above, but looking at SE for the fixed effects. 
 
 ```{r, warning=FALSE, message=FALSE}
 j <- 1
 sim.list <- c()
 
-for (i in seq(0.05, 0.7, 0.15)) {
+for (i in seq(0.05, 1, 0.2)) {
     
     set.seed(43)
     fe.levels <- list("FE1"=2)
     re.levels <- list("RE1"=10)
     r.dispersion <- 0.5
-    fe.betas=list("FE1"=0.25)
-    re.sigmas=list("RE1"=i)
+    fe.betas=list("FE1"=i)
+    re.sigmas=list("RE1"=0.4)
     grand.mean=2
     
     sim.list[[j]] <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean,
                                n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
     j <- j + 1
 }
-names(sim.list) <- seq(0.05, 0.7, 0.15)
+names(sim.list) <- seq(0.05, 1, 0.2)
 ```
 
 ```{r, warning=FALSE, message=FALSE, error=FALSE}
@@ -920,9 +921,9 @@ glmmTMBWrapper <- function(sim.list) {
     nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
     var <- VarCorr(nb.glm)
     se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
-    out.list <- list("coefficients"=c(nb.glm[["fit"]][["par"]][1:2]),
+    out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
                      "sigma"=unlist(var$cond),
-                     "se"=unname(se[4]))
+                     "se"=unname(se[1:2]))
 }
 glmm.sim.list_TMB <- lapply(sim.list, glmmTMBWrapper)
 
@@ -930,9 +931,9 @@ glmmTMBWrapper2 <- function(sim.list) {
     nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
     var <- VarCorr(nb.glm)
     se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
-    out.list <- list("coefficients"=c(nb.glm[["fit"]][["par"]][1:2]),
+    out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
                      "sigma"=unlist(var$cond),
-                     "se"=unname(se[4]))
+                     "se"=unname(se[1:2]))
 }
 glmm.sim.list_TMB_REML <- lapply(sim.list, glmmTMBWrapper2)
 
@@ -954,7 +955,7 @@ glmmWrapper1 <- function(sim.df){
                          "sigma"=model.list$Sigma,
                          "iters"=model.list$Iters,
                          "converged"=model.list$converged, 
-                         "se"=sqrt(1/(model.list$Hessian)))
+                         "se"=model.list$SE)
         return(out.list)
         })
 }
@@ -979,7 +980,7 @@ glmmWrapper2 <- function(sim.df){
                          "sigma"=model.list$Sigma,
                          "iters"=model.list$Iters,
                          "converged"=model.list$converged,
-                         "se"=sqrt(1/(model.list$Hessian)))
+                         "se"=model.list$SE)
         return(out.list)
         })
 }
@@ -993,9 +994,10 @@ sigma <- lapply(glmmTMB_res, `[[`, 2)
 se <- lapply(glmmTMB_res, `[[`, 3)
 intercept <- names(sim.list)
 coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
-coeff_mat <- data.frame(cbind(unlist(sigma), unlist(se), coeff_mat))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept
-colnames(coeff_mat) <- c("sigma", "se", "intercept", "beta", "true_value")
+colnames(coeff_mat) <- c("sigma", "se.int", "se.fe", "intercept", "beta", "true_value")
 coeff_mat$analysis <- "TMB"
 coeff_pivoted <- pivot_longer(coeff_mat, cols = 1:4)
 
@@ -1005,9 +1007,10 @@ sigma <- lapply(glmmTMB_res, `[[`, 2)
 se <- lapply(glmmTMB_res, `[[`, 3)
 intercept <- names(sim.list)
 coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
-coeff_mat <- data.frame(cbind(unlist(sigma), unlist(se), coeff_mat))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept
-colnames(coeff_mat) <- c("sigma", "se", "intercept", "beta", "true_value")
+colnames(coeff_mat) <- c("sigma", "se.int", "se.fe", "intercept", "beta", "true_value")
 coeff_mat$analysis <- "TMB_REML"
 coeff_pivoted2 <- pivot_longer(coeff_mat, cols = 1:4)
 
@@ -1016,9 +1019,10 @@ coeff <- lapply(glmm1_res, `[[`, 1)
 sigma <- lapply(glmm1_res, `[[`, 2)
 se <- lapply(glmm1_res, `[[`, 5)
 coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
-coeff_mat <- data.frame(cbind(unlist(sigma), unlist(se), coeff_mat))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept
-colnames(coeff_mat) <- c("sigma", "se", "intercept", "beta", "true_value")
+colnames(coeff_mat) <- c("sigma", "se.int", "se.fe", "intercept", "beta", "true_value")
 coeff_mat$analysis <- "nb_glmm"
 coeff_pivoted3 <- pivot_longer(coeff_mat, cols = 1:4)
 
@@ -1027,20 +1031,185 @@ coeff <- lapply(glmm1_res, `[[`, 1)
 sigma <- lapply(glmm1_res, `[[`, 2)
 se <- lapply(glmm1_res, `[[`, 5)
 coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
-coeff_mat <- data.frame(cbind(unlist(sigma), unlist(se), coeff_mat))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept
-colnames(coeff_mat) <- c("sigma", "se", "intercept", "beta", "true_value")
+colnames(coeff_mat) <- c("sigma", "se.int", "se.fe", "intercept", "beta", "true_value")
 coeff_mat$analysis <- "nb_glmm_REML"
 coeff_pivoted4 <- pivot_longer(coeff_mat, cols = 1:4)
 
 to_plot <- rbind.data.frame(coeff_pivoted, coeff_pivoted3, coeff_pivoted2, coeff_pivoted4)
-to_plot_f <- dplyr::filter(to_plot, name =="se")
+to_plot_f <- dplyr::filter(to_plot, name =="se.int")
 
 ggplot(to_plot_f, aes(y = value, x = true_value, group = analysis)) +
     geom_bar(stat = "identity", color = "black", position = position_dodge(), aes(fill=analysis)) +
     theme_bw() + 
+    xlab("true value of slope") +
+    ylab("SE of intercept") +
     theme(text = element_text(size = 18)) +
-    scale_y_continuous(limits = c(0, 0.8), breaks = seq(0.05, 0.7, 0.15), expand = c(0,0)) +
+    scale_y_continuous(limits = c(0, 0.24), breaks = seq(0.05, 1, 0.2), expand = c(0,0)) +
     scale_fill_brewer(palette="Blues") +
     NULL
+```
+
+Same as above, looking at pvalues
+
+```{r, warning=FALSE, message=FALSE}
+j <- 1
+sim.list <- c()
+
+for (i in seq(0.05, 2, 0.4)) {
+    
+    set.seed(43)
+    fe.levels <- list("FE1"=2)
+    re.levels <- list("RE1"=10)
+    r.dispersion <- 0.5
+    fe.betas=list("FE1"=i)
+    re.sigmas=list("RE1"=0.4)
+    grand.mean=2
+    
+    sim.list[[j]] <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean,
+                               n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
+    j <- j + 1
+}
+names(sim.list) <- seq(0.05, 2, 0.4)
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE}
+
+glmmTMBWrapper <- function(sim.list) {
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+    var <- VarCorr(nb.glm)
+    se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
+    out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
+                     "sigma"=unlist(var$cond),
+                     "pvalues"=coef(summary(nb.glm))$cond[,4])
+}
+glmm.sim.list_TMB <- lapply(sim.list, glmmTMBWrapper)
+
+glmmTMBWrapper2 <- function(sim.list) {
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+    var <- VarCorr(nb.glm)
+    se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
+    out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
+                     "sigma"=unlist(var$cond),
+                     "pvalues"=coef(summary(nb.glm))$cond[,4])
+}
+glmm.sim.list_TMB_REML <- lapply(sim.list, glmmTMBWrapper2)
+
+glmmWrapper1 <- function(sim.df){
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    y <- sim.df$Mean.Count
+    dispersion <- 0.5
+
+    glmm.control <- glmmControl.defaults()
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
+    try({
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, glmm.control=glmm.control, dispersion=dispersion)
+        conv.list <- model.list$Iterations
+        out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
+                         "sigma"=model.list$Sigma,
+                         "iters"=model.list$Iters,
+                         "converged"=model.list$converged, 
+                         "pvalues"=model.list$Pvalue)
+        return(out.list)
+        })
+}
+glmm.sim.list_1 <- lapply(sim.list, glmmWrapper1)
+
+glmmWrapper2 <- function(sim.df){
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    y <- sim.df$Mean.Count
+    dispersion <- 0.5 #unique(sim.df$r)
+
+    glmm.control <- glmmControl.defaults()
+    glmm.control$theta.tol <- 1e-5
+    glmm.control$max.iter <- 15
+
+    try({
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, glmm.control=glmm.control, dispersion=dispersion)
+        conv.list <- model.list$Iterations
+
+        out.list <- list("coefficients"=c(model.list$FE, model.list$RE),
+                         "sigma"=model.list$Sigma,
+                         "iters"=model.list$Iters,
+                         "converged"=model.list$converged,
+                         "pvalues"=model.list$Pvalue)
+        return(out.list)
+        })
+}
+glmm.sim.list_REML <- lapply(sim.list, glmmWrapper2)
+```
+
+```{r, warning=FALSE, message=FALSE, fig.height=2.15, fig.width=4.15}
+glmmTMB_res <- glmm.sim.list_TMB
+coeff <- lapply(glmmTMB_res, `[[`, 1)
+sigma <- lapply(glmmTMB_res, `[[`, 2)
+se <- lapply(glmmTMB_res, `[[`, 3)
+intercept <- names(sim.list)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "pval.int", "pval.fe", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "TMB"
+coeff_pivoted <- pivot_longer(coeff_mat, cols = 1:4)
+
+glmmTMB_res <- glmm.sim.list_TMB_REML
+coeff <- lapply(glmmTMB_res, `[[`, 1)
+sigma <- lapply(glmmTMB_res, `[[`, 2)
+se <- lapply(glmmTMB_res, `[[`, 3)
+intercept <- names(sim.list)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=2)))
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "pval.int", "pval.fe", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "TMB_REML"
+coeff_pivoted2 <- pivot_longer(coeff_mat, cols = 1:4)
+
+glmm1_res <- glmm.sim.list_1
+coeff <- lapply(glmm1_res, `[[`, 1)
+sigma <- lapply(glmm1_res, `[[`, 2)
+se <- lapply(glmm1_res, `[[`, 5)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "pval.int", "pval.fe", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "nb_glmm"
+coeff_pivoted3 <- pivot_longer(coeff_mat, cols = 1:4)
+
+glmm1_res <- glmm.sim.list_REML
+coeff <- lapply(glmm1_res, `[[`, 1)
+sigma <- lapply(glmm1_res, `[[`, 2)
+se <- lapply(glmm1_res, `[[`, 5)
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
+coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
+coeff_mat$intercept <- intercept
+colnames(coeff_mat) <- c("sigma", "pval.int", "pval.fe", "intercept", "beta", "true_value")
+coeff_mat$analysis <- "nb_glmm_REML"
+coeff_pivoted4 <- pivot_longer(coeff_mat, cols = 1:4)
+
+to_plot <- rbind.data.frame(coeff_pivoted, coeff_pivoted3, coeff_pivoted2, coeff_pivoted4)
+to_plot_f <- dplyr::filter(to_plot, name =="pval.fe")
+
+ggplot(to_plot_f, aes(y = value, x = true_value, group = analysis)) +
+    geom_bar(stat = "identity", color = "black", position = position_dodge(), aes(fill=analysis)) +
+    theme_bw() + 
+    xlab("true value of slope") +
+    ylab("pvalue of intercept") +
+    theme(text = element_text(size = 18)) +
+    #scale_y_continuous(limits = c(0, 5e-20), expand = c(0,0)) +
+    scale_fill_brewer(palette="Blues") +
+    NULL
+
+, breaks = seq(0.05, 1, 0.2),
 ```

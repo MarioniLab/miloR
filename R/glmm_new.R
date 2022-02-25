@@ -119,8 +119,9 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     }
     
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
-    Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE) 
-    Pvalue <- computePvalue(Zscore=Zscore)
+    Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
+    df <- Satterthwaite_df(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
+    Pvalue <- computePvalue(Zscore=Zscore, df=df)
         
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
     final.list <- list("FE"=curr_theta[colnames(X), ], "RE"=curr_theta[colnames(full.Z), ],
@@ -343,14 +344,11 @@ glmmControl.defaults <- function(...){
 }
 
 calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
-    UpperLeft <- t(X) %*% as.matrix(W_inv) %*% X
-    UpperRight <- t(X) %*% as.matrix(W_inv) %*% (as.matrix(full.Z))
-    LowerLeft <- t(as.matrix(full.Z)) %*% as.matrix(W_inv) %*% X
-    LowerRight <- t(as.matrix(full.Z)) %*% as.matrix(W_inv) %*% (as.matrix(full.Z)) + as.matrix(G_inv)
-    
-    LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
-    C <- ginv(LHS)
-    se <- sqrt(diag(C[1:ncol(X),1:ncol(X)]))
+    UpperLeft <- t(X) %*% W_inv %*% X
+    UpperRight <- t(X) %*% W_inv %*% full.Z
+    LowerLeft <- t(full.Z) %*% W_inv %*% X
+    LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
+    se <- sqrt(diag(solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)))
     return(se)
 }
 
@@ -359,53 +357,44 @@ calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
     return(Zscore)
 }
 
-computePvalue <- function(Zscore=Zscore) {
+computePvalue <- function(Zscore=Zscore, df=df) {
     pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
     return(pval)
 }
 
-Satterthwaite <- function() {
-    
-    
-    # Compute Jacobian of cov(beta) for each varpar and save in list:
-    Jac <- numDeriv::jacobian(func=get_covbeta, x=varpar_opt, devfun=devfun)
-    res@Jac_list <- lapply(1:ncol(Jac), function(i)
-        array(Jac[, i], dim=rep(length(res@beta), 2))) # k-list of jacobian matrices
-    res
-    
-    model <- lmer(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df)
-    summary(model)
-    anova(model)
-    
-    var_con <- qform(L, test@vcov_beta) # variance of contrast, this i know ####
-    # Compute denominator DF:
-    grad_var_con <-
-        vapply(model@Jac_list, function(x) qform(L, x), numeric(1L)) # = {L' Jac L}_i
-    satt_denom <- qform(grad_var_con, model@vcov_varpar) # g'Ag
-    ddf <- drop(2 * var_con^2 / satt_denom) # denominator DF
-    # return t-table:
-    mk_ttable(estimate, sqrt(var_con), ddf)
-    
-    ###### my code #####
-    numDeriv::jacobian(func=function2, x=1)
-    function2 <- function(x) {
-        2*x^2
+Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
+
+  ###---- first calculate g = derivative of C with respect to sigma ----
+    function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
+      UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
+      UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
+      LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
+      LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
+      n <- length(random.levels)
+      diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
+      C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
     }
-    quadratic <- function(x, B) {
-        sum(x * (B %*% x))
-    }
+     
+    jac <- numDeriv::jacobian(func=function_jac, x=as.vector(curr_sigma))
+    jac_list <- lapply(1:ncol(jac), function(i)
+      array(jac[, i], dim=rep(length(curr_beta), 2))) 
     
+    #next, calculate V_a, the asymptotic covariance matrix of the estimated covariance parameters
+    #given by formula below
+    P <- computeP_REML(V_star_inv=V_star_inv, X=X)
     V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
     for (i in 1:length(random.levels)) {
-        V_a[i,i] <- 2*solve(matrix.trace((P %*% V_partial[[i]] %*% P %*% V_partial[[i]]))
+      for (j in 1:length(random.levels)) {
+        V_a[i,j] <- 2*(1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]])))
+      }
     }
-    V_a[1,2] = V_a[2,1] = 0
+    V_a[is.na(V_a)] <- 0
     
-    vcov_b <- C[1:ncol(X),1:ncol(X)]
-    my_L <- c(1,0,0)
-    g <- list(vcov_b, vcov_b)
-    g1 <- vapply(g, function(x) qform(my_L, x), numeric(1L))
-    
-    2*(SE[1]^2)^2/(qform(g1, V_a))
+    df <- rep(NA, length(curr_beta))
+    for (i in 1:length(curr_beta)) {
+      jac_var_beta <- unlist(lapply(lapply(jac_list, diag), `[[`, i))
+      denom <- t(jac_var_beta) %*% V_a %*% jac_var_beta #g' Va g
+      df[i] <- 2*((SE[i]^2)^2)/denom
+    }
+    return(as.matrix(df))
 }
-
