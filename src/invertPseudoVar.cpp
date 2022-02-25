@@ -13,16 +13,6 @@ using namespace Rcpp;
 //' @param Z SparseMatrix - a nxc design matrix that maps REs to samples
 // [[Rcpp::export]]
 arma::sp_mat invertPseudoVar(arma::sp_mat A, arma::sp_mat B, arma::sp_mat Z){
-    //     I <- Matrix(0L, nrow=ncol(full.Z), ncol=ncol(full.Z))
-    // diag(I) <- 1
-    //
-    // l.1 <- W_inv %*% full.Z
-    // left.p <-  l.1 %*% curr_G
-    // mid.1 <- t(full.Z) %*% W_inv
-    // mid.2 <- mid.1 %*% full.Z
-    // mid.inv <- solve(I + mid.2 %*% curr_G)
-    //
-    // return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
     int c = B.n_cols;
     int n = A.n_cols;
     arma::sp_mat I = arma::eye<arma::sp_mat>(c, c); // create the cxc identity matrix

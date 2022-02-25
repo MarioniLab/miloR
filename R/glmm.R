@@ -198,9 +198,19 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     # compute the inverse of V_star using Henderson-adjusted Woodbury formula, equation (18)
     # (A + UBU^T)^-1 = A^-1 - A^-1UB[I + U^TA^-1UB]^-1U^TA^-1
     # Only requires A^-1, where B = ZGZ^T, A=W, U=Z
+    I <- Matrix(0L, nrow=ncol(full.Z), ncol=ncol(full.Z))
+    diag(I) <- 1
 
-    ## Rcpp function
-    return(invertPseudoVar(A=W_inv, B=curr_G, Z=full.Z))
+    l.1 <- W_inv %*% full.Z
+    left.p <-  l.1 %*% curr_G
+    mid.1 <- t(full.Z) %*% W_inv
+    mid.2 <- mid.1 %*% full.Z
+    mid.inv <- solve(I + mid.2 %*% curr_G)
+
+    return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
+
+    # ## Rcpp function - this gives incorrect results
+    # return(invertPseudoVar(A=W_inv, B=curr_G, Z=full.Z))
 }
 
 
