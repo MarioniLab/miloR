@@ -18,10 +18,10 @@ arma::sp_mat invertPseudoVar(arma::sp_mat A, arma::sp_mat B, arma::sp_mat Z){
     arma::sp_mat I = arma::eye<arma::sp_mat>(c, c); // create the cxc identity matrix
     arma::sp_mat omt(n, n);
     arma::mat mid(c, c);
-    mid = I + Z.t() * A * Z * B;
+    mid = I + (Z.t() * A * Z * B);
     arma::mat midinv(c, c);
     midinv = mid.i();
 
-    omt = A * Z * B * midinv * Z.t() * A;
+    omt = A - (A * Z * B * midinv * Z.t() * A);
     return omt;
 }

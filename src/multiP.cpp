@@ -15,24 +15,18 @@ using namespace Rcpp;
 List multiP(List partials, arma::mat psvar_in){
     // each list component is a sparse matrix
     // psvar_in cannot be a dgeMatrix
+    // this isn't any faster than the equivalent Rcode - why?
+    // Is all the interconversion creating a new bottleneck? I don't think so.
     int nsize = partials.size();
     int ps_nrows = psvar_in.n_rows; // this should be the column dimension
     List out(nsize);
 
     for(int k = 0; k < nsize; k++){
-        S4 _p = partials[k];
+        arma::sp_mat _p = partials[k];
+        int ncol = _p.n_cols;
 
-        // get the sparse matrix elements from the S4 object to make and arma::mat
-        IntegerVector dims = _p.slot("Dim");
-        arma::urowvec i = Rcpp::as<arma::urowvec>(_p.slot("i"));
-        arma::urowvec p = Rcpp::as<arma::urowvec>(_p.slot("p"));
-        arma::vec x = Rcpp::as<arma::vec>(_p.slot("x"));
-
-        int nrow = dims[0], ncol = dims[1];
-        arma::sp_mat imat(i, p, x, nrow, ncol);
-
-        arma::mat _P(ps_nrows, ncol); // this is an empty sparse matrix rows from psvar_in, cols from _p
-        _P = (psvar_in * imat);
+        arma::sp_mat _P(ps_nrows, ncol); // this is an empty sparse matrix rows from psvar_in, cols from _p
+        _P = (psvar_in * _p);
 
         out[k] = _P;
     }

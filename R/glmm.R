@@ -87,7 +87,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         #---- First estimate variance components with Newton Raphson procedure ---#
         if (isFALSE(REML)) {
-            score_sigma <- sigmaScore(matrix_list=matrix_list, V_star_inv=V_star_inv, random.levels=random.levels)
+            score_sigma <- sigmaScore(matrix_list=matrix_list, V_partial=V_partial, V_star_inv=V_star_inv, random.levels=random.levels)
             information_sigma <- sigmaInformation(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels)
         } else if (isTRUE(REML)) {
             P <- computeP_REML(V_star_inv=V_star_inv, X=X) # this is the other bottleneck - why?
@@ -191,26 +191,14 @@ computeV_partial <- function(full.Z, random.levels){
 }
 
 
-#' @importMethodsFrom Matrix %*%
-#' @importFrom Matrix Matrix solve diag
 #' @export
 computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     # compute the inverse of V_star using Henderson-adjusted Woodbury formula, equation (18)
     # (A + UBU^T)^-1 = A^-1 - A^-1UB[I + U^TA^-1UB]^-1U^TA^-1
     # Only requires A^-1, where B = ZGZ^T, A=W, U=Z
-    I <- Matrix(0L, nrow=ncol(full.Z), ncol=ncol(full.Z))
-    diag(I) <- 1
 
-    l.1 <- W_inv %*% full.Z
-    left.p <-  l.1 %*% curr_G
-    mid.1 <- t(full.Z) %*% W_inv
-    mid.2 <- mid.1 %*% full.Z
-    mid.inv <- solve(I + mid.2 %*% curr_G)
-
-    return(W_inv - (left.p %*% mid.inv %*% t(full.Z) %*% W_inv))
-
-    # ## Rcpp function - this gives incorrect results
-    # return(invertPseudoVar(A=W_inv, B=curr_G, Z=full.Z))
+    # Rcpp function
+    return(invertPseudoVar(A=W_inv, B=curr_G, Z=full.Z))
 }
 
 
@@ -221,7 +209,8 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
     mat.list <- list()
     mat.list[["XBETA"]] <- X %*% curr_beta
     mat.list[["ZU"]] <- full.Z %*% curr_u
-    mat.list[["VSTARDi"]] <- multiP(partials=V_partial, psvar_in=as.matrix(V_star_inv))
+    # mat.list[["VSTARDi"]] <- multiP(partials=V_partial, psvar_in=as.matrix(V_star_inv))
+
 
     # mat.list[["VSTARDi"]] <- sapply(seq_along(V_partial), FUN=function(i) V_star_inv %*% V_partial[[i]]) # this is also a list of matrices
     mat.list[["YSTARMINXB"]] <- y_star - mat.list[["XBETA"]]
@@ -234,11 +223,11 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
 
 #' @importMethodsFrom Matrix %*%
 #' @export
-sigmaScore <- function(matrix_list, V_star_inv, random.levels){
+sigmaScore <- function(matrix_list, V_partial, V_star_inv, random.levels){
     score_vec <- NA
     for (i in seq_along(random.levels)) {
-        LHS <- -0.5*matrix.trace((matrix_list[["VSTARDi"]])[[i]])
-        rhs.1 <- t(matrix_list[["YSTARMINXB"]]) %*% (matrix_list[["VSTARDi"]])[[i]]
+        LHS <- -0.5*matrix.trace(V_star_inv %*% V_partial[[i]])
+        rhs.1 <- t(matrix_list[["YSTARMINXB"]]) %*% V_star_inv %*% V_partial[[i]]
         rhs.2 <- rhs.1 %*% V_star_inv
         RHS <- 0.5* rhs.2 %*% (matrix_list[["YSTARMINXB"]])
         score_vec[i] <- LHS + RHS
