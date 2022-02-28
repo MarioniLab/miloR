@@ -355,9 +355,8 @@ ANOVA-mixed model.
 ## glmmTMB
 
 ```{r}
-a <- Sys.time()
-nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (2|RE), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
-b <- Sys.time()
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+summary(nb.glm)
 
 cc <- coef(summary(nb.glm))
 #glmmTMB:::Anova.glmmTMB(nb.glm)
@@ -1062,10 +1061,10 @@ for (i in seq(0.05, 2, 0.4)) {
     
     set.seed(43)
     fe.levels <- list("FE1"=2)
-    re.levels <- list("RE1"=10)
+    re.levels <- list("RE1"=10, "RE2"=5)
     r.dispersion <- 0.5
     fe.betas=list("FE1"=i)
-    re.sigmas=list("RE1"=0.4)
+    re.sigmas=list("RE1"=0.4, "RE2"=0.4)
     grand.mean=2
     
     sim.list[[j]] <- SimulateMMData(N=1000, fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean,
@@ -1078,7 +1077,7 @@ names(sim.list) <- seq(0.05, 2, 0.4)
 ```{r, warning=FALSE, message=FALSE, error=FALSE}
 
 glmmTMBWrapper <- function(sim.list) {
-    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1) + (1|RE2), data=sim.list, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
     var <- VarCorr(nb.glm)
     se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
     out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
@@ -1088,7 +1087,7 @@ glmmTMBWrapper <- function(sim.list) {
 glmm.sim.list_TMB <- lapply(sim.list, glmmTMBWrapper)
 
 glmmTMBWrapper2 <- function(sim.list) {
-    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1), data=sim.list, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1  + (1|RE1) + (1|RE2), data=sim.list, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
     var <- VarCorr(nb.glm)
     se <- sqrt(diag(vcov(nb.glm,full=TRUE)))
     out.list <- list("coefficients"=c(nb.glm[["fit"]]$parfull[1:2]),
@@ -1098,9 +1097,9 @@ glmmTMBWrapper2 <- function(sim.list) {
 glmm.sim.list_TMB_REML <- lapply(sim.list, glmmTMBWrapper2)
 
 glmmWrapper1 <- function(sim.df){
-    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
     X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
-    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
     y <- sim.df$Mean.Count
     dispersion <- 0.5
 
@@ -1122,9 +1121,9 @@ glmmWrapper1 <- function(sim.df){
 glmm.sim.list_1 <- lapply(sim.list, glmmWrapper1)
 
 glmmWrapper2 <- function(sim.df){
-    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"))
+    random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
     X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
-    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1)))
+    Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
     y <- sim.df$Mean.Count
     dispersion <- 0.5 #unique(sim.df$r)
 
@@ -1178,7 +1177,7 @@ glmm1_res <- glmm.sim.list_1
 coeff <- lapply(glmm1_res, `[[`, 1)
 sigma <- lapply(glmm1_res, `[[`, 2)
 se <- lapply(glmm1_res, `[[`, 5)
-coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=17)))[,1:2]
 se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
 coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept
@@ -1190,7 +1189,7 @@ glmm1_res <- glmm.sim.list_REML
 coeff <- lapply(glmm1_res, `[[`, 1)
 sigma <- lapply(glmm1_res, `[[`, 2)
 se <- lapply(glmm1_res, `[[`, 5)
-coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=12)))[,1:2]
+coeff_mat <- t(data.frame(matrix(unlist(coeff), nrow=17)))[,1:2]
 se_mat <- t(data.frame(matrix(unlist(se), nrow=2)))
 coeff_mat <- data.frame(cbind(unlist(sigma), se_mat, coeff_mat))
 coeff_mat$intercept <- intercept

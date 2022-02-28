@@ -84,7 +84,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
         W_inv <- solve(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
         V_star_inv <- solve(V_star)
-        V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels)
+        V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels, curr_sigma=curr_sigma)
 
         #---- First estimate variance components with Newton Raphson procedure ---#
         if (isFALSE(REML)) {
@@ -95,7 +95,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
             score_sigma <- sigmaScoreREML(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
             information_sigma <- sigmaInformationREML(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels)
         }
-        sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma)
+        sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma, random.levels=random.levels)
         sigma_diff <- abs(sigma_update - curr_sigma)
         
         # update sigma, G, and G_inv
@@ -168,7 +168,7 @@ computey_star <- function(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D
     return(y_star)
 }
 
-computeV_partial <- function(full.Z=full.Z, random.levels=random.levels){
+computeV_partial <- function(full.Z=full.Z, random.levels=random.levels, curr_sigma=curr_sigma){
     V_partial_vec <- list()
     j <- 1
     for (i in random.levels) {
@@ -176,23 +176,40 @@ computeV_partial <- function(full.Z=full.Z, random.levels=random.levels){
         V_partial_vec[[j]] <- Z.temp %*% t(Z.temp)
         j <- j + 1
     }
+    names(V_partial_vec) <- rownames(curr_sigma)
     return(V_partial_vec)
 }
 
 sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels){
-    score_vec <- NA
-    for (i in 1:length(random.levels)) {
-        LHS <- -0.5*matrix.trace(V_star_inv %*% V_partial[[i]])
-        RHS <- 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
-        score_vec[i] <- LHS + RHS
+    score_vec <- list()
+    count <- 1
+    for (k in names(random.levels)){
+      temp_Vpartial <- V_partial[grep(k, names(V_partial))]
+      for (i in 1:length(temp_Vpartial)) {
+        LHS <- -0.5*matrix.trace(V_star_inv %*% temp_Vpartial[[i]])
+        RHS <- 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% temp_Vpartial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
+        score_vec[[count]]<- LHS + RHS
+        count <- count + 1
+      }
     }
     return(score_vec)
 }
 
 sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels) {
-    info_vec <- NA
-    info_vec <- sapply(1:length(random.levels), function(i){
-        0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]])})
+    info_vec <- list()
+    temp_Vpartial <- list()
+    count <- 1
+    for (k in names(random.levels)){
+      temp_Vpartial <- V_partial[grep(k, names(V_partial))]
+      temp_mat <- matrix(NA, nrow=length(temp_Vpartial), ncol=length(temp_Vpartial))
+      for (i in 1:length(temp_Vpartial)) {
+        for (j in 1:length(temp_Vpartial)) {
+          temp_mat[i,j] <- 0.5*matrix.trace(V_star_inv %*% temp_Vpartial[[i]] %*% V_star_inv %*% temp_Vpartial[[j]])
+          }
+      }
+      info_vec[[count]] <- temp_mat
+      count <- count + 1
+    }
     return(info_vec)
 }
 
@@ -218,12 +235,17 @@ computeP_REML <- function(V_star_inv=V_star_inv, X=X) {
    return(P)
 }
 
-FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
+FisherScore <- function(score_vec, hess_mat, theta_hat, random.levels, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
     # theta ~= theta_hat + hess^-1 * score
     # this needs to be in a direction of descent towards a minimum
-
-    theta_new <- theta_hat + 1/hess_mat * score_vec
+    theta_new <- NA
+    for (i in 1:length(random.levels)) {
+      theta_new[i] <- theta_hat[i] + solve(hess_mat[[i]]) * score_vec[[i]]
+    }
+    
+    theta_new <- Matrix(theta_new, sparse = TRUE)
+    rownames(theta_new) <- rownames(theta_hat)
     
     # if(det(hess_reformat) < 1e-10){
     #     theta_new <- theta_hat + ginv(hess_reformat) %*% score_reformat
@@ -359,6 +381,7 @@ calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
 
 computePvalue <- function(Zscore=Zscore, df=df) {
     pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
+    print(pval)
     return(pval)
 }
 
@@ -377,23 +400,37 @@ Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, 
      
     jac <- numDeriv::jacobian(func=function_jac, x=as.vector(curr_sigma))
     jac_list <- lapply(1:ncol(jac), function(i)
-      array(jac[, i], dim=rep(length(curr_beta), 2))) 
+      array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
     
     #next, calculate V_a, the asymptotic covariance matrix of the estimated covariance parameters
     #given by formula below
     P <- computeP_REML(V_star_inv=V_star_inv, X=X)
-    V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
-    for (i in 1:length(random.levels)) {
-      for (j in 1:length(random.levels)) {
-        V_a[i,j] <- 2*(1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]])))
+    V_a <- list()
+    count <- 1
+    for (k in names(random.levels)){
+      temp_Vpartial <- V_partial[grep(k, names(V_partial))]
+      for (i in 1:length(temp_Vpartial)) {
+        for (j in 1:length(temp_Vpartial)) {
+          V_a[[count]] <- 2*(1/(matrix.trace(P %*% temp_Vpartial[[i]] %*% P %*% temp_Vpartial[[j]])))
+          count <- count + 1
+        }
       }
     }
-    V_a[is.na(V_a)] <- 0
-    
+    V_a <- bdiag(V_a)
+
+    # P <- computeP_REML(V_star_inv=V_star_inv, X=X)
+    # V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
+    # for (i in 1:length(random.levels)) {
+    #   for (j in 1:length(random.levels)) {
+    #     V_a[i,j] <- 2*1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]]))
+    #   }
+    # }
+    # print(V_a)
+
     df <- rep(NA, length(curr_beta))
     for (i in 1:length(curr_beta)) {
       jac_var_beta <- unlist(lapply(lapply(jac_list, diag), `[[`, i))
-      denom <- t(jac_var_beta) %*% V_a %*% jac_var_beta #g' Va g
+      denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
       df[i] <- 2*((SE[i]^2)^2)/denom
     }
     return(as.matrix(df))
