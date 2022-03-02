@@ -35,3 +35,26 @@ List pseudovarPartial(arma::mat x, List rlevels, StringVector cnames){
     return outlist;
 }
 
+
+// [[Rcpp::export]]
+List pseudovarPartial_C(arma::mat Z, List u_indices){
+    // A Rcpp specific implementation that uses positional indexing rather than character indexes
+
+    int items = u_indices.size();
+    List outlist(items);
+
+    for(int i = 0; i < items; i++){
+        arma::uvec icols = u_indices[i];
+        int low = arma::min(icols);
+        int hi = arma::max(icols);
+
+        // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
+        arma::sp_mat omat(Z.n_rows, Z.n_rows);
+        omat = Z.cols(low, hi) * Z.cols(low, hi).t();
+        outlist[i] = omat;
+    }
+
+    return outlist;
+}
+
+

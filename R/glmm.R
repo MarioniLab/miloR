@@ -56,7 +56,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     sigma_diff <- Inf
 
     #compute variance-covariance matrix G
-    curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
+    curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
     G_inv <- computeInv(curr_G)
 
     conv.list <- list()
@@ -100,7 +100,7 @@ runGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
 
         # update sigma, G, and G_inv
         curr_sigma <- sigma_update
-        curr_G <- initialiseG(full.Z, cluster_levels=random.levels, sigmas=curr_sigma)
+        curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
         G_inv <- computeInv(curr_G)
 
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
@@ -329,7 +329,7 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
 
 #' @importFrom Matrix sparseMatrix diag
 #' @export
-initialiseG <- function(Z, cluster_levels, sigmas){
+initialiseG <- function(cluster_levels, sigmas){
     # construct the correct size of G given the random effects and variance components
     # names of cluster_levels and columns of Z must match
     # the independent sigmas go on the diagonal and the off-diagonal are the crossed/interactions
