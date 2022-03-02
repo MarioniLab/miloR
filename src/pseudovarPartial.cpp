@@ -1,5 +1,6 @@
 #include<RcppArmadillo.h>
 // [[Rcpp::depends(RcppArmadillo)]]
+#include "pseudovarPartial.h"
 using namespace Rcpp;
 
 //' Compute pseudovariance partial derivatives

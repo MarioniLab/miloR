@@ -11,15 +11,107 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// computeYStar
+arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat Dinv, arma::vec curr_u, arma::vec y);
+RcppExport SEXP _miloR_computeYStar(SEXP XSEXP, SEXP curr_betaSEXP, SEXP ZSEXP, SEXP DinvSEXP, SEXP curr_uSEXP, SEXP ySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_beta(curr_betaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Dinv(DinvSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_u(curr_uSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
+    rcpp_result_gen = Rcpp::wrap(computeYStar(X, curr_beta, Z, Dinv, curr_u, y));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computeVmu
+arma::mat computeVmu(arma::vec mu, double r);
+RcppExport SEXP _miloR_computeVmu(SEXP muSEXP, SEXP rSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type mu(muSEXP);
+    Rcpp::traits::input_parameter< double >::type r(rSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeVmu(mu, r));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computeW
+arma::mat computeW(arma::mat Dinv, arma::mat V);
+RcppExport SEXP _miloR_computeW(SEXP DinvSEXP, SEXP VSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type Dinv(DinvSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type V(VSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeW(Dinv, V));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computeVStar
+arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W);
+RcppExport SEXP _miloR_computeVStar(SEXP ZSEXP, SEXP GSEXP, SEXP WSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type G(GSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type W(WSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeVStar(Z, G, W));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computePREML
+arma::mat computePREML(arma::mat Vsinv, arma::mat X);
+RcppExport SEXP _miloR_computePREML(SEXP VsinvSEXP, SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type Vsinv(VsinvSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(computePREML(Vsinv, X));
+    return rcpp_result_gen;
+END_RCPP
+}
+// fitPLGlmm
+List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, arma::vec y, List u_indices, arma::vec theta_diff, arma::vec sigma_diff, double theta_conv, List rlevels, double curr_disp, bool REML, int maxit);
+RcppExport SEXP _miloR_fitPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP muvecSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_diffSEXP, SEXP sigma_diffSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type muvec(muvecSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_beta(curr_betaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_theta(curr_thetaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_u(curr_uSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_sigma(curr_sigmaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type curr_G(curr_GSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
+    Rcpp::traits::input_parameter< List >::type u_indices(u_indicesSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type theta_diff(theta_diffSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type sigma_diff(sigma_diffSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_conv(theta_convSEXP);
+    Rcpp::traits::input_parameter< List >::type rlevels(rlevelsSEXP);
+    Rcpp::traits::input_parameter< double >::type curr_disp(curr_dispSEXP);
+    Rcpp::traits::input_parameter< bool >::type REML(REMLSEXP);
+    Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
+    rcpp_result_gen = Rcpp::wrap(fitPLGlmm(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_diff, sigma_diff, theta_conv, rlevels, curr_disp, REML, maxit));
+    return rcpp_result_gen;
+END_RCPP
+}
 // invertPseudoVar
-arma::sp_mat invertPseudoVar(arma::sp_mat A, arma::sp_mat B, arma::sp_mat Z);
+arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z);
 RcppExport SEXP _miloR_invertPseudoVar(SEXP ASEXP, SEXP BSEXP, SEXP ZSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::sp_mat >::type A(ASEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type B(BSEXP);
-    Rcpp::traits::input_parameter< arma::sp_mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type A(ASEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type B(BSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
     rcpp_result_gen = Rcpp::wrap(invertPseudoVar(A, B, Z));
     return rcpp_result_gen;
 END_RCPP
@@ -36,6 +128,88 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sigmaScoreREML
+arma::vec sigmaScoreREML(List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma::mat P);
+RcppExport SEXP _miloR_sigmaScoreREML(SEXP pvstar_iSEXP, SEXP VsinvSEXP, SEXP ystarSEXP, SEXP PSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type pvstar_i(pvstar_iSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Vsinv(VsinvSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type ystar(ystarSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type P(PSEXP);
+    rcpp_result_gen = Rcpp::wrap(sigmaScoreREML(pvstar_i, Vsinv, ystar, P));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sigmaInfoREML
+arma::mat sigmaInfoREML(List pvstari);
+RcppExport SEXP _miloR_sigmaInfoREML(SEXP pvstariSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< List >::type pvstari(pvstariSEXP);
+    rcpp_result_gen = Rcpp::wrap(sigmaInfoREML(pvstari));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sigmaScore
+arma::vec sigmaScore(arma::vec ystar, arma::vec beta, arma::mat X, List V_partial, arma::mat V_star_inv);
+RcppExport SEXP _miloR_sigmaScore(SEXP ystarSEXP, SEXP betaSEXP, SEXP XSEXP, SEXP V_partialSEXP, SEXP V_star_invSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type ystar(ystarSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< List >::type V_partial(V_partialSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type V_star_inv(V_star_invSEXP);
+    rcpp_result_gen = Rcpp::wrap(sigmaScore(ystar, beta, X, V_partial, V_star_inv));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sigmaInformation
+arma::mat sigmaInformation(arma::mat V_star_inv, List V_partial);
+RcppExport SEXP _miloR_sigmaInformation(SEXP V_star_invSEXP, SEXP V_partialSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type V_star_inv(V_star_invSEXP);
+    Rcpp::traits::input_parameter< List >::type V_partial(V_partialSEXP);
+    rcpp_result_gen = Rcpp::wrap(sigmaInformation(V_star_inv, V_partial));
+    return rcpp_result_gen;
+END_RCPP
+}
+// FisherScore
+arma::vec FisherScore(arma::mat hess, arma::vec score_vec, arma::vec theta_hat);
+RcppExport SEXP _miloR_FisherScore(SEXP hessSEXP, SEXP score_vecSEXP, SEXP theta_hatSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type hess(hessSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type score_vec(score_vecSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type theta_hat(theta_hatSEXP);
+    rcpp_result_gen = Rcpp::wrap(FisherScore(hess, score_vec, theta_hat));
+    return rcpp_result_gen;
+END_RCPP
+}
+// solve_equations
+arma::vec solve_equations(arma::mat X, arma::mat Winv, arma::mat Z, arma::mat Ginv, arma::vec beta, arma::vec u, arma::vec ystar);
+RcppExport SEXP _miloR_solve_equations(SEXP XSEXP, SEXP WinvSEXP, SEXP ZSEXP, SEXP GinvSEXP, SEXP betaSEXP, SEXP uSEXP, SEXP ystarSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Winv(WinvSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< arma::mat >::type Ginv(GinvSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type u(uSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type ystar(ystarSEXP);
+    rcpp_result_gen = Rcpp::wrap(solve_equations(X, Winv, Z, Ginv, beta, u, ystar));
+    return rcpp_result_gen;
+END_RCPP
+}
 // pseudovarPartial
 List pseudovarPartial(arma::mat x, List rlevels, StringVector cnames);
 RcppExport SEXP _miloR_pseudovarPartial(SEXP xSEXP, SEXP rlevelsSEXP, SEXP cnamesSEXP) {
@@ -49,11 +223,48 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// pseudovarPartial_C
+List pseudovarPartial_C(arma::mat Z, List u_indices);
+RcppExport SEXP _miloR_pseudovarPartial_C(SEXP ZSEXP, SEXP u_indicesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< List >::type u_indices(u_indicesSEXP);
+    rcpp_result_gen = Rcpp::wrap(pseudovarPartial_C(Z, u_indices));
+    return rcpp_result_gen;
+END_RCPP
+}
+// mtrace
+double mtrace(arma::mat x);
+RcppExport SEXP _miloR_mtrace(SEXP xSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat >::type x(xSEXP);
+    rcpp_result_gen = Rcpp::wrap(mtrace(x));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_miloR_computeYStar", (DL_FUNC) &_miloR_computeYStar, 6},
+    {"_miloR_computeVmu", (DL_FUNC) &_miloR_computeVmu, 2},
+    {"_miloR_computeW", (DL_FUNC) &_miloR_computeW, 2},
+    {"_miloR_computeVStar", (DL_FUNC) &_miloR_computeVStar, 3},
+    {"_miloR_computePREML", (DL_FUNC) &_miloR_computePREML, 2},
+    {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 17},
     {"_miloR_invertPseudoVar", (DL_FUNC) &_miloR_invertPseudoVar, 3},
     {"_miloR_multiP", (DL_FUNC) &_miloR_multiP, 2},
+    {"_miloR_sigmaScoreREML", (DL_FUNC) &_miloR_sigmaScoreREML, 4},
+    {"_miloR_sigmaInfoREML", (DL_FUNC) &_miloR_sigmaInfoREML, 1},
+    {"_miloR_sigmaScore", (DL_FUNC) &_miloR_sigmaScore, 5},
+    {"_miloR_sigmaInformation", (DL_FUNC) &_miloR_sigmaInformation, 2},
+    {"_miloR_FisherScore", (DL_FUNC) &_miloR_FisherScore, 3},
+    {"_miloR_solve_equations", (DL_FUNC) &_miloR_solve_equations, 7},
     {"_miloR_pseudovarPartial", (DL_FUNC) &_miloR_pseudovarPartial, 3},
+    {"_miloR_pseudovarPartial_C", (DL_FUNC) &_miloR_pseudovarPartial_C, 2},
+    {"_miloR_mtrace", (DL_FUNC) &_miloR_mtrace, 1},
     {NULL, NULL, 0}
 };
 

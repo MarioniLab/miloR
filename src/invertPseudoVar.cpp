@@ -1,5 +1,6 @@
 #include<RcppArmadillo.h>
 // [[Rcpp::depends(RcppArmadillo)]]
+#include "invertPseudoVar.h"
 using namespace Rcpp;
 
 //' Compute the inverse of a structured covariance matrix
@@ -12,11 +13,11 @@ using namespace Rcpp;
 //' @param B SparseMatrix - a cxc matrix of variance components
 //' @param Z SparseMatrix - a nxc design matrix that maps REs to samples
 // [[Rcpp::export]]
-arma::sp_mat invertPseudoVar(arma::sp_mat A, arma::sp_mat B, arma::sp_mat Z){
+arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
     int c = B.n_cols;
     int n = A.n_cols;
-    arma::sp_mat I = arma::eye<arma::sp_mat>(c, c); // create the cxc identity matrix
-    arma::sp_mat omt(n, n);
+    arma::mat I = arma::eye<arma::mat>(c, c); // create the cxc identity matrix
+    arma::mat omt(n, n);
     arma::mat mid(c, c);
     mid = I + (Z.t() * A * Z * B);
     arma::mat midinv(c, c);

@@ -1,5 +1,6 @@
 #include<RcppArmadillo.h>
 // [[Rcpp::depends(RcppArmadillo)]]
+#include "multiP.h"
 using namespace Rcpp;
 
 //' Compute product of each pseudovariance partial derivatives with the inverse
