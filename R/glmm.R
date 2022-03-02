@@ -457,6 +457,74 @@ computeInv <- function(x){
     return(x_inv)
 }
 
+#' Wrapper function for fitPLGlmm
+#'
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix solve crossprod
+#' @export
+fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
+                    glmm.control=list(theta.tol=1e-6, max.iter=100),
+                    dispersion = 0.5){
+
+    # model components
+    # X - fixed effects model matrix
+    # Z - random effects model matrix
+    # A - genetic relationship matrix
+    # y - observed phenotype
+
+    theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
+    max.hit <- glmm.control[["max.iter"]]
+
+    # create full Z with expanded random effect levels
+    full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+
+    # random value initiation from runif
+    curr_u <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+    rownames(curr_u) <- colnames(full.Z)
+
+    # OLS for the betas is usually a good starting point for NR
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
+    rownames(curr_beta) <- colnames(X)
+
+    # compute sample variances of the us
+    curr_sigma <- Matrix(lapply(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+                                       FUN=function(Bj){
+                                           (1/(length(Bj)-1)) * crossprod(Bj, Bj)
+                                       }), function(y){attr(y, 'x')}), ncol=1, sparse=TRUE)
+    rownames(curr_sigma) <- colnames(Z)
+
+    #create a single variable for the thetas
+    curr_theta <- do.call(rbind, list(curr_beta, curr_u))
+
+    #compute mu.vec using inverse link function
+    mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
+
+    # use y_bar as the sample mean and s_hat as the sample variance
+    new.r <- dispersion
+
+    theta_diff <- rep(Inf, nrow(curr_theta))
+    sigma_diff <- Inf
+
+    #compute variance-covariance matrix G
+    curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
+
+    conv.list <- list()
+    iters <- 1
+    meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
+
+    u_indices <- sapply(seq_along(random.levels),
+                        FUN=function(RX) which(random.levels[[RX]] == colnames(full.Z)),
+                        simplify=FALSE)
+
+    final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, curr_beta=curr_beta,
+                            curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                            curr_G=curr_G, y=y, u_indices=u_indices, theta_diff=theta_diff,
+                            sigma_diff=sigma_diff, theta_conv=FALSE, rlevels=random.levels,
+                            curr_disp=new.r, REML=TRUE, maxit=15)
+
+    return(final.list)
+}
+
 
 #' @importFrom Matrix diag
 #' @export
