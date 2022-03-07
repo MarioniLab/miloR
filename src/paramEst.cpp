@@ -34,13 +34,12 @@ arma::mat sigmaInfoREML (Rcpp::List pvstari){
     for(int i=0; i < c; i++){
         arma::mat _ip = pvstari[i];
         int n = _ip.n_cols;
-        _ip.print("_ip");
         for(int j=0; j < c; j++){
             arma::mat _jp = pvstari[j];
-            _jp.print("_jp");
 
             arma::mat _ij(n, n);
             _ij = _ip * _jp;
+             _ij.print("_ij");
             sinfo[i, j] = 0.5 * arma::trace(_ij);
         }
     }
