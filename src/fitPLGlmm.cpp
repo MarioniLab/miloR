@@ -30,8 +30,9 @@ using namespace Rcpp;
 List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
                arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
                arma::mat curr_G, arma::vec y, List u_indices,
-               arma::vec theta_diff, arma::vec sigma_diff, double theta_conv,
+               double theta_conv,
                List rlevels, double curr_disp, bool REML, int maxit){
+
     // declare all variables
     List outlist(7);
     int iters=0;
@@ -39,13 +40,13 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
     int c = curr_sigma.size();
     int m = X.n_cols;
     int n = X.n_rows;
-    bool meet_cond = true;
+    bool meet_cond = false;
 
     // setup matrices
     arma::mat D(n, n);
-    D = D.zeros();
+    D.zeros();
     arma::mat Dinv(n, n);
-    D = D.zeros();
+    Dinv.zeros();
 
     arma::vec y_star(n);
 
@@ -61,9 +62,14 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
     arma::vec sigma_update(c);
+    arma::vec sigma_diff(sigma_update.size());
+    sigma_diff.zeros();
 
     arma::mat G_inv(stot, stot);
+
     arma::vec theta_update(m+stot);
+    arma::vec theta_diff(theta_update.size());
+    theta_diff.zeros();
 
     // setup vectors to index the theta updates
     // assume always in order of beta then u
@@ -77,7 +83,8 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
         u_ix[px] = m + px;
     }
 
-    while(meet_cond){
+    bool converged = false;
+    while(!meet_cond){
         D.diag() = muvec;
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
@@ -86,7 +93,6 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
         Winv = W.i();
         V_star = computeVStar(Z, curr_G, W);
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
-
         V_partial = pseudovarPartial_C(Z, u_indices);
 
         if(REML){
@@ -101,17 +107,16 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
             score_sigma = sigmaScore(y_star, curr_beta, X, V_partial, V_star_inv);
             information_sigma = sigmaInformation(V_star_inv, V_partial);
         };
+        score_sigma.print("Sigma score vector");
+        information_sigma.print("Fisher Information");
 
-        sigma_update = FisherScore(score_sigma, information_sigma, curr_sigma);
+        sigma_update = FisherScore(information_sigma, score_sigma, curr_sigma);
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;
         curr_G = initialiseG(rlevels, curr_sigma);
         G_inv = curr_G.i(); // is this ever singular?
-
-
-        // functions written up to here
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         theta_update = solve_equations(X, Winv, Z, G_inv, curr_beta, curr_u, y_star);
@@ -120,24 +125,31 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
         curr_theta = theta_update;
         curr_beta = curr_theta.elem(beta_ix); // how do we subset the correct elements without having names? Need a record of the indicies
         curr_u = curr_theta.elem(u_ix);
+
         muvec = exp((X * curr_beta) + (Z * curr_u));
         iters++;
 
-        meet_cond = !((all(theta_diff < theta_conv)) && (all(sigma_diff < theta_conv))) || iters > maxit;
+        theta_diff.print("theta_diff");
+        sigma_diff.print("sigma_diff");
+        Rprintf("%0.8f\n", theta_conv);
 
-        // populate list or object here
-        // List::create(_["Iters"]=iters, _["Theta"]=curr_theta, _["Sigma"]=curr_sigma,
-        //              _["Theta.Diff"]=theta_diff, _["Sigma.Diff"]=sigma_diff)
+        bool _thconv = false;
+        _thconv = all(theta_diff < theta_conv);
+        Rprintf("Theta converge %s\n", _thconv ? "true" : "false");
 
+        bool _siconv = false;
+        _siconv = all(sigma_diff < theta_conv);
+        Rprintf("Sigma converge %s\n", _siconv ? "true" : "false");
+
+        bool _ithit = false;
+        _ithit = iters > maxit;
+        Rprintf("Max iters hit %s\n", _ithit ? "true" : "false");
+
+        meet_cond = ((_thconv && _siconv) || _ithit);
+
+        Rprintf("All convergence %s\n", meet_cond ? "true" : "false");
+        converged = _thconv && _siconv;
     }
-
-    bool converged;
-    bool thconv;
-    bool sigconv;
-
-    thconv = all(theta_diff < theta_conv);
-    sigconv = all(abs(sigma_diff) < theta_conv);
-    converged = thconv && sigconv;
 
     // It will be expensive to sequentially grow a list here - do we even need to return
     // all of the intermediate results??

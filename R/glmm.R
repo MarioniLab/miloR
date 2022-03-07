@@ -343,7 +343,7 @@ initialiseG <- function(cluster_levels, sigmas){
         diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
         i <- j <- i+x.q
     }
-    return((G))
+    return(as.matrix(G))
 }
 
 
@@ -392,7 +392,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
-    full.Z <- Matrix(full.Z, sparse = TRUE)
+    # full.Z <- Matrix(full.Z, sparse = FALSE)
     return(full.Z)
 }
 
@@ -424,7 +424,7 @@ mapUtoIndiv <- function(full.Z, curr_u, random.levels){
     indiv.u.list <- list()
 
     for(j in seq_along(rand.levels)){
-        j.G <- Matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
+        j.G <- matrix(0L, ncol=nrow(full.Z), nrow=nrow(full.Z))
         j.re <- rand.levels[j]
         j.levels <- random.levels[[j.re]]
         j.b <- full.Z[, j.levels] %*% curr_u[j.levels, ]
@@ -479,7 +479,7 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     # random value initiation from runif
-    curr_u <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+    curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
     rownames(curr_u) <- colnames(full.Z)
 
     # OLS for the betas is usually a good starting point for NR
@@ -487,10 +487,10 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     rownames(curr_beta) <- colnames(X)
 
     # compute sample variances of the us
-    curr_sigma <- Matrix(lapply(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
+    curr_sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
                                        FUN=function(Bj){
                                            (1/(length(Bj)-1)) * crossprod(Bj, Bj)
-                                       }), function(y){attr(y, 'x')}), ncol=1, sparse=TRUE)
+                                           })), ncol=1)
     rownames(curr_sigma) <- colnames(Z)
 
     #create a single variable for the thetas
@@ -502,24 +502,29 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     # use y_bar as the sample mean and s_hat as the sample variance
     new.r <- dispersion
 
-    theta_diff <- rep(Inf, nrow(curr_theta))
-    sigma_diff <- Inf
+    # theta_diff <- rep(Inf, nrow(curr_theta))
+    # sigma_diff <- rep(80000, nrow(curr_sigma))
 
     #compute variance-covariance matrix G
     curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
 
     conv.list <- list()
     iters <- 1
-    meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
 
     u_indices <- sapply(seq_along(random.levels),
-                        FUN=function(RX) which(random.levels[[RX]] == colnames(full.Z)),
+                        FUN=function(RX) which(colnames(full.Z) %in% random.levels[[RX]]),
                         simplify=FALSE)
+
+    # flatten column matrices to vectors
+    mu.vec <- mu.vec[, 1]
+    curr_beta <- curr_beta[, 1]
+    curr_u <- curr_u[, 1]
+    curr_theta <- curr_theta[, 1]
+    curr_sigma <- curr_sigma[, 1]
 
     final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, curr_beta=curr_beta,
                             curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                            curr_G=curr_G, y=y, u_indices=u_indices, theta_diff=theta_diff,
-                            sigma_diff=sigma_diff, theta_conv=FALSE, rlevels=random.levels,
+                            curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                             curr_disp=new.r, REML=TRUE, maxit=15)
 
     return(final.list)

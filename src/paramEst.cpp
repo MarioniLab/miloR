@@ -1,13 +1,12 @@
 #include "paramEst.h"
 #include<RcppArmadillo.h>
 // [[Rcpp::depends(RcppArmadillo)]]
-using namespace Rcpp;
+// using namespace Rcpp;
 
 // All functions used in parameter estimation
 
 // [[Rcpp::export]]
-arma::vec sigmaScoreREML (List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma::mat P){
-
+arma::vec sigmaScoreREML (Rcpp::List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma::mat P){
     int c = pvstar_i.size();
     arma::vec reml_score(c);
 
@@ -17,7 +16,6 @@ arma::vec sigmaScoreREML (List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma:
         // double mid1 = 0.0;
         arma::mat mid1(1, 1);
         mid1 = arma::trans(ystar) * _pvi * P * ystar;
-        mid1.print();
         double rhs = 0.5 * mid1(0, 0);
 
         reml_score[i] = lhs + rhs;
@@ -28,19 +26,22 @@ arma::vec sigmaScoreREML (List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma:
 
 
 // [[Rcpp::export]]
-arma::mat sigmaInfoREML (List pvstari){
+arma::mat sigmaInfoREML (Rcpp::List pvstari){
     // REML Fisher/expected information matrix
-
     int c = pvstari.size();
     arma::mat sinfo(c, c);
 
     for(int i=0; i < c; i++){
         arma::mat _ip = pvstari[i];
+        int n = _ip.n_cols;
+        _ip.print("_ip");
         for(int j=0; j < c; j++){
             arma::mat _jp = pvstari[j];
-            arma::mat _ij(1, 1);
+            _jp.print("_jp");
+
+            arma::mat _ij(n, n);
             _ij = _ip * _jp;
-            sinfo[i, j] = _ij[0, 0];
+            sinfo[i, j] = 0.5 * arma::trace(_ij);
         }
     }
 
@@ -49,7 +50,7 @@ arma::mat sigmaInfoREML (List pvstari){
 
 
 // [[Rcpp::export]]
-arma::vec sigmaScore (arma::vec ystar, arma::vec beta, arma::mat X, List V_partial, arma::mat V_star_inv){
+arma::vec sigmaScore (arma::vec ystar, arma::vec beta, arma::mat X, Rcpp::List V_partial, arma::mat V_star_inv){
 
     int c = V_partial.size();
     int n = X.n_rows;
@@ -72,7 +73,7 @@ arma::vec sigmaScore (arma::vec ystar, arma::vec beta, arma::mat X, List V_parti
 
 
 // [[Rcpp::export]]
-arma::mat sigmaInformation (arma::mat V_star_inv, List V_partial){
+arma::mat sigmaInformation (arma::mat V_star_inv, Rcpp::List V_partial){
     int c = V_partial.size();
     int n = V_star_inv.n_cols;
     arma::mat sinfo = arma::zeros(c, c);
@@ -100,11 +101,13 @@ arma::vec FisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
     // sequentially update the parameter using the Newton-Raphson algorithm
     // theta ~= theta_hat + hess^-1 * score
     // this needs to be in a direction of descent towards a minimum
-
     int m = theta_hat.size();
     arma::vec theta(m);
+    arma::mat hessinv(hess.n_rows, hess.n_cols);
+    // hessinv = arma::inv(hess);
+    hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
 
-    theta = theta_hat + (hess.i() * score_vec);
+    theta = theta_hat + (hessinv * score_vec);
     return theta;
 }
 
@@ -112,7 +115,6 @@ arma::vec FisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
 // [[Rcpp::export]]
 arma::vec solve_equations (arma::mat X, arma::mat Winv, arma::mat Z, arma::mat Ginv, arma::vec beta, arma::vec u, arma::vec ystar){
     // solve the mixed model equations
-
     int c = Z.n_cols;
     int m = X.n_cols;
 
@@ -127,7 +129,7 @@ arma::vec solve_equations (arma::mat X, arma::mat Winv, arma::mat Z, arma::mat G
 
     arma::vec rhs_beta(m);
     arma::vec rhs_u(c);
-    arma::vec rhs(m+c);
+    arma::mat rhs(m+c, 1);
 
     arma::vec theta_up(m+c);
 
@@ -136,15 +138,17 @@ arma::vec solve_equations (arma::mat X, arma::mat Winv, arma::mat Z, arma::mat G
     ll = Z.t() * Winv * X;
     lr = (Z.t() * Winv * Z) + Ginv;
 
-    lhs_top = arma::join_cols(ul, ur);
-    lhs_bot = arma::join_cols(ll, lr);
-    lhs = arma::join_rows(lhs_top, lhs_bot);
+    lhs_top = arma::join_rows(ul, ur); // join_rows matches the rows i.e. glue columns together
+    lhs_bot = arma::join_rows(ll, lr);
 
-    rhs_beta = X.t() * Winv * ystar;
-    rhs_u = Z.t() * Winv * ystar;
-    rhs = arma::join_rows(rhs_beta, rhs_u);
+    lhs = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
 
+    rhs_beta.col(0) = X.t() * Winv * ystar;
+    rhs_u.col(0) = Z.t() * Winv * ystar;
+
+    rhs = arma::join_cols(rhs_beta, rhs_u);
     theta_up = arma::inv(lhs) * rhs;
+
     return theta_up;
 }
 

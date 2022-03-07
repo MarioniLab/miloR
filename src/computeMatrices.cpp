@@ -61,13 +61,12 @@ arma::mat initialiseG (List rlevels, arma::vec sigmas){
     // construct the correct size of G given the random effects and variance components
     // the independent sigmas go on the diagonal and the off-diagonal are the crossed/interactions
     // this doesn't actually handle the off-diagonal interactions yet
-
     int c = rlevels.size();
     int stot = 0;
 
     // sum total number of levels
     for(int i=0; i < c; i++){
-        arma::vec _ir = rlevels[i];
+        StringVector _ir = rlevels[i];
         stot += _ir.size();
     }
 
@@ -77,7 +76,7 @@ arma::mat initialiseG (List rlevels, arma::vec sigmas){
     int i = 0;
     int j = 0;
     for(int k=0; k < c; k++){
-        arma::vec _r = rlevels[k];
+        StringVector _r = rlevels[k];
         int q = _r.size();
         double _s = sigmas[k];
 

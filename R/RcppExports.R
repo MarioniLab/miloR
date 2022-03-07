@@ -40,8 +40,8 @@ computePREML <- function(Vsinv, X) {
 #' levels
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
-fitPLGlmm <- function(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_diff, sigma_diff, theta_conv, rlevels, curr_disp, REML, maxit) {
-    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_diff, sigma_diff, theta_conv, rlevels, curr_disp, REML, maxit)
+fitPLGlmm <- function(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
+    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }
 
 #' Compute the inverse of a structured covariance matrix

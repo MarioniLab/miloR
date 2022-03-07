@@ -77,8 +77,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fitPLGlmm
-List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, arma::vec y, List u_indices, arma::vec theta_diff, arma::vec sigma_diff, double theta_conv, List rlevels, double curr_disp, bool REML, int maxit);
-RcppExport SEXP _miloR_fitPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP muvecSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_diffSEXP, SEXP sigma_diffSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP) {
+List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, arma::vec y, List u_indices, double theta_conv, List rlevels, double curr_disp, bool REML, int maxit);
+RcppExport SEXP _miloR_fitPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP muvecSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -92,14 +92,12 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::mat >::type curr_G(curr_GSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type y(ySEXP);
     Rcpp::traits::input_parameter< List >::type u_indices(u_indicesSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type theta_diff(theta_diffSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type sigma_diff(sigma_diffSEXP);
     Rcpp::traits::input_parameter< double >::type theta_conv(theta_convSEXP);
     Rcpp::traits::input_parameter< List >::type rlevels(rlevelsSEXP);
     Rcpp::traits::input_parameter< double >::type curr_disp(curr_dispSEXP);
     Rcpp::traits::input_parameter< bool >::type REML(REMLSEXP);
     Rcpp::traits::input_parameter< int >::type maxit(maxitSEXP);
-    rcpp_result_gen = Rcpp::wrap(fitPLGlmm(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_diff, sigma_diff, theta_conv, rlevels, curr_disp, REML, maxit));
+    rcpp_result_gen = Rcpp::wrap(fitPLGlmm(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -129,12 +127,12 @@ BEGIN_RCPP
 END_RCPP
 }
 // sigmaScoreREML
-arma::vec sigmaScoreREML(List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma::mat P);
+arma::vec sigmaScoreREML(Rcpp::List pvstar_i, arma::mat Vsinv, arma::vec ystar, arma::mat P);
 RcppExport SEXP _miloR_sigmaScoreREML(SEXP pvstar_iSEXP, SEXP VsinvSEXP, SEXP ystarSEXP, SEXP PSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type pvstar_i(pvstar_iSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type pvstar_i(pvstar_iSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type Vsinv(VsinvSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type ystar(ystarSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type P(PSEXP);
@@ -143,18 +141,18 @@ BEGIN_RCPP
 END_RCPP
 }
 // sigmaInfoREML
-arma::mat sigmaInfoREML(List pvstari);
+arma::mat sigmaInfoREML(Rcpp::List pvstari);
 RcppExport SEXP _miloR_sigmaInfoREML(SEXP pvstariSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type pvstari(pvstariSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type pvstari(pvstariSEXP);
     rcpp_result_gen = Rcpp::wrap(sigmaInfoREML(pvstari));
     return rcpp_result_gen;
 END_RCPP
 }
 // sigmaScore
-arma::vec sigmaScore(arma::vec ystar, arma::vec beta, arma::mat X, List V_partial, arma::mat V_star_inv);
+arma::vec sigmaScore(arma::vec ystar, arma::vec beta, arma::mat X, Rcpp::List V_partial, arma::mat V_star_inv);
 RcppExport SEXP _miloR_sigmaScore(SEXP ystarSEXP, SEXP betaSEXP, SEXP XSEXP, SEXP V_partialSEXP, SEXP V_star_invSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
@@ -162,20 +160,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< arma::vec >::type ystar(ystarSEXP);
     Rcpp::traits::input_parameter< arma::vec >::type beta(betaSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type X(XSEXP);
-    Rcpp::traits::input_parameter< List >::type V_partial(V_partialSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type V_partial(V_partialSEXP);
     Rcpp::traits::input_parameter< arma::mat >::type V_star_inv(V_star_invSEXP);
     rcpp_result_gen = Rcpp::wrap(sigmaScore(ystar, beta, X, V_partial, V_star_inv));
     return rcpp_result_gen;
 END_RCPP
 }
 // sigmaInformation
-arma::mat sigmaInformation(arma::mat V_star_inv, List V_partial);
+arma::mat sigmaInformation(arma::mat V_star_inv, Rcpp::List V_partial);
 RcppExport SEXP _miloR_sigmaInformation(SEXP V_star_invSEXP, SEXP V_partialSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< arma::mat >::type V_star_inv(V_star_invSEXP);
-    Rcpp::traits::input_parameter< List >::type V_partial(V_partialSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type V_partial(V_partialSEXP);
     rcpp_result_gen = Rcpp::wrap(sigmaInformation(V_star_inv, V_partial));
     return rcpp_result_gen;
 END_RCPP
@@ -253,7 +251,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_miloR_computeW", (DL_FUNC) &_miloR_computeW, 2},
     {"_miloR_computeVStar", (DL_FUNC) &_miloR_computeVStar, 3},
     {"_miloR_computePREML", (DL_FUNC) &_miloR_computePREML, 2},
-    {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 17},
+    {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 15},
     {"_miloR_invertPseudoVar", (DL_FUNC) &_miloR_invertPseudoVar, 3},
     {"_miloR_multiP", (DL_FUNC) &_miloR_multiP, 2},
     {"_miloR_sigmaScoreREML", (DL_FUNC) &_miloR_sigmaScoreREML, 4},
