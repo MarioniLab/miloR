@@ -338,6 +338,8 @@ initialiseG <- function(cluster_levels, sigmas){
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
     dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
+
+    print(class(sigmas))
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
         diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
@@ -548,3 +550,88 @@ glmmControl.defaults <- function(...){
     # return the default glmm control values
     return(list(theta.tol=1e-6, max.iter=100))
 }
+
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix solve diag
+#' @export
+calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
+    UpperLeft <- t(X) %*% W_inv %*% X
+    UpperRight <- t(X) %*% W_inv %*% full.Z
+    LowerLeft <- t(full.Z) %*% W_inv %*% X
+    LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
+    se <- sqrt(diag(solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)))
+    return(se)
+}
+
+
+#' @export
+calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
+    Zscore <- as.matrix(curr_beta)/SE
+    return(Zscore)
+}
+
+
+#' @importFrom stats pt
+#' @export
+computePvalue <- function(Zscore=Zscore, df=df) {
+    pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
+    print(pval)
+    return(pval)
+}
+
+#' @importMethodsFrom Matrix %*% t
+#' @importFrom Matrix solve diag
+#' @importFrom numDeriv jacobian
+#' @export
+Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
+
+    ###---- first calculate g = derivative of C with respect to sigma ----
+    function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
+        UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
+        UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
+        LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
+        LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
+        n <- length(random.levels)
+        diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
+        C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+    }
+
+    jac <- jacobian(func=function_jac, x=as.vector(curr_sigma))
+    jac_list <- lapply(1:ncol(jac), function(i)
+        array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
+
+    #next, calculate V_a, the asymptotic covariance matrix of the estimated covariance parameters
+    #given by formula below
+    P <- computeP_REML(V_star_inv=V_star_inv, X=X)
+    V_a <- list()
+    count <- 1
+    for (k in names(random.levels)){
+        temp_Vpartial <- V_partial[grep(k, names(V_partial))]
+        for (i in 1:length(temp_Vpartial)) {
+            for (j in 1:length(temp_Vpartial)) {
+                V_a[[count]] <- 2*(1/(matrix.trace(P %*% temp_Vpartial[[i]] %*% P %*% temp_Vpartial[[j]])))
+                count <- count + 1
+            }
+        }
+    }
+    V_a <- bdiag(V_a)
+
+    # P <- computeP_REML(V_star_inv=V_star_inv, X=X)
+    # V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
+    # for (i in 1:length(random.levels)) {
+    #   for (j in 1:length(random.levels)) {
+    #     V_a[i,j] <- 2*1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]]))
+    #   }
+    # }
+    # print(V_a)
+
+    df <- rep(NA, length(curr_beta))
+    for (i in 1:length(curr_beta)) {
+        jac_var_beta <- unlist(lapply(lapply(jac_list, diag), `[[`, i))
+        denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
+        df[i] <- 2*((SE[i]^2)^2)/denom
+    }
+    return(as.matrix(df))
+}
+

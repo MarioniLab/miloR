@@ -266,6 +266,7 @@ initialiseG <- function(Z, cluster_levels, sigmas){
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
     dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
+
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
         diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
