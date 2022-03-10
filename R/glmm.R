@@ -9,7 +9,8 @@
 #' input variables, and the latter for overdispersed counts.
 #'
 #'
-#' @importFrom Matrix Matrix
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix solve
 #' @export
 runGLMM <- function(X, Z, y, init.theta=NULL, random.levels=NULL, REML=TRUE,
                     glmm.control=list(theta.tol=1e-6, max.iter=20),
@@ -125,11 +126,15 @@ runGLMM <- function(X, Z, y, init.theta=NULL, random.levels=NULL, REML=TRUE,
     return(final.list)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @export
 computeW <- function(D_inv=D_inv, V=V){
     W = D_inv %*% V %*% D_inv
     return(W)
 }
 
+#' @importFrom Matrix Matrix
+#' @export
 computeV <- function(mu, r){
     # compute diagonal matrix of variances
     v.vec <- ((mu**2/r)) + mu
@@ -138,6 +143,8 @@ computeV <- function(mu, r){
     return(V)
 }
 
+#' @importFrom Matrix Matrix
+#' @export
 computeD <- function(mu=mu.vec){
     # D is diag(mu_i)
     D <- Matrix(0L, ncol=length(mu), nrow=length(mu), sparse = TRUE)
@@ -145,16 +152,22 @@ computeD <- function(mu=mu.vec){
     return(D)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @export
 computeV_star <- function(full.Z=full.Z, curr_G=curr_G, W=W){
     V_star = full.Z %*% curr_G %*% t(full.Z) + W
     return(V_star)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @export
 computey_star <- function(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u, y=y){
     y_star <- ((X %*% curr_beta) + (full.Z %*% curr_u)) + D_inv %*% (y - exp((X %*% curr_beta) + (full.Z %*% curr_u)))
     return(y_star)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @export
 computeV_partial <- function(full.Z=full.Z, random.levels=random.levels, curr_sigma=curr_sigma){
     V_partial_vec <- list()
     indx <- c(0, cumsum(lengths(random.levels)))
@@ -165,6 +178,9 @@ computeV_partial <- function(full.Z=full.Z, random.levels=random.levels, curr_si
     return(V_partial_vec)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
 sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels){
     score_vec <- Matrix(0, nrow = length(V_partial), ncol = 1, sparse = TRUE)
     for (i in 1:length(V_partial)){
@@ -173,12 +189,18 @@ sigmaScore <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star
     return(score_vec)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
 sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels) {
   info_vec <- Matrix(sapply(1:length(random.levels), function(i){
     0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]])}), ncol =1, sparse = TRUE)
   return(info_vec)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
 sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels){
   score_vec <- Matrix(0, nrow = length(V_partial), ncol = 1, sparse = TRUE)
   for (i in 1:length(V_partial)) {
@@ -187,17 +209,23 @@ sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_
   return(score_vec)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
 sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels) {
   info_vec <- Matrix(sapply(1:length(random.levels), function(i){
     0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])}), ncol=1, sparse = TRUE)
   return(info_vec)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @export
 computeP_REML <- function(V_star_inv=V_star_inv, X=X) {
    P <- V_star_inv - V_star_inv %*% X %*% solve(t(X) %*% V_star_inv %*% X) %*% t(X) %*% V_star_inv
    return(P)
 }
 
+#' @export
 FisherScore <- function(score_vec, hess_mat, theta_hat, random.levels, lambda=1e-5, det.tol=1e-10, cond.tol=1e-15){
     # sequentially update the parameter using the Newton-Raphson algorithm
     # theta ~= theta_hat + hess^-1 * score
@@ -206,6 +234,8 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, random.levels, lambda=1e
     return(theta_new)
 }
 
+#' @importFrom Matrix bdiag
+#' @export
 initialiseG <- function(cluster_levels, sigmas){
   # construct the correct size of G given the random effects and variance components
   # the independent sigmas go on the diagonal and the off-diagonal are the crossed/interactions
@@ -217,6 +247,8 @@ initialiseG <- function(cluster_levels, sigmas){
   return(temp_G)
 }
 
+#' @importFrom Matrix Matrix
+#' @export
 initializeFullZ <- function(Z) {
   full.Z <- matrix(,nrow=nrow(Z), ncol = 0)
   for (i in 1:ncol(Z)) {
@@ -226,8 +258,9 @@ initializeFullZ <- function(Z) {
   return(full.Z)
 }
 
+#' @importFrom Matrix Matrix
+#' @export
 solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star){
-    
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
@@ -240,6 +273,7 @@ solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_b
     return(theta_update)
 }
 
+#' @export
 matrix.trace <- function(x){
     # check is square matrix first
     x.dims <- dim(x)
@@ -250,6 +284,9 @@ matrix.trace <- function(x){
     }
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix solve diag
+#' @export
 calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
@@ -259,16 +296,24 @@ calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
     return(se)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
 calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
     Zscore <- as.matrix(curr_beta)/SE
     return(Zscore)
 }
 
+#' @export
 computePvalue <- function(Zscore=Zscore, df=df) {
     pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
     return(pval)
 }
 
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix solve diag
+#' @importFrom numDeriv jacobian
+#' @export
 Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
 
   ###---- first calculate g = derivative of C with respect to sigma ----
