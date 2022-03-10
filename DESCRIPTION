@@ -40,7 +40,8 @@ Imports: BiocNeighbors,
          ggrepel,
          ggbeeswarm,
          RColorBrewer,
-         grDevices
+         grDevices,
+         numDeriv
 Suggests: 
     testthat,
     MASS,
@@ -85,4 +86,5 @@ Collate:
     'annotateNhoods.R'
     'groupNhoods.R'
     'findNhoodGroupMarkers.R'
+    'glmm.R'
 VignetteBuilder: knitr
