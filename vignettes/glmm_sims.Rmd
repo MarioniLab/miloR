@@ -112,7 +112,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
             X[, i+1] <- sapply(seq_len(N), FUN=function(B){
                 sample(c(0, 1), 1)
                 })
-            X[, i+1] <- as.factor(X[, i+1])
+            X[, i+1] <- (X[, i+1]) #removed as.factor
         }else{
             X[, i+1] <- sapply(seq_len(N), FUN=function(B){
                 sample(seq_len(fe.levels[[i]]), 1)
@@ -122,7 +122,7 @@ SimulateMMData <- function(N, fe.betas, re.sigmas,
     }
     
     # Make categorical effects 0 or 1 (not 1 or 2)
-    X[,2] <- X[,2] - 1
+    #X[,2] <- X[,2] - 1
     
     for(j in seq_len(n.re)){
         if(re.levels[[j]] == 1){
@@ -359,6 +359,11 @@ nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df, f
 summary(nb.glm)
 
 cc <- coef(summary(nb.glm))
+
+#fm1 <- mixed_model(fixed = Mean.Count ~ 1 + FE1 + FE2, random = ~ FE2|RE1, data = sim.df,
+#                   family=negative.binomial())
+#summary(fm1)
+#glmer(Mean.Count ~ 1 + FE1 + FE2 + (FE1|RE1), family=nbinom2(link = "log"), data=sim.df) 
 #glmmTMB:::Anova.glmmTMB(nb.glm)
 #sqrt(diag(vcov(nb.glm,full=TRUE)))
 #cc[["cond"]][,"Estimate"]/cc[["cond"]][,"Std. Error"]
@@ -367,20 +372,13 @@ cc <- coef(summary(nb.glm))
 ## My model
 
 ```{r, warning=TRUE}
-set.seed(41) #42
-
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
-X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1) - 1, "FE2"=as.numeric(sim.df$FE2)))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
 y <- sim.df$Mean.Count
 dispersion <- 0.5
-    
-# covariance between u's
-glmm.control <- glmmControl.defaults()
-glmm.control$theta.tol <- 1e-5
-glmm.control$max.iter <- 15
 
-model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, glmm.control=glmm.control, dispersion=dispersion)
+model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, dispersion=dispersion)
 model.coef <- c(model.list$FE, model.list$Sigma)
 ```
 
