@@ -63,13 +63,13 @@ NULL
 buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                        reduced.dim="PCA", BNPARAM=KmknnParam(),
                        BSPARAM=bsparam(), BPPARAM=SerialParam()){
-
+    
     # check class of x to determine which function to call
     # in all cases it must return a Milo object with the graph slot populated
     # what is a better design principle here? make a Milo object here and just
     # have one function, or have a separate function for input data type? I
     # think the former probably.
-
+    
     if(is(x, "Milo")){
         # check for reducedDims
         if(length(reducedDimNames(x)) == 0){
@@ -114,16 +114,15 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
             attr(reducedDim(x, "PCA"), "rotation") <-  x_pca$rotation
             reduced.dim <- "PCA"
         }
-
+        
         x <- Milo(x)
     }
-
+    
     .buildGraph(x, k=k, d=d, get.distance=get.distance, reduced.dim=reduced.dim,
                 BNPARAM=BNPARAM, BSPARAM=BSPARAM, BPPARAM=BPPARAM)
 }
 
 
-#' @export
 #' @importFrom Matrix Matrix
 #' @importFrom BiocSingular bsparam
 #' @importFrom BiocParallel SerialParam
@@ -132,47 +131,25 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
                         reduced.dim="PCA",
                         BNPARAM=KmknnParam(), BSPARAM=bsparam(),
                         BPPARAM=SerialParam()){
-
+    
     nn.out <- .setup_knn_data(x=reducedDim(x, reduced.dim), d=d,
                               k=k, BNPARAM=BNPARAM, BSPARAM=BSPARAM,
                               BPPARAM=BPPARAM)
-
+    
     # separate graph and distances? At some point need to expand the distances
     # to the larger neighbourhood
     message("Constructing kNN graph with k:", k)
     zee.graph <- .neighborsToKNNGraph(nn.out$index, directed=FALSE)
     graph(x) <- zee.graph
-
+    
     # adding distances
-<<<<<<< HEAD
-    message(paste0("Retrieving distances from ", k, " nearest neighbours"))
-    # set this up as a dense matrix first, then coerce to a sparse matrix
-    # starting with a sparse matrix requires a coercion at each iteration
-    # which uses up lots of memory and unncessary CPU time
-    old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
-
-    n.idx <- ncol(x)
-    for(i in seq_along(1:n.idx)){
-        sink(file="/dev/null")
-        gc()
-        sink(file=NULL)
-
-        i.knn <- nn.out$index[i, ]
-        i.dists <- nn.out$distance[i, ]
-        old.dist[i, i.knn] <- i.dists
-        old.dist[i.knn, i] <- i.dists
-    }
-    old.dist <- as(old.dist, "dgCMatrix")
-    nhoodDistances(x) <- old.dist
-
-=======
     if(isTRUE(get.distance)){
         message("Retrieving distances from ", k, " nearest neighbours")
         # set this up as a dense matrix first, then coerce to a sparse matrix
         # starting with a sparse matrix requires a coercion at each iteration
         # which uses up lots of memory and unncessary CPU time
         old.dist <- matrix(0L, ncol=ncol(x), nrow=ncol(x))
-
+        
         n.idx <- ncol(x)
         for(i in seq_len(n.idx)){
             i.knn <- nn.out$index[i, ]
@@ -184,7 +161,6 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
         nhoodDistances(x) <- old.dist
     }
     x@.k <- k
->>>>>>> master
     x
 }
 
@@ -192,10 +168,9 @@ buildGraph <- function(x, k=10, d=50, transposed=FALSE, get.distance=FALSE,
 #' @importFrom BiocNeighbors findKNN
 .setup_knn_data <- function(x, k, d=50, get.distance=FALSE,
                             BNPARAM, BSPARAM, BPPARAM) {
-
+    
     # Finding the KNNs - keep the distances
     # input should be cells X dimensions
     findKNN(x[, seq_len(d)], k=k, BNPARAM=BNPARAM, BPPARAM=BPPARAM, get.distance=get.distance)
 }
-
 
