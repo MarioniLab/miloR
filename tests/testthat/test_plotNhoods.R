@@ -93,7 +93,7 @@ rownames(sim1.meta) <- sim1.meta$Sample
 
 #test for DA
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
-sim1.da.res <- testNhoods(sim1.mylo, design = ~ Condition, design.df = sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+sim1.da.res <- testNhoods(sim1.mylo, design = ~ Condition, design.df = sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
 
 ## Tests for plotNhoodExpressionDA ##
 

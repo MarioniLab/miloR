@@ -96,19 +96,19 @@ rownames(sim1.meta) <- sim1.meta$Sample
 test_that("Wrong input gives errors", {
     # missing neighbourhood counts
     expect_error(testNhoods(sim1.mylo, design=~Condition,
-                                    design.df=sim1.meta),
+                                    design.df=sim1.meta, error.model=c("glm")),
                  "Neighbourhood counts missing - please run countCells first")
 
     # count cells
     sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
     expect_error(testNhoods(nhoodCounts(sim1.mylo), design=~Condition,
-                            design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]),
+                            design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")),
                  "Unrecognised input type - must be of class Milo")
 
     # missing reduced dimension slot
     expect_error(testNhoods(sim1.mylo, design=~Condition,
                             design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ],
-                            reduced.dim="blah"),
+                            reduced.dim="blah", error.model=c("glm")),
                  "is not found in reducedDimNames")
 
 })
@@ -119,7 +119,7 @@ test_that("Discordant dimension names gives an error", {
     design.matrix <- model.matrix(~Condition, data=sim1.meta)
     rownames(design.matrix) <- c(1:nrow(design.matrix))
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
-                                             design.df=sim1.meta)),
+                                             design.df=sim1.meta, error.model=c("glm"))),
                                   "Design matrix and model matrix rownames are not a subset")
 
     # warning if only a subset are present, or order is wrong
@@ -129,7 +129,7 @@ test_that("Discordant dimension names gives an error", {
     set.seed(42)
     design.matrix <- design.matrix[sample(rownames(design.matrix)), ]
     expect_warning(testNhoods(sim1.mylo, design=design.matrix,
-                              design.df=sim1.meta),
+                              design.df=sim1.meta, error.model=c("glm")),
                    "Sample names in design matrix and nhood counts are not matched. Reordering")
 
 })
@@ -141,7 +141,7 @@ test_that("Discordant dimensions between input and design gives an error", {
     design.matrix <- model.matrix(~Condition, data=big.meta)
 
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
-                                                     design.df=sim1.meta)),
+                                                     design.df=sim1.meta, error.model=c("glm"))),
                  "Design matrix and model matrix are not the same dimensionality")
 })
 
@@ -157,16 +157,16 @@ test_that("Concordant dimensions between input and output", {
 test_that("Identical results are produced with identical input", {
     # run for each weighting scheme
     kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     expect_identical(kd.ref1, kd.ref2)
 
     # mean nhood distance
     nd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
-                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     nd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="neighbour-distance",
-                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                          design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     expect_identical(nd.ref1, nd.ref2)
 })
 
@@ -174,9 +174,9 @@ test_that("testNhoods produces reproducible results with equivalent input", {
     # same input, but different format should give the same results
     design.matrix <- model.matrix(~Condition, data=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     mod.ref <- suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
-                                                   design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+                                                   design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")))
     form.ref <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
-                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")))
     # test for each column of output
     expect_equal(mod.ref$Pvalue, form.ref$Pvalue)
     expect_equal(mod.ref$SpatialFDR, form.ref$SpatialFDR)
@@ -195,10 +195,10 @@ test_that("Filtering nhoods provides reproducible results", {
 
     kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                   min.mean=5,
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     kd.ref2 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                   min.mean=5,
-                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                                  design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     expect_identical(kd.ref1, kd.ref2)
 })
 
@@ -206,9 +206,9 @@ test_that("Model contrasts provide expected results", {
     design.matrix <- model.matrix(~0 + Condition, data=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     cont.ref <- suppressWarnings(testNhoods(sim1.mylo, design=design.matrix,
                                                     model.contrasts=c("ConditionB-ConditionA"),
-                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")))
     form.ref <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
-                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+                                                    design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")))
 
     # test for each column of output
     expect_equal(cont.ref$Pvalue, form.ref$Pvalue)
@@ -230,10 +230,10 @@ test_that("Providing a subset model.matrix is reproducible", {
 
     kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                            min.mean=1,
-                                           design.df=sim1.meta[subset.samples, ]))
+                                           design.df=sim1.meta[subset.samples, ], error.model=c("glm")))
     kd.ref2 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                            min.mean=1,
-                                           design.df=sim1.meta[subset.samples, ]))
+                                           design.df=sim1.meta[subset.samples, ], error.model=c("glm")))
     expect_identical(kd.ref1, kd.ref2)
 })
 

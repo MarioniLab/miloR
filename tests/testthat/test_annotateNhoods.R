@@ -97,7 +97,7 @@ sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 
 ## Do test
 da_df <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                      design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)),])
+                      design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)),], error.model = "glm")
 
 colData(sim1.mylo) <- DataFrame(meta.df)
 
