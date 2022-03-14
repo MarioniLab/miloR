@@ -2,17 +2,21 @@
 #' 
 #' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 #'
-#' @param x A \code{\linkS4class{Milo}} object with a non-empty
-#' \code{nhoodCounts} slot.
-#' @param error.model A string vector dictating the type of error model to use for the LMM - either
-#' 'normal' (default) or 'negbinom'. The former should only be used for approximately normally distributed
-#' input variables, and the latter for overdispersed counts.
-#'
+#' @param X fixed effects model matrix
+#' @param Z random effects model matrix
+#' @param y observed phenotype
+#' @param REML TRUE or FALSE
+#' @param random.levels levels of random effects
+#' @param glmm.control list containing parameter values
+#' @param dispersion r dispersion
+#' 
+#' @details runs a negative binomial generalised linear model
 #'
 #' @importMethodsFrom Matrix %*%
+#' @importFrom stats runif
 #' @importFrom Matrix Matrix solve
 #' @export
-runGLMM <- function(X, Z, y, init.theta=NULL, random.levels=NULL, REML=TRUE,
+runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
                     glmm.control=list(theta.tol=1e-6, max.iter=20),
                     dispersion = NULL){
   
@@ -304,6 +308,7 @@ calculateZscore <- function(curr_beta=curr_beta, SE=SE) {
     return(Zscore)
 }
 
+#' @importFrom stats pt
 #' @export
 computePvalue <- function(Zscore=Zscore, df=df) {
     pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
