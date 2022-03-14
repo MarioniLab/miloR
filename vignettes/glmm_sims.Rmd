@@ -378,7 +378,7 @@ Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$
 y <- sim.df$Mean.Count
 dispersion <- 0.5
 
-model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, dispersion=dispersion)
+model.list <- miloR::runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, dispersion=dispersion)
 model.coef <- c(model.list$FE, model.list$Sigma)
 ```
 
