@@ -14,7 +14,8 @@ URL: https://marionilab.github.io/miloR
 BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 LinkingTo: Rcpp,
-           RcppArmadillo
+           RcppArmadillo,
+           RcppEigen
 Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,
@@ -45,6 +46,7 @@ Imports: BiocNeighbors,
          RColorBrewer,
          grDevices,
          RcppArmadillo,
+         RcppEigen,
          Rcpp
 Suggests: 
     testthat,
@@ -77,7 +79,6 @@ Collate:
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
     'glmm.R'
-    'glmm_new.R'
     'makeNhoods.R'
     'milo.R'
     'miloR-package.R'

@@ -10,5 +10,6 @@ arma::mat computeW (arma::mat Dinv, arma::mat V);
 arma::mat computeVStar (arma::mat Z, arma::mat G, arma::mat W);
 arma::mat computePREML (arma::mat Vsinv, arma::mat X);
 arma::mat initialiseG (Rcpp::List rlevels, arma::vec sigmas);
+arma::mat invGmat (Rcpp::List rlevels, arma::vec sigmas);
 
 #endif

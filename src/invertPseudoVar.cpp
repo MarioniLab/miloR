@@ -19,10 +19,10 @@ arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
     arma::mat I = arma::eye<arma::mat>(c, c); // create the cxc identity matrix
     arma::mat omt(n, n);
     arma::mat mid(c, c);
-    mid = I + (Z.t() * A * Z * B);
+    mid = I + (Z.t() * A * Z * B); // If we know the structure in B can we simplify this more???
     arma::mat midinv(c, c);
     midinv = mid.i();
 
-    omt = A - (A * Z * B * midinv * Z.t() * A);
+    omt = A - (A * Z * B * midinv * Z.t() * A); // stack multiplications like this appear to be slow
     return omt;
 }

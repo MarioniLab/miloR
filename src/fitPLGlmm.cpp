@@ -1,10 +1,13 @@
 #include<RcppArmadillo.h>
+#include<RcppEigen.h>
 // [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(RcppEigen)]]
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "invertPseudoVar.h"
 #include "pseudovarPartial.h"
 #include "multiP.h"
+#include "inference.h"
 using namespace Rcpp;
 
 //' GLMM parameter estimation using pseudo-likelihood
@@ -27,19 +30,19 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 // [[Rcpp::export]]
-List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
+List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::vec curr_beta,
                arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
-               arma::mat curr_G, arma::vec y, List u_indices,
+               arma::mat curr_G, const arma::vec& y, List u_indices,
                double theta_conv,
-               List rlevels, double curr_disp, bool REML, int maxit){
+               const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
-    List outlist(7);
+    List outlist(9);
     int iters=0;
     int stot = Z.n_cols;
-    int c = curr_sigma.size();
-    int m = X.n_cols;
-    int n = X.n_rows;
+    const int& c = curr_sigma.size();
+    const int& m = X.n_cols;
+    const int& n = X.n_rows;
     bool meet_cond = false;
 
     // setup matrices
@@ -56,7 +59,9 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
 
     arma::mat V_star(n, n);
     arma::mat V_star_inv(n, n);
+    arma::mat P(n, n);
 
+    arma::mat coeff_mat(m+c, m+c);
     List V_partial(c);
 
     arma::vec score_sigma(c);
@@ -96,30 +101,28 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
         V_partial = pseudovarPartial_C(Z, u_indices);
 
         if(REML){
-            arma::mat P(n, n);
             P = computePREML(V_star_inv, X);
-            List PVSTARi(c);
-            PVSTARi = multiP(V_partial, V_star_inv);
 
-            score_sigma = sigmaScoreREML(PVSTARi, V_star_inv, y_star, P);
-            information_sigma = sigmaInfoREML(PVSTARi);
+            // score_sigma = sigmaScoreREML(V_partial, V_star_inv, y_star, P);
+            score_sigma = sigmaScoreREML_arma(V_partial, y_star, P);
+            information_sigma = sigmaInfoREML_arma(V_partial, P);
         } else{
             score_sigma = sigmaScore(y_star, curr_beta, X, V_partial, V_star_inv);
             information_sigma = sigmaInformation(V_star_inv, V_partial);
         };
-        score_sigma.print("Sigma score vector");
-        information_sigma.print("Fisher Information");
 
         sigma_update = FisherScore(information_sigma, score_sigma, curr_sigma);
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;
-        curr_G = initialiseG(rlevels, curr_sigma);
-        G_inv = curr_G.i(); // is this ever singular?
+        curr_G = initialiseG(u_indices, curr_sigma);
+        G_inv = invGmat(u_indices, curr_sigma);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
-        theta_update = solve_equations(X, Winv, Z, G_inv, curr_beta, curr_u, y_star);
+        // compute the coefficient matrix
+        coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
+        theta_update = solve_equations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
         curr_theta = theta_update;
@@ -129,33 +132,28 @@ List fitPLGlmm(arma::mat Z, arma::mat X, arma::vec muvec, arma::vec curr_beta,
         muvec = exp((X * curr_beta) + (Z * curr_u));
         iters++;
 
-        theta_diff.print("theta_diff");
-        sigma_diff.print("sigma_diff");
-        Rprintf("%0.8f\n", theta_conv);
-
         bool _thconv = false;
         _thconv = all(theta_diff < theta_conv);
-        Rprintf("Theta converge %s\n", _thconv ? "true" : "false");
 
         bool _siconv = false;
         _siconv = all(sigma_diff < theta_conv);
-        Rprintf("Sigma converge %s\n", _siconv ? "true" : "false");
 
         bool _ithit = false;
         _ithit = iters > maxit;
-        Rprintf("Max iters hit %s\n", _ithit ? "true" : "false");
 
         meet_cond = ((_thconv && _siconv) || _ithit);
-
-        Rprintf("All convergence %s\n", meet_cond ? "true" : "false");
         converged = _thconv && _siconv;
     }
 
+    arma::vec se(computeSE(m, c, coeff_mat));
+    arma::vec tscores(computeTScore(curr_beta, se));
     // It will be expensive to sequentially grow a list here - do we even need to return
     // all of the intermediate results??
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
-                           _["Hessian"]=information_sigma);
+                           _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
+                           _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=V_partial, _["Ginv"]=G_inv,
+                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv);
 
     return outlist;
 }
