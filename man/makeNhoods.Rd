@@ -37,7 +37,8 @@ indicating the name of the \code{reducedDim} slot in the
 \code{igraph} object, a matrix of vertices X reduced dimensions.}
 
 \item{refinement_scheme}{A character scalar that determines the refinement
-scheme, either "reduced_dim" or "graph". Only used if refined is TRUE.}
+scheme, either "reduced_dim", "graph", or "snn". Only used if refined is 
+TRUE.}
 }
 \value{
 A \code{\linkS4class{Milo}} object containing a list of vertices and

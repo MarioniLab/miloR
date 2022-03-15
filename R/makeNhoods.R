@@ -23,7 +23,8 @@
 #' default=TRUE implements one of two refined sampling scheme, determined by the
 #' `refinement_scheme` argument.
 #' @param refinement_scheme A character scalar that determines the refinement
-#' scheme, either "reduced_dim" or "graph". Only used if refined is TRUE.
+#' scheme, either "reduced_dim", "graph", or "snn". Only used if refined is 
+#' TRUE.
 #'
 #' @details
 #' This function randomly samples graph vertices, then refines them to collapse
@@ -95,6 +96,8 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
             sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)    
         } else if (refinement_scheme == "graph") {
             sampled_vertices <- .graph_refined_sampling(random_vertices, X_graph)
+        } else if (refinement_scheme == "snn"){
+            sampled_vertices <- .snn_refined_sampling(random_vertices, X_graph)
         } else {
             stop("When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
         }
@@ -217,5 +220,98 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     return(refined_vertices)
 }
 
+#' @importFrom igraph neighbors induced_subgraph strength V set_vertex_attr
+.snn_refined_sampling3 <- function(random_vertices, X_graph){
+    random_vertices <- as.vector(random_vertices)
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    snn_graph <- .build_snn_from_graph(X_graph)
+    snn_graph <- set_vertex_attr(snn_graph, "name", value = 1:length(V(snn_graph)))
+    refined_vertices <- lapply(seq_along(random_vertices), function(i){
+        target_vertices <- as.integer(neighbors(X_graph, v = random_vertices[i], mode = "all"))
+        rv_induced_subgraph <- induced_subgraph(graph = snn_graph, vids = target_vertices)
+        neighbor_strengths <- strength(rv_induced_subgraph, mode = "all")
+        max_strength <- max(neighbor_strengths)
+        max_strength_indices <- which(neighbor_strengths == max_strength)
+        max_strength_index <- max_strength_indices
+        #note - am taking first incidence of max_strength_index in the next line of code
+        #otherwise in worst case scenario we'd have even more indices than the
+        #initial number of random indices
+        resulting_vertices <- V(rv_induced_subgraph)[max_strength_index]$name[1]
+        return(resulting_vertices)
+    }) %>% unlist() %>% as.integer()
+    return(refined_vertices)
+}
+
+#' @importFrom igraph neighbors induced_subgraph strength V set_vertex_attr
+.snn_refined_sampling2 <- function(random_vertices, X_graph){
+    random_vertices <- as.vector(random_vertices)
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    X_graph <- .build_snn_from_graph(X_graph)
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    refined_vertices <- lapply(seq_along(random_vertices), function(i){
+        target_vertices <- neighbors(X_graph, v = random_vertices[i], mode = "all")
+        rv_induced_subgraph <- induced_subgraph(graph = X_graph, vids = target_vertices)
+        neighbor_strengths <- strength(rv_induced_subgraph, mode = "all")
+        max_strength <- max(neighbor_strengths)
+        max_strength_indices <- which(neighbor_strengths == max_strength)
+        max_strength_index <- max_strength_indices
+        #note - am taking first incidence of max_strength_index in the next line of code
+        #otherwise in worst case scenario we'd have even more indices than the
+        #initial number of random indices
+        resulting_vertices <- V(rv_induced_subgraph)[max_strength_index]$name[1]
+        return(resulting_vertices)
+    }) %>% unlist() %>% as.integer()
+    return(refined_vertices)
+}
+
+#' @importFrom igraph neighbors induced_subgraph strength V set_vertex_attr
+.snn_refined_sampling <- function(random_vertices, X_graph){
+    random_vertices <- as.vector(random_vertices)
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    ##X_graph <- .build_snn_from_graph(X_graph)
+    snn_matrix <- .get_snn_matrix(X_graph)
+    X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    ### X_graph <- set_vertex_attr(X_graph, "name", value = 1:length(V(X_graph)))
+    refined_vertices <- lapply(seq_along(random_vertices), function(i){
+        target_vertices <- neighbors(X_graph, v = random_vertices[i], mode = "all")
+        target_vertices_ix <- as.integer(target_vertices)
+        sub_snn_matrix <- snn_matrix[target_vertices_ix,target_vertices_ix]
+        diag(sub_snn_matrix) <- 0
+        neighbor_strengths <- colSums(sub_snn_matrix^2)
+        max_strength <- max(neighbor_strengths)
+        max_strength_indices <- which(neighbor_strengths == max_strength)
+        max_strength_index <- max_strength_indices[1]
+        #note - am taking first incidence of max_strength_index in the next line of code
+        #otherwise in worst case scenario we'd have even more indices than the
+        #initial number of random indices
+        resulting_vertices <- target_vertices_ix[max_strength_index]
+        return(resulting_vertices)
+    }) %>% unlist() %>% as.integer()
+    return(refined_vertices)
+}
+
+#' @importFrom igraph similarity simplify graph_from_adjacency_matrix
+.build_snn_from_graph <- function(X_graph){
+    sim_matrix <- similarity(X_graph, method = "jaccard")
+    sim_graph <- graph_from_adjacency_matrix(sim_matrix, mode = "undirected", weighted = TRUE)
+    sim_graph <- simplify(sim_graph)
+    return(sim_graph)
+}
+
+#' @importFrom igraph similarity
+.get_snn_matrix <- function(X_graph){
+    sim_matrix <- similarity(X_graph, method = "jaccard")
+    diag(sim_matrix) <- 0
+    return(sim_matrix)
+}
 
 
+#' #' importFrom igraph similarity simplify as_adjacency_matrix
+#' #' importFrom Matrix tcrossprod
+#' .get_snn_matrix <- function(X_graph){
+#'     X <- as_adjacency_matrix(X_graph)
+#'     XTX <- tcrossprod(X)
+#'     outer_X <- outer(colSums(X), rowSums(X), "+")
+#'     sim_matrix <- XTX/(outer_X - XTX)
+#'     return(sim_matrix)
+#' }
