@@ -547,7 +547,7 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     mint <- length(curr_beta)
     cint <- length(curr_u)
     dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
-                            final.list[["Vpartial"]], final.list[["VCOV"]])
+                            final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]])
     pvals <- computePvalue(final.list[["t"]], dfs)
 
     final.list[["DF"]] <- dfs
@@ -607,11 +607,11 @@ computePvalue <- function(Zscore, df) {
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 ###---- first calculate g = derivative of C with respect to sigma ----
-function_jac <- function(x, coeff.mat, mint, cint) {
+function_jac <- function(x, coeff.mat, mint, cint, G_inv) {
     UpperLeft <- coeff.mat[c(1:mint), c(1:mint)]
     UpperRight <- coeff.mat[c(1:mint), c((mint+1):(mint+cint))]
     LowerLeft <- coeff.mat[c((mint+1):(mint+cint)), c(1:mint)]
-    LowerRight <- coeff.mat[c((mint+1):(mint+cint)), c((mint+1):(mint+cint))]
+    LowerRight <- coeff.mat[c((mint+1):(mint+cint)), c((mint+1):(mint+cint))] - G_inv
 
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
@@ -623,9 +623,9 @@ function_jac <- function(x, coeff.mat, mint, cint) {
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a) {
+Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv) {
 
-    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint)
+    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv)
     jac_list <- lapply(1:ncol(jac), function(i)
         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
 

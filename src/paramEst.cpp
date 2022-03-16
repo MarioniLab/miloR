@@ -117,7 +117,8 @@ arma::vec FisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
 
 
 arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat& Z, const arma::mat& Ginv){
-    // compute the coefficient matrix from the MMEs
+    // compute the components of the coefficient matrix for the MMEs
+    //
     int c = Z.n_cols;
     int m = X.n_cols;
 
