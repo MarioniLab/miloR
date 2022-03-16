@@ -1,5 +1,4 @@
 #include "inference.h"
-#include "utils.h"
 #include<RcppArmadillo.h>
 #include<RcppEigen.h>
 // [[Rcpp::depends(RcppArmadillo)]]

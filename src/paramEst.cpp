@@ -108,7 +108,7 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
     int m = theta_hat.size();
     arma::vec theta(m);
     arma::mat hessinv(hess.n_rows, hess.n_cols);
-    // hessinv = arma::inv(hess);
+    // will need a check here for singular hessians...
     hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
 
     theta = theta_hat + (hessinv * score_vec);
