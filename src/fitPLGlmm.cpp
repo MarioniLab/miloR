@@ -15,20 +15,25 @@ using namespace Rcpp;
 //' Iteratively estimate GLMM fixed and random effect parameters, and variance
 //' component parameters using Fisher scoring based on the Pseudo-likelihood
 //' approximation to a Normal loglihood.
-//' @param Z sp_mat - sparse matrix that maps random effect variable levels to
+//' @param Z mat - sparse matrix that maps random effect variable levels to
 //' observations
-//' @param X sp_mat - sparse matrix that maps fixed effect variables to
+//' @param X mat - sparse matrix that maps fixed effect variables to
 //' observations
-//' @param muvec NumericVector vector of estimated phenotype means
-//' @param curr_theta NumericVector vector of initial parameter estimates
-//' @param curr_beta NumericVector vector of initial beta estimates
-//' @param curr_u NumericVector of initial u estimates
-//' @param curr_G NumericVector of initial sigma estimates
-//' @param y NumericVector of observed counts
+//' @param muvec vec vector of estimated phenotype means
+//' @param curr_theta vec vector of initial parameter estimates
+//' @param curr_beta vec vector of initial beta estimates
+//' @param curr_u vec of initial u estimates
+//' @param curr_sigma vec of initial sigma estimates
+//' @param curr_G mat c X c matrix of variance components
+//' @param y vec of observed counts
+//' @param u_indices List a List, each element contains the indices of Z relevant
+//' to each RE and all its levels
+//' @param theta_conv double Convergence tolerance for paramter estimates
 //' @param rlevels List containing mapping of RE variables to individual
 //' levels
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
+//' @param maxit int maximum number of iterations if theta_conv is FALSE
 // [[Rcpp::export]]
 List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::vec curr_beta,
                arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
@@ -111,7 +116,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
             information_sigma = sigmaInformation(V_star_inv, V_partial);
         };
 
-        sigma_update = FisherScore(information_sigma, score_sigma, curr_sigma);
+        sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
         // update sigma, G, and G_inv
@@ -122,11 +127,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
-        theta_update = solve_equations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
+        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
         curr_theta = theta_update;
-        curr_beta = curr_theta.elem(beta_ix); // how do we subset the correct elements without having names? Need a record of the indicies
+        curr_beta = curr_theta.elem(beta_ix);
         curr_u = curr_theta.elem(u_ix);
 
         muvec = exp((X * curr_beta) + (Z * curr_u));
@@ -145,11 +150,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
         converged = _thconv && _siconv;
     }
 
+    // inference
     arma::vec se(computeSE(m, c, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
-    arma::mat vcov(varCovar(V_partial, c));
-    // It will be expensive to sequentially grow a list here - do we even need to return
-    // all of the intermediate results??
+    arma::mat vcov(varCovar(V_partial, c)); // DF calculation is done in R, but needs this
+
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,

@@ -101,7 +101,7 @@ arma::mat sigmaInformation (arma::mat V_star_inv, Rcpp::List V_partial){
 }
 
 
-arma::vec FisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat){
+arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat){
     // sequentially update the parameter using the Newton-Raphson algorithm
     // theta ~= theta_hat + hess^-1 * score
     // this needs to be in a direction of descent towards a minimum
@@ -144,8 +144,8 @@ arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat
     return lhs;
 }
 
-arma::vec solve_equations (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
-                           arma::mat coeffmat, arma::vec beta, arma::vec u, const arma::vec& ystar){
+arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
+                          arma::mat coeffmat, arma::vec beta, arma::vec u, const arma::vec& ystar){
     // solve the mixed model equations
     arma::vec rhs_beta(m);
     arma::vec rhs_u(c);
