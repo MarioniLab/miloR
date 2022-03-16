@@ -37,7 +37,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
                const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
-    List outlist(9);
+    List outlist(10);
     int iters=0;
     int stot = Z.n_cols;
     const int& c = curr_sigma.size();
@@ -98,15 +98,15 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
         Winv = W.i();
         V_star = computeVStar(Z, curr_G, W);
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
-        V_partial = pseudovarPartial_C(Z, u_indices);
 
         if(REML){
             P = computePREML(V_star_inv, X);
+            V_partial = pseudovarPartial_P(Z, u_indices, P);
 
-            // score_sigma = sigmaScoreREML(V_partial, V_star_inv, y_star, P);
             score_sigma = sigmaScoreREML_arma(V_partial, y_star, P);
             information_sigma = sigmaInfoREML_arma(V_partial, P);
         } else{
+            V_partial = pseudovarPartial_C(Z, u_indices);
             score_sigma = sigmaScore(y_star, curr_beta, X, V_partial, V_star_inv);
             information_sigma = sigmaInformation(V_star_inv, V_partial);
         };
@@ -147,13 +147,14 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::ve
 
     arma::vec se(computeSE(m, c, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
+    arma::mat vcov(varCovar(V_partial, c));
     // It will be expensive to sequentially grow a list here - do we even need to return
     // all of the intermediate results??
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=V_partial, _["Ginv"]=G_inv,
-                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv);
+                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov);
 
     return outlist;
 }

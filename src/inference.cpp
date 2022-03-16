@@ -46,6 +46,34 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
     return tscore;
 }
 
+
+arma::mat varCovar(const Rcpp::List& psvari, const int& c){
+    // compute the variance-covariance matrix of the sigma estimates
+    //     V_a <- Matrix(0L, nrow=length(curr_sigma), ncol=length(curr_sigma))
+    //
+    //     for(i in seq_along(V_partial)){
+    //         for(j in seq_along(V_partial)){
+    // ## broadcast out to the individual RE levels
+    //             V_a[i, j] <- 2*(1/(matrix.trace(V_partial[[i]] %*% V_partial[[j]]))) # V_partial contains P * dV/dSigma
+    //         }
+    //     }
+
+    arma::mat Va(c, c);
+    for(int i=0; i < c; i++){
+        arma::mat _ips = psvari(i);
+        for(int j=i; j < c; j++){
+            arma::mat _jps = psvari(j);
+            arma::mat _ij(_ips * _jps);
+            Va(i, j) = 2 * (1/(arma::trace(_ij)));
+            if(i != j){
+                Va(j, i) = 2 * (1/(arma::trace(_ij)));
+            }
+        }
+    }
+
+    return Va;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // ---- come back to this as I first need to implement a numerical derivative function ---- //
 ///////////////////////////////////////////////////////////////////////////////////////////////

@@ -544,8 +544,10 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
                             curr_disp=new.r, REML=TRUE, maxit=15)
 
     # compute Z scores, DF and P-values
-    dfs <- Satterthwaite_df(X, final.list[["SE"]], final.list[["Winv"]], full.Z, final.list[["Sigma"]], final.list[["FE"]],
-                            random.levels, final.list[["Vpartial"]], final.list[["Ginv"]], final.list[["P"]], u_indices)
+    mint <- length(curr_beta)
+    cint <- length(curr_u)
+    dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
+                            final.list[["Vpartial"]], final.list[["VCOV"]])
     pvals <- computePvalue(final.list[["t"]], dfs)
 
     final.list[["DF"]] <- dfs
@@ -605,11 +607,12 @@ computePvalue <- function(Zscore, df) {
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 ###---- first calculate g = derivative of C with respect to sigma ----
-function_jac <- function(x, X.fun, W_inv.fun, full.Z.fun) {
-    UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
-    UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
-    LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
-    LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
+function_jac <- function(x, coeff.mat, mint, cint) {
+    UpperLeft <- coeff.mat[c(1:mint), c(1:mint)]
+    UpperRight <- coeff.mat[c(1:mint), c((mint+1):(mint+cint))]
+    LowerLeft <- coeff.mat[c((mint+1):(mint+cint)), c(1:mint)]
+    LowerRight <- coeff.mat[c((mint+1):(mint+cint)), c((mint+1):(mint+cint))]
+
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
     C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
@@ -620,24 +623,24 @@ function_jac <- function(x, X.fun, W_inv.fun, full.Z.fun) {
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(X, SE, W_inv, full.Z, curr_sigma, curr_beta, random.levels, V_partial, G_inv, P, u_indices) {
+Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a) {
 
-    jac <- jacobian(func=function_jac, x=curr_sigma, X.fun=X, W_inv.fun=W_inv, full.Z.fun=full.Z)
+    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint)
     jac_list <- lapply(1:ncol(jac), function(i)
         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
 
     #next, calculate V_a, the asymptotic covariance matrix of the estimated covariance parameters
     #given by formula below
 
-    ## make Va then broadcast out to the RE levels
-    V_a <- Matrix(0L, nrow=length(curr_sigma), ncol=length(curr_sigma))
-
-    for(i in seq_along(V_partial)){
-        for(j in seq_along(V_partial)){
-            ## broadcast out to the individual RE levels
-            V_a[i, j] <- 2*(1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]])))
-        }
-    }
+    # ## make Va then broadcast out to the RE levels
+    # V_a <- Matrix(0L, nrow=length(curr_sigma), ncol=length(curr_sigma))
+    #
+    # for(i in seq_along(V_partial)){
+    #     for(j in seq_along(V_partial)){
+    #         ## broadcast out to the individual RE levels
+    #         V_a[i, j] <- 2*(1/(matrix.trace(V_partial[[i]] %*% V_partial[[j]]))) # V_partial contains P * dV/dSigma
+    #     }
+    # }
 
     df <- rep(NA, length(curr_beta))
     for (i in 1:length(curr_beta)) {

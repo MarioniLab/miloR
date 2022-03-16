@@ -16,13 +16,11 @@ arma::vec sigmaScoreREML_arma (Rcpp::List pvstar_i, const arma::vec& ystar, cons
     // arma::sp_mat _P(P);
 
     for(int i=0; i < c; i++){
-        const arma::mat& _pvi = pvstar_i(i);
-        arma::mat P_pvi(n, n);
-        P_pvi = P * _pvi; // this is a slow operation <- could we speed this up with sparse matrices?
+        const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
 
         double lhs = -0.5 * arma::trace(P_pvi);
         arma::mat mid1(1, 1);
-        mid1 = arma::trans(ystar) * P * _pvi * P * ystar;
+        mid1 = arma::trans(ystar) * P_pvi * P * ystar;
         double rhs = 0.5 * mid1[0, 0];
 
         reml_score[i] = lhs + rhs;
@@ -40,18 +38,11 @@ arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P){
     // this is a symmetric matrix so only need to fill the upper or
     // lower triangle to make it O(n^2/2) rather than O(n^2)
     for(int i=0; i < c; i++){
-        const arma::mat& _ip = pvstari(i);
-        arma::mat _ipP = _ip * P;
+        const arma::mat& _ipP = pvstari(i); // this is P * \d Var/ \dsigma
 
         for(int j=i; j < c; j++){
-            const arma::mat& _jp = pvstari(j);
-            // the armadillo implementation is faster than the Eigen.
-            // is this always a dense matrix?
-            // using the cycling property of a trace doesn't make any discernible difference
-            // we only need the diagonal elements of this multiplication - can we reduce the number of
-            // operations this way??
-            // No - waa
-            arma::mat a_ij(P * _ipP * _jp); // this is the biggest bottleneck - it takes >2s!
+            const arma::mat& P_jp = pvstari(j); // this is P * \d Var/ \dsigma
+            arma::mat a_ij(_ipP * P_jp); // this is the biggest bottleneck - it takes >2s!
             double _artr = arma::trace(a_ij);
 
             sinfo(i, j) = 0.5 * _artr;
