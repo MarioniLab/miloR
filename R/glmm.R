@@ -17,14 +17,14 @@
 #' @importFrom Matrix Matrix solve
 #' @export
 runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
-                    glmm.control=list(theta.tol=1e-6, max.iter=20),
+                    glmm.control=list(theta.tol=1e-6, max.iter=50),
                     dispersion = NULL){
   
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
     # y - observed phenotype
-
+  
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
     
@@ -60,9 +60,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
 
     while(meet.conditions){
-        
-        print(paste("Iteration:", iters))
-
+      
         #compute all matrices - information about them found within their respective functions
         D <- computeD(mu=mu.vec)
         D_inv <- solve(D)
@@ -112,9 +110,9 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
         
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
-    final.list <- list("FE"=curr_beta,
-                       "RE"=curr_u,
-                       "Sigma"=matrix(curr_sigma),
+    final.list <- list("FE"=as.vector(curr_beta),
+                       "RE"=as.vector(curr_u),
+                       "Sigma"=as.vector(curr_sigma),
                        "Theta.Converged"=theta_diff < theta.conv,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "converged"=converged,
@@ -124,9 +122,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
                        "Zscore"=Zscore,
                        "df" = df,
                        "pvalue"=Pvalue)
-    coefs <- cbind("Estimates" = curr_beta, "Std. error" = SE, "Z value" = Zscore, "P value" = Pvalue)
-    colnames(coefs) <- c("Estimates", "Std. error", "Z value", "P value")
-    print(coefs)
+    
     return(final.list)
 }
 

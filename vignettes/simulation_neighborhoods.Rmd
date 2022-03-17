@@ -1,0 +1,319 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+To implement dispersion parameter estimation, I will use the previously defined simulations to create a series of simulations that emulate the neighborhooods in milo.
+
+```{r, warning=FALSE, message=FALSE}
+library(MASS)
+library(Matrix)
+library(reshape2)
+library(ggplot2)
+library(ggthemes)
+library(cowplot)
+library(glmmTMB)
+library(scales)
+library(viridis)
+library(tidyr)
+library(pbkrtest)
+library(lmerTest)
+library(edgeR)
+library(miloR)
+```
+
+```{r}
+initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
+    # construct the full Z with all random effect levels
+    n.cols <- ncol(Z)
+    col.classes <- apply(Z, 2, class)
+    i.z.list <- list()
+    for(i in seq_len(n.cols)){
+        i.class <- col.classes[i]
+        if(i.class %in% c("factor")){ # treat as factors
+            i.levels <- levels(Z[, i, drop=FALSE])
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        } else if(i.class %in% c("character")){
+            i.levels <- unique(Z[, i, drop=FALSE])
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        } else if(i.class %in% c("numeric")){ # split into unique levels if integer levels
+            i.mod <- all(Z[, i, drop=FALSE] %% 1 == 0)
+            if(isTRUE(i.mod)){
+                i.levels <- unique(Z[, i])
+                i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+                i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+            } else{
+                i.z <- Z[, i, drop=FALSE] # if float then treat as continuous
+            }
+        } else if(i.class %in% c("integer")){
+            i.levels <- (unique(Z[, i]))
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        }
+        colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
+        
+        # to standardise or not?
+        if(isTRUE(stand.cols)){
+            q <- ncol(i.z)
+            i.ident <- diag(1L, nrow=nrow(i.z), ncol=nrow(i.z))
+            i.star <- i.z - ((i.ident %*% i.z)/q)
+            i.z <- i.star
+        }
+        
+        i.z.list[[colnames(Z)[i]]] <- i.z
+    }
+    full.Z <- do.call(cbind, i.z.list)
+    return(full.Z)
+}
+```
+
+
+```{r}
+SimulateXZ <- function(N, n.fe, n.re, re.levels, fe.levels){
+    
+    # create a per-level mean effect for each FE
+    if(length(fe.levels) != n.fe){
+        stop("List entries need to match number of input fixed effects")
+    }
+    
+    if(length(re.levels) != n.re){
+        stop("List entries need to match number of input random effects")
+    }
+    
+    # create the design matrices
+    X <- matrix(0L, ncol=n.fe+1, nrow=N)
+    X[, 1] <- 1
+    colnames(X) <- c("Intercept", names(fe.levels))
+    
+    Z <- matrix(0L, ncol=n.re, nrow=N)
+    
+    for(i in seq_len(n.fe)){
+        if(fe.levels[[i]] == 1){
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                rnorm(1, mean=0, sd=1)
+                })
+        } else if(fe.levels[[i]] == 2){
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                sample(c(0, 1), 1)
+                })
+            X[, i+1] <- as.factor(X[, i+1])
+        }else{
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                sample(seq_len(fe.levels[[i]]), 1)
+                })
+            X[, i+1] <- as.factor(X[, i+1])
+        }
+    }
+    
+    # Make categorical effects 0 or 1 (not 1 or 2)
+    X[,2] <- X[,2] - 1
+    
+    for(j in seq_len(n.re)){
+        if(re.levels[[j]] == 1){
+            Z[, j] <- sapply(seq_len, FUN=function(R){
+                rnorm(1, mean=1, sd=1)
+            })
+        } else{
+            Z[, j] <- sapply(seq_len(N), FUN=function(R){
+                sample(seq_len(re.levels[[j]]), 1)
+            })
+            Z[, j] <- factor(Z[, j], levels=c(1:re.levels[[j]]))
+        }
+    }
+    colnames(Z) <- names(re.levels)
+
+    sim.data <- do.call(cbind.data.frame, list(X, Z))
+    return(sim.data)
+}
+
+
+SimulateY <- function(N, X, Z, fe.betas, re.sigmas,
+                           dispersion, grand.mean, n.fe, n.re,
+                           re.levels,
+                           fe.levels){
+    
+    # create a per-level mean effect for each FE
+    if(length(fe.levels) != n.fe){
+        stop("List entries need to match number of input fixed effects")
+    }
+    
+    if(length(re.levels) != n.re){
+        stop("List entries need to match number of input random effects")
+    }
+    
+    # construct the full Z
+    random.levels <- sapply(seq_len(length(re.levels)), FUN=function(RX) {
+        rx.name <- names(re.levels)[RX]
+        paste(rx.name, seq_len(re.levels[[rx.name]]), sep="_")
+        }, simplify=FALSE)
+    names(random.levels) <- names(re.levels)
+
+    full.Z <- initializeFullZsim(Z, random.levels)
+    
+    # get a combination over random effects 
+    # and sample each level from the same ~Normal(0, sigma)
+    # note that the variance would be G if we also had random slopes
+    re.thetas <- list()
+    for(i in seq_len(length(re.levels))){
+        i.re <- names(random.levels[i])
+        i.levels <- length(random.levels[[i.re]])
+        i.re.means <- rnorm(n=i.levels, 0, sd=sqrt(re.sigmas[[i.re]])) # sample a random effect value
+        i.re.list <- sapply(seq_len(i.levels), FUN=function(X) i.re.means[X])
+        names(i.re.list) <- random.levels[[i.re]]
+        re.thetas[[i.re]] <- i.re.list
+    }
+    
+    B <- full.Z %*% unlist(re.thetas)
+    # map the fixed effects to mean values
+    betas <- c(grand.mean, unlist(fe.betas))
+    Beta <- X %*% betas
+
+    i.error <- matrix(data = rnorm(N, mean=0, sd=0.001), ncol = 1)
+    
+    # construct the y.means equation, depending on desired distribution and FE/RE
+    y.means <- exp(Beta + B) 
+    y.means <- y.means + i.error
+    
+    y.counts <- rnbinom(N, mu = y.means, size = dispersion)
+
+    sim.data <- data.frame("Mean.Count"=y.counts)
+    sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
+
+    return(sim.data)
+}
+```
+
+```{r, warning=FALSE, message=FALSE}
+
+N=150
+fe.levels <- list("FE1"=2)
+re.levels <- list("RE1"=10)
+design.sim <- SimulateXZ(N=N, n.fe=length(fe.levels), n.re=length(re.levels), re.levels=re.levels, fe.levels=fe.levels)
+
+n <- 100 # number of neighborhoods
+sim.list <- c()
+
+for (i in 1:n) {
+    r.dispersion <- runif(1, min = 2, max = 2.5)
+    fe.betas=list("FE1"=runif(1, min = 0.15, max = 0.25))
+    re.sigmas=list("RE1"=runif(1, min = 0.05, max = 0.1))
+    grand.mean=runif(1, min = 1, max = 2)
+    sim.list[[i]]  <- SimulateY(N=N, X=sapply(design.sim[,1:2], as.numeric), Z=design.sim[,3, drop=FALSE], fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
+}
+
+names(sim.list) <- 1:n
+```
+
+```{r, warning=FALSE, message=FALSE}
+s.l <- sim.list
+y <- lapply(s.l, `[[`, 1)
+y_matrix <- matrix(unlist(y), nrow = 150, ncol = n)
+colnames(y_matrix) <- paste("n", 1:n, sep = "_")
+means <- colMeans(y_matrix)
+variance <- apply(y_matrix, 2, function(x) var(x))
+
+plot(x = (means), y = (variance), main="Mean vs. variance",
+   xlab="Mean", ylab="Variance", pch=20)
+abline(coef = c(0,1))
+
+hist(y_matrix)
+
+hist(matrix(nhoodCounts(milo.obj)))
+```
+
+
+```{r}
+# data(sim_trajectory)
+# milo.meta <- sim_trajectory$meta
+# milo.obj <- Milo(sim_trajectory$SCE)
+# milo.obj <- buildGraph(milo.obj, k=20, d=30)
+# milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+# milo.obj <- calcNhoodDistance(milo.obj, d=30)
+# milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
+# milo.design <- as.data.frame(xtabs(~ Condition + Sample, data=milo.meta))
+# milo.design <- milo.design[milo.design$Freq > 0, ]
+# rownames(milo.design) <- milo.design$Sample
+# milo.design <- milo.design[colnames(nhoodCounts(milo.obj)),]
+# testNhoods(milo.obj, design=~Condition, design.df=milo.design)
+# nhoodCounts(milo.obj)
+# dge <- DGEList(counts=nhoodCounts(milo.obj), lib.size=colSums(nhoodCounts(milo.obj)))
+# dge <- estimateDisp(dge, model)
+# fit <- glmQLFit(dge, model, robust=TRUE)
+# n.coef <- ncol(model)
+# res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
+            
+dge <- DGEList(counts=t(y_matrix), lib.size=colSums(t(y_matrix)))
+dge <- calcNormFactors(dge, method="TMM")
+dge <- estimateDisp(dge, robust = TRUE)
+dispersion <- dge$trended.dispersion
+
+# run glmm 
+X <- sapply(design.sim[,1:2], as.numeric)
+Z <- design.sim[,3, drop = F]
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(design.sim$RE1)), sep="_"))
+
+message("Running glmm - this may take a few minutes")
+
+try(
+    glmmWrapper <- function(sim.df, dispersion){
+    y <- sim.df$Mean.Count
+    dispersion <- 1/dispersion
+    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+    model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
+    out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+                         "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
+    })
+
+fit <- mapply(FUN = glmmWrapper, sim.list, dispersion, SIMPLIFY = F)
+
+
+results.df <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)), 
+                    "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
+                    "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                    "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+vars <- c("(intercept)", "(slope)")
+rownames(results.df) <- paste("N", rep(names(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(results.df)/2))
+head(results.df)
+                         
+```
+
+
+```{r}
+# check that the results are similar to those produced by glmmTMB
+diff_TMB <- c(unlist(lapply(fit, `[[`, 13)), unlist(lapply(fit, `[[`, 14)))
+hist(diff_TMB)
+```
+
+
+```{r}
+loessMod10 <- loessFit(y=log10(variance), x= log10(means), span=0.3)
+plot(x = log10(means), y = log10(variance), pch=20, main="Loess", xlab="Mean", ylab="Variance")
+lines(y=loessMod10$fitted, x=means, col="red")
+f <- approxfun(means, loessMod10$fitted, rule=2, ties=list("ordered",mean))
+pred.var <- f(mean(means))
+dispersion <- (mean(means)^2)/(pred.var - mean(means))
+
+AveMean <- NA
+DispBin <- NA
+nbins <- 30
+bins <- cut_interval(means, n = nbins)
+for (i in 1:nbins) {
+    tags <- which(bins == names(table(bins)[i]))
+    AveMean[i] <- mean(means[tags])
+    DispBin[i] <- mean(variance[tags])
+}
+AveMean <- AveMean[!is.na(AveMean)]
+DispBin <- DispBin[!is.na(DispBin)]
+
+fit <- loessFit(DispBin, AveMean, span=0.3, iterations=1)
+
+plot(x = AveMean, y = DispBin, pch=20, main="Loess", xlab="Mean", ylab="Variance")
+lines(y=fit$fitted, x=AveMean, col="red")
+
+f <- approxfun(AveMean, fit$fitted, rule=2, ties=list("ordered",mean))
+pred.var <- f(mean(means))
+dispersion <- (mean(means)^2)/(pred.var - mean(means))
+```
+
