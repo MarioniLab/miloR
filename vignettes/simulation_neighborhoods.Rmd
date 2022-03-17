@@ -3,6 +3,11 @@ title: "R Notebook"
 output: html_notebook
 ---
 
+---
+title: "R Notebook"
+output: html_notebook
+---
+
 To implement dispersion parameter estimation, I will use the previously defined simulations to create a series of simulations that emulate the neighborhooods in milo.
 
 ```{r, warning=FALSE, message=FALSE}
