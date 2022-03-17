@@ -149,7 +149,7 @@ test_that("Discordant dimensions between input and design gives an error", {
 test_that("Concordant dimensions between input and output", {
     in.rows <- nrow(nhoodCounts(sim1.mylo))
     out.rows <- nrow(testNhoods(sim1.mylo, design=~Condition,
-                                        design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
+                                        design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm")))
     expect_identical(in.rows, out.rows)
 })
 
@@ -190,7 +190,7 @@ test_that("Filtering nhoods provides reproducible results", {
     exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)) >= 5)
     out.da <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                  min.mean=5,
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
+                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
     expect_identical(nrow(out.da), exp.nh)
 
     kd.ref1 <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
@@ -225,7 +225,7 @@ test_that("Providing a subset model.matrix is reproducible", {
     exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
     out.da <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
                                           min.mean=1,
-                                          design.df=sim1.meta[subset.samples, ]))
+                                          design.df=sim1.meta[subset.samples, ], error.model=c("glm")))
     expect_identical(nrow(out.da), exp.nh)
 
     kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
