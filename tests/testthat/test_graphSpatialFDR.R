@@ -99,7 +99,7 @@ test_that("Incorrect parameter values produce errors", {
     # call outside of testNhoods function
     da.ref <- testNhoods(sim1.mylo, design=~Condition,
                          fdr.weighting="none",
-                         design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                         design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     expect_error(graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
                                  graph=miloR::graph(sim1.mylo),
@@ -144,7 +144,7 @@ test_that("Incorrect parameter values produce errors", {
 test_that("Input 'none' produces NAs", {
     da.ref <- testNhoods(sim1.mylo, design=~Condition,
                                  fdr.weighting="none",
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     out.p <- graphSpatialFDR(x.nhoods=nhoods(sim1.mylo),
                              graph=graph(sim1.mylo),
@@ -161,7 +161,7 @@ test_that("graphSpatialFDR produces reproducible results for neighbour-distance 
     # calculate spatial FDR here using the actual code
     da.ref <- testNhoods(sim1.mylo, design=~Condition,
                                  fdr.weighting="none",
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     nhoods <- nhoods(sim1.mylo)
     graph <- graph(sim1.mylo)
@@ -212,7 +212,7 @@ test_that("graphSpatialFDR produces reproducible results for k-distance weightin
     # calculate spatial FDR here using the actual code - first with PCA, then distances
     da.ref <- testNhoods(sim1.mylo, design=~Condition,
                                  fdr.weighting="none",
-                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                                 design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
     nhoods <- nhoods(sim1.mylo)
     graph <- graph(sim1.mylo)
@@ -308,7 +308,7 @@ test_that("graphSpatialFDR produces reproducible results for graph-overlap weigh
     # calculate spatial FDR here using the actual code
     da.ref <- testNhoods(sim1.mylo, design=~Condition,
                          fdr.weighting="none",
-                         design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                         design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
     
     nhoods <- nhoods(sim1.mylo)
     graph <- graph(sim1.mylo)

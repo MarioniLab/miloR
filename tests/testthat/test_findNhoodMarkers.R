@@ -104,7 +104,7 @@ sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
 rownames(sim1.meta) <- sim1.meta$Sample
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 sim1.res <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
 test_that("Incorrect input gives the expected errors", {
     expect_error(suppressWarnings(findNhoodMarkers(matrix(0L, nrow=nrow(sim1.mylo), ncol=ncol(sim1.mylo)))),
@@ -217,7 +217,7 @@ test_that("Return an error if there are no DA nhoods", {
     test.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)), "Replicate"=rep(c("R1", "R2", "R3"), 2))
     test.meta$Sample <- paste(test.meta$Condition, test.meta$Replicate, sep="_")
     rownames(test.meta) <- test.meta$Sample
-    da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ], error.model=c("glm"))
+    da.res <- testNhoods(milo, design=~Condition, design.df=test.meta[colnames(nhoodCounts(milo)), ])
 
     expect_error(suppressWarnings(findNhoodMarkers(milo, da.res, overlap=1)),
                  "No DA neighbourhoods found")

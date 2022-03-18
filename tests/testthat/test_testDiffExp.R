@@ -127,7 +127,7 @@ sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
 rownames(sim1.meta) <- sim1.meta$Sample
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 sim1.res <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
 sim1.res <- groupNhoods(sim1.mylo, sim1.res)
 
@@ -259,7 +259,7 @@ test_that("Contrasts can be passed without error" , {
     rownames(blockC.meta) <- blockC.meta$Sample
     blockC.mylo <- countCells(blockC.mylo, samples="Sample", meta.data=meta.df)
     blockC.res <- testNhoods(blockC.mylo, design=~0 + Condition, fdr.weighting="k-distance",
-                             design.df=blockC.meta[colnames(nhoodCounts(blockC.mylo)), ], error.model=c("glm"))
+                             design.df=blockC.meta[colnames(nhoodCounts(blockC.mylo)), ])
 
     blockC.res <- groupNhoods(blockC.mylo, blockC.res)
 
