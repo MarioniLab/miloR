@@ -110,12 +110,13 @@ testNhoods <- function(x, design, design.df,
     if(is(design, "formula")){
         # parse to find random and fixed effects
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
-        if(any(grepl(parse, pattern="\\|1"))){
-            message("Random effects found - running PL model")
+        if(any(grepl(parse, pattern="1*\\|"))){
+            message("Random effects found - running GLMM model")
             is.lmm <- TRUE
             # make model matrices for fixed and random effects
             z.model <- .parse_formula(design, design.df, vtype="re")
             rownames(z.model) <- rownames(design.df)
+            colnames(z.model) <- paste("RE", 1:ncol(z.model), sep = "_")
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
 
@@ -239,17 +240,68 @@ testNhoods <- function(x, design, design.df,
     }
 
     if(is.lmm){
-        # insert GLMM here
+        if(length(norm.method) > 1){
+            message("Using TMM normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="TMM")
+        } else if(norm.method %in% c("TMM")){
+            message("Using TMM normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="TMM")
+        } else if(norm.method %in% c("RLE")){
+            message("Using RLE normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+            dge <- calcNormFactors(dge, method="RLE")
+        }else if(norm.method %in% c("logMS")){
+            message("Using logMS normalisation")
+            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        }
+        
+        #extract dispersion value for glmm
+        dge <- estimateDisp(dge)
+        #dge <- estimateDisp(dge, x.model)
+        dispersion <- dge$trended.dispersion
+        
+        # run glmm 
+        message("Running glmm - this may take a few minutes")
         rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
         names(rand.levels) <- colnames(z.model)
-        # estimate dispersions here
-
-        # need to calculate normalisation factors too
-        model.list <- runGLMM(X=x.model, Z=z.model, y=y,
-                              random.levels=random.levels, REML = TRUE,
-                              glmm.control=glmm.control, dispersion=dispersion)
-
-        res <- extractResults(model.list) # this function doesn't exist yet
+        
+        # count / (lib.size * norm.factors)  ???
+        #should this be a separate function?
+        glmmWrapper <- function(y, dispersion){
+            dispersion <- 1/dispersion
+            data.df <- cbind.data.frame(y, x.model, z.model)
+            nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE_1), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+            try({model.list <- runGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
+            out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+                                                    "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))})
+        }
+        fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = dispersion[i]))
+        
+        res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)), 
+                            "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
+                            "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                            "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])), 
+                            "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
+        vars <- c("(intercept)", "(slope)")
+        rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
+        print(res1)
+        
+        # real res has to reflect output from glmQLFit 
+        # does this need to be reqritten to accomodate > 1 FE?
+        res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)), 
+                      "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
+                      "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), "RE Variance"=unlist(lapply(fit, `[[`, 3)),
+                      "Converged"=unlist(lapply(fit, `[[`, 6)))
+        rownames(res) <- 1:length(fit)
+        
+        #res <- extractResults(model.list) # this function doesn't exist yet
+        
     } else{
         if(length(norm.method) > 1){
             message("Using TMM normalisation")
