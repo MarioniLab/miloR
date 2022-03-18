@@ -2,15 +2,17 @@
 #' 
 #' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 #'
-#' @param X fixed effects model matrix
-#' @param Z random effects model matrix
-#' @param y observed phenotype
-#' @param REML TRUE or FALSE
-#' @param random.levels levels of random effects
-#' @param glmm.control list containing parameter values
-#' @param dispersion r dispersion
+#' @param X A matrix containing the fixed effects of the model.
+#' @param Z A matrix containing the random effects of the model.
+#' @param y A matrix containing the observed phenotype over each neighborhood. 
+#' @param REML A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.
+#' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
+#' @param glmm.control A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.
+#' @param dispersion A scalar value for the dispersion of the negative binomial.
 #' 
-#' @details runs a negative binomial generalised linear model
+#' @details 
+#' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods, 
+#' this function is run to solve the model.
 #'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom stats runif
@@ -78,8 +80,9 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
             information_sigma <- sigmaInformation(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels)
         } else if (isTRUE(REML)) {
             P <- computeP_REML(V_star_inv=V_star_inv, X=X)
-            score_sigma <- sigmaScoreREML(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
-            information_sigma <- sigmaInformationREML(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels)
+            PV <- computePV(V_partial=V_partial, P=P)
+            score_sigma <- sigmaScoreREML(PV=PV, V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
+            information_sigma <- sigmaInformationREML(PV=PV, V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels)
         }
         sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma, random.levels=random.levels)
         sigma_diff <- abs(sigma_update - curr_sigma)
@@ -201,10 +204,21 @@ sigmaInformation <- function(V_star_inv=V_star_inv, V_partial=V_partial, random.
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix
 #' @export
-sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels){
+computePV <- function(V_partial=V_partial, P=P){
+  PV <- list()
+  for (i in 1:length(V_partial)) {
+    PV[[i]] <- P %*% V_partial[[i]]
+  }
+  return(PV)
+}
+
+#' @importMethodsFrom Matrix %*%
+#' @importFrom Matrix Matrix
+#' @export
+sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels, PV=PV){
   score_vec <- Matrix(0, nrow = length(V_partial), ncol = 1, sparse = TRUE)
   for (i in 1:length(V_partial)) {
-    score_vec[i,1] <- -0.5*matrix.trace(P %*% V_partial[[i]]) + 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
+    score_vec[i,1] <- -0.5*matrix.trace(PV[[i]]) + 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
   }
   return(score_vec)
 }
@@ -212,9 +226,9 @@ sigmaScoreREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix
 #' @export
-sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels) {
+sigmaInformationREML <- function(V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels, PV=PV) {
   info_vec <- Matrix(sapply(1:length(random.levels), function(i){
-    0.5*matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[i]])}), ncol=1, sparse = TRUE)
+    0.5*matrix.trace(PV[[i]] %*% PV[[i]])}), ncol=1, sparse = TRUE)
   return(info_vec)
 }
 
@@ -268,7 +282,6 @@ solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_b
     
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
-    
     theta_update <- solve(LHS) %*% RHS
     return(theta_update)
 }
@@ -282,6 +295,16 @@ matrix.trace <- function(x){
     } else{
         return(sum(diag(x)))
     }
+}
+
+#' @importFrom MASS ginv
+#' @export
+inv <- function(x){
+  if (det(x) > 8.313969e-20) {
+    solve(x)
+  } else { 
+    stop("det is 0")
+  }
 }
 
 #' @importMethodsFrom Matrix %*%
@@ -338,7 +361,7 @@ Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, 
     V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
     for (i in 1:length(random.levels)) {
       for (j in 1:length(random.levels)) {
-        V_a[i,j] <- 2*1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]]))
+        V_a[i,j] <- 2*(1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]])))
       }
     }
 

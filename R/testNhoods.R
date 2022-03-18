@@ -105,11 +105,28 @@ NULL
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
-                       norm.method=c("TMM", "RLE", "logMS"),
-                       error.model=c("glm", "glmm")){
+                       norm.method=c("TMM", "RLE", "logMS")){
+    is.lmm <- FALSE
     if(is(design, "formula")){
-        model <- model.matrix(design, data=design.df)
-        rownames(model) <- rownames(design.df)
+        # parse to find random and fixed effects
+        parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
+        if(any(grepl(parse, pattern="\\|1"))){
+            message("Random effects found - running PL model")
+            is.lmm <- TRUE
+            # make model matrices for fixed and random effects
+            z.model <- .parse_formula(design, design.df, vtype="re")
+            rownames(z.model) <- rownames(design.df)
+            x.model <- .parse_formula(design, design.df, vtype="fe")
+            rownames(x.model) <- rownames(design.df)
+
+            if(all(rownames(x.model) != rownames(z.model))){
+                stop("Discordant sample names for mixed model design matrices")
+            }
+
+        } else{
+            model <- model.matrix(design, data=design.df)
+            rownames(model) <- rownames(design.df)
+        }
     } else if(is(design, "matrix")){
         model <- design
         if(nrow(model) != nrow(design.df)){
@@ -143,14 +160,27 @@ testNhoods <- function(x, design, design.df,
     }
 
     subset.counts <- FALSE
-    if(ncol(nhoodCounts(x)) != nrow(model)){
-        # need to allow for design.df with a subset of samples only
-        if(all(rownames(model) %in% colnames(nhoodCounts(x)))){
-            message("Design matrix is a strict subset of the nhood counts")
-            subset.counts <- TRUE
-        } else{
-            stop("Design matrix (", nrow(model), ") and nhood counts (",
-                 ncol(nhoodCounts(x)), ") are not the same dimension")
+    if(is.lmm){
+        if((ncol(nhoodCounts(x)) != nrow(x.model)) | (ncol(nhoodCounts(x)) != nrow(z.model))){
+            # need to allow for design.df with a subset of samples only
+            if((all(rownames(x.model) %in% colnames(nhoodCounts(x)))) & (all(rownames(z.model) %in% colnames(nhoodCounts(x))))){
+                message("Design matrix is a strict subset of the nhood counts")
+                subset.counts <- TRUE
+            } else{
+                stop("Design matrix (", nrow(x.model), ") and nhood counts (",
+                     ncol(nhoodCounts(x)), ") are not the same dimension")
+            }
+        }
+    }else{
+        if(ncol(nhoodCounts(x)) != nrow(model)){
+            # need to allow for design.df with a subset of samples only
+            if(all(rownames(model) %in% colnames(nhoodCounts(x)))){
+                message("Design matrix is a strict subset of the nhood counts")
+                subset.counts <- TRUE
+            } else{
+                stop("Design matrix (", nrow(model), ") and nhood counts (",
+                     ncol(nhoodCounts(x)), ") are not the same dimension")
+            }
         }
     }
 
@@ -159,37 +189,68 @@ testNhoods <- function(x, design, design.df,
     # what is the cost of cast a matrix that is already dense vs. testing it's class
     if(min.mean > 0){
         if(isTRUE(subset.counts)){
-            keep.nh <- rowMeans(nhoodCounts(x)[, rownames(model)]) >= min.mean
+            if(is.lmm){
+                keep.nh <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
+            } else{
+                keep.nh <- rowMeans(nhoodCounts(x)[, rownames(model)]) >= min.mean
+            }
         } else{
             keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
         }
     } else{
         if(isTRUE(subset.counts)){
-            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(model)]))
+            if(is.lmm){
+                keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(x.model)]))
+            } else{
+                keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(model)]))
+            }
         }else{
             keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
         }
     }
 
     if(isTRUE(subset.counts)){
-        keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
+        if(is.lmm){
+            keep.samps <- intersect(rownames(x.model), colnames(nhoodCounts(x)[keep.nh, ]))
+        } else{
+            keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
+        }
     } else{
         keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
     }
 
-    if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
-        stop("Sample names in design matrix and nhood counts are not matched.
+    if(is.lmm){
+        if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
+            stop("Sample names in design matrix and nhood counts are not matched.
              Set appropriate rownames in design matrix.")
-    } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
-        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
-        model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+        } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
+            warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+            z.model <- z.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+            x.model <- x.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+        }
+    } else{
+        if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+            stop("Sample names in design matrix and nhood counts are not matched.
+             Set appropriate rownames in design matrix.")
+        } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
+            warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+            model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+        }
     }
 
-    if(error.model %in% c("glmm")){
+    if(is.lmm){
         # insert GLMM here
+        rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
+        names(rand.levels) <- colnames(z.model)
+        # estimate dispersions here
 
-    } else if(error.model %in% c("glm")){
+        # need to calculate normalisation factors too
+        model.list <- runGLMM(X=x.model, Z=z.model, y=y,
+                              random.levels=random.levels, REML = TRUE,
+                              glmm.control=glmm.control, dispersion=dispersion)
 
+        res <- extractResults(model.list) # this function doesn't exist yet
+    } else{
         if(length(norm.method) > 1){
             message("Using TMM normalisation")
             dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],

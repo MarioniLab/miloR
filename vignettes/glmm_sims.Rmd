@@ -355,7 +355,8 @@ ANOVA-mixed model.
 ## glmmTMB
 
 ```{r}
-nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE1) + (1|RE2), data=sim.df, family=nbinom2(link="log"), REML=FALSE, se=TRUE)
+sim.df$RE3 <- runif(nrow(sim.df))
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE3), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
 summary(nb.glm)
 
 cc <- coef(summary(nb.glm))
@@ -375,10 +376,17 @@ cc <- coef(summary(nb.glm))
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
 X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
+Z <- as.matrix("RE1" <- runif(nrow(X)))
 y <- sim.df$Mean.Count
 dispersion <- 0.5
 
-model.list <- miloR::runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = FALSE, dispersion=dispersion)
+random.levels <- list("RE3"=paste("RE3", levels(as.factor(sim.df$RE3)), sep="_"))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
+Z <- as.matrix(data.frame("RE3"=as.numeric(sim.df$RE3)))
+y <- sim.df$Mean.Count
+dispersion <- 0.5
+
+model.list <- miloR::runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion)
 model.coef <- c(model.list$FE, model.list$Sigma)
 ```
 
@@ -390,7 +398,7 @@ model.list$SE
 print("Zscore")
 model.list$Zscore
 print("pvalue")
-model.list$Pvalue
+model.list$pvalue
 ```
 
 Above shows the coefficient and variance component estimates. We can evaluate the model a bit more by looking at the convergence and loglihood across iterations.

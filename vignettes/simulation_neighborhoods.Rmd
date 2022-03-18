@@ -197,7 +197,7 @@ fe.levels <- list("FE1"=2)
 re.levels <- list("RE1"=10)
 design.sim <- SimulateXZ(N=N, n.fe=length(fe.levels), n.re=length(re.levels), re.levels=re.levels, fe.levels=fe.levels)
 
-n <- 100 # number of neighborhoods
+n <- 10 # number of neighborhoods
 sim.list <- c()
 
 for (i in 1:n) {
@@ -224,10 +224,61 @@ plot(x = (means), y = (variance), main="Mean vs. variance",
 abline(coef = c(0,1))
 
 hist(y_matrix)
-
-hist(matrix(nhoodCounts(milo.obj)))
+#hist(matrix(nhoodCounts(milo.obj)))
 ```
 
+
+```{r}
+dge <- DGEList(counts=t(y_matrix), lib.size=colSums(t(y_matrix)))
+dge <- calcNormFactors(dge, method="TMM")
+dge <- estimateDisp(dge, robust = TRUE)
+dispersion <- dge$trended.dispersion
+
+# run glmm
+X <- sapply(design.sim[,1:2], as.numeric)
+Z <- design.sim[,3, drop = F]
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(design.sim$RE1)), sep="_"))
+
+message("Running glmm - this may take a few minutes")
+
+try(
+    glmmWrapper <- function(sim.df, dispersion){
+        y <- sim.df$Mean.Count
+        dispersion <- 1/dispersion
+        nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
+        out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+                             "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
+    })
+
+fit <- mapply(FUN = glmmWrapper, sim.list, dispersion, SIMPLIFY = F)
+
+
+results.df <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+                    "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+                    "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                    "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+vars <- c("(intercept)", "(slope)")
+rownames(results.df) <- paste("N", rep(names(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(results.df)/2))
+head(results.df)
+```
+```{r}
+# # side note, checking satterthwaite
+# sim.df$ystar <- as.vector(y_star)
+# test <- lmerTest::lmer(ystar ~ 1 + FE1 + (1|RE1), data = sim.df, REML = TRUE)
+# #summary(test)
+# 
+# coef(summary(test))
+# cbind(model.list$FE, model.list$SE, model.list$df, model.list$Zscore, model.list$pvalue)
+# coef(summary(nb.glm))
+```
+
+
+```{r}
+# check that the results are similar to those produced by glmmTMB
+# diff_TMB <- c(unlist(lapply(fit, `[[`, 13)), unlist(lapply(fit, `[[`, 14)))
+# hist(diff_TMB)
+```
 
 ```{r}
 # data(sim_trajectory)
@@ -241,84 +292,65 @@ hist(matrix(nhoodCounts(milo.obj)))
 # milo.design <- milo.design[milo.design$Freq > 0, ]
 # rownames(milo.design) <- milo.design$Sample
 # milo.design <- milo.design[colnames(nhoodCounts(milo.obj)),]
-# testNhoods(milo.obj, design=~Condition, design.df=milo.design)
-# nhoodCounts(milo.obj)
-# dge <- DGEList(counts=nhoodCounts(milo.obj), lib.size=colSums(nhoodCounts(milo.obj)))
-# dge <- estimateDisp(dge, model)
-# fit <- glmQLFit(dge, model, robust=TRUE)
-# n.coef <- ncol(model)
-# res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
-            
-dge <- DGEList(counts=t(y_matrix), lib.size=colSums(t(y_matrix)))
-dge <- calcNormFactors(dge, method="TMM")
-dge <- estimateDisp(dge, robust = TRUE)
-dispersion <- dge$trended.dispersion
+# 
+# #add column for random effects
+# milo.design$RE <- c(1, 1, 2, 2, 3, 3)
+# x <- milo.obj
+# milo.obj1 <- testNhoods(milo.obj, design=~Condition + (1|RE), design.df=milo.design)
+```
 
-# run glmm 
-X <- sapply(design.sim[,1:2], as.numeric)
+
+```{r}
+data(sim_trajectory)
+milo.meta <- sim_trajectory$meta
+milo.obj <- Milo(sim_trajectory$SCE)
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+milo.obj <- calcNhoodDistance(milo.obj, d=30)
+milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
+
+y_counts <- Matrix(t(y_matrix), sparse = T)
+rownames(y_counts) <- 1:nrow(y_counts)
+colnames(y_counts) <- 1:ncol(y_counts)
+milo.obj@nhoodCounts <- y_counts 
+
+X <- sapply(design.sim[,2, drop = F], as.numeric)
 Z <- design.sim[,3, drop = F]
-random.levels <- list("RE1"=paste("RE1", levels(as.factor(design.sim$RE1)), sep="_"))
+design.df <- cbind(X, Z)
+colnames(design.df) <- c("ConditionB", "RE")
+rownames(design.df) <- 1:nrow(design.df)
 
-message("Running glmm - this may take a few minutes")
-
-try(
-    glmmWrapper <- function(sim.df, dispersion){
-    y <- sim.df$Mean.Count
-    dispersion <- 1/dispersion
-    nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
-    model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
-    out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
-                         "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
-    })
-
-fit <- mapply(FUN = glmmWrapper, sim.list, dispersion, SIMPLIFY = F)
-
-
-results.df <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)), 
-                    "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
-                    "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                    "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
-vars <- c("(intercept)", "(slope)")
-rownames(results.df) <- paste("N", rep(names(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(results.df)/2))
-head(results.df)
-                         
+milo.res <- testNhoods(milo.obj, design= ~ConditionB + (1|RE), design.df=design.df)
 ```
 
 
 ```{r}
-# check that the results are similar to those produced by glmmTMB
-diff_TMB <- c(unlist(lapply(fit, `[[`, 13)), unlist(lapply(fit, `[[`, 14)))
-hist(diff_TMB)
-```
-
-
-```{r}
-loessMod10 <- loessFit(y=log10(variance), x= log10(means), span=0.3)
-plot(x = log10(means), y = log10(variance), pch=20, main="Loess", xlab="Mean", ylab="Variance")
-lines(y=loessMod10$fitted, x=means, col="red")
-f <- approxfun(means, loessMod10$fitted, rule=2, ties=list("ordered",mean))
-pred.var <- f(mean(means))
-dispersion <- (mean(means)^2)/(pred.var - mean(means))
-
-AveMean <- NA
-DispBin <- NA
-nbins <- 30
-bins <- cut_interval(means, n = nbins)
-for (i in 1:nbins) {
-    tags <- which(bins == names(table(bins)[i]))
-    AveMean[i] <- mean(means[tags])
-    DispBin[i] <- mean(variance[tags])
-}
-AveMean <- AveMean[!is.na(AveMean)]
-DispBin <- DispBin[!is.na(DispBin)]
-
-fit <- loessFit(DispBin, AveMean, span=0.3, iterations=1)
-
-plot(x = AveMean, y = DispBin, pch=20, main="Loess", xlab="Mean", ylab="Variance")
-lines(y=fit$fitted, x=AveMean, col="red")
-
-f <- approxfun(AveMean, fit$fitted, rule=2, ties=list("ordered",mean))
-pred.var <- f(mean(means))
-dispersion <- (mean(means)^2)/(pred.var - mean(means))
+# loessMod10 <- loessFit(y=log10(variance), x= log10(means), span=0.3)
+# plot(x = log10(means), y = log10(variance), pch=20, main="Loess", xlab="Mean", ylab="Variance")
+# lines(y=loessMod10$fitted, x=means, col="red")
+# f <- approxfun(means, loessMod10$fitted, rule=2, ties=list("ordered",mean))
+# pred.var <- f(mean(means))
+# dispersion <- (mean(means)^2)/(pred.var - mean(means))
+# 
+# AveMean <- NA
+# DispBin <- NA
+# nbins <- 30
+# bins <- cut_interval(means, n = nbins)
+# for (i in 1:nbins) {
+#     tags <- which(bins == names(table(bins)[i]))
+#     AveMean[i] <- mean(means[tags])
+#     DispBin[i] <- mean(variance[tags])
+# }
+# AveMean <- AveMean[!is.na(AveMean)]
+# DispBin <- DispBin[!is.na(DispBin)]
+# 
+# fit <- loessFit(DispBin, AveMean, span=0.3, iterations=1)
+# 
+# plot(x = AveMean, y = DispBin, pch=20, main="Loess", xlab="Mean", ylab="Variance")
+# lines(y=fit$fitted, x=AveMean, col="red")
+# 
+# f <- approxfun(AveMean, fit$fitted, rule=2, ties=list("ordered",mean))
+# pred.var <- f(mean(means))
+# dispersion <- (mean(means)^2)/(pred.var - mean(means))
 ```
 
