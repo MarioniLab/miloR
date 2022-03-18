@@ -104,7 +104,7 @@ sim1.meta$Sample <- paste(sim1.meta$Condition, sim1.meta$Replicate, sep="_")
 rownames(sim1.meta) <- sim1.meta$Sample
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 sim1.res <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ], error.model=c("glm"))
+                       design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ])
 
 test_that("Incorrect input gives the expected errors", {
     expect_error(groupNhoods(matrix(0L, nrow=nrow(sim1.mylo), ncol=ncol(sim1.mylo))),
