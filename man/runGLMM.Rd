@@ -8,21 +8,26 @@ runGLMM(
   X,
   Z,
   y,
-  init.theta = NULL,
-  crossed = FALSE,
   random.levels = NULL,
-  REML = FALSE,
-  glmm.control = list(theta.tol = 1e-06, max.iter = 100),
-  dispersion = 0.5
+  REML = TRUE,
+  glmm.control = list(theta.tol = 1e-06, max.iter = 50),
+  dispersion = NULL
 )
 }
 \arguments{
-\item{x}{A \code{\linkS4class{Milo}} object with a non-empty
-\code{nhoodCounts} slot.}
+\item{X}{fixed effects model matrix}
 
-\item{error.model}{A string vector dictating the type of error model to use for the LMM - either
-'normal' (default) or 'negbinom'. The former should only be used for approximately normally distributed
-input variables, and the latter for overdispersed counts.}
+\item{Z}{random effects model matrix}
+
+\item{y}{observed phenotype}
+
+\item{random.levels}{levels of random effects}
+
+\item{REML}{TRUE or FALSE}
+
+\item{glmm.control}{list containing parameter values}
+
+\item{dispersion}{r dispersion}
 }
 \description{
 This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
