@@ -77,6 +77,7 @@
             }))
         v.terms <- v.terms[!is.na(v.terms)]
         d.mat <- as.matrix(design.df[, trimws(v.terms)])
+        colnames(d.mat) <- trimws(v.terms)
     } else if(vtype %in% c("fe")){
         d.mat <- model.matrix(in.form, data = design.df)
         d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]

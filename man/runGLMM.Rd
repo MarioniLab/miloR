@@ -15,23 +15,24 @@ runGLMM(
 )
 }
 \arguments{
-\item{X}{fixed effects model matrix}
+\item{X}{A matrix containing the fixed effects of the model.}
 
-\item{Z}{random effects model matrix}
+\item{Z}{A matrix containing the random effects of the model.}
 
-\item{y}{observed phenotype}
+\item{y}{A matrix containing the observed phenotype over each neighborhood.}
 
-\item{random.levels}{levels of random effects}
+\item{random.levels}{A list describing the random effects of the model, and for each, the different unique levels.}
 
-\item{REML}{TRUE or FALSE}
+\item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
 
-\item{glmm.control}{list containing parameter values}
+\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.}
 
-\item{dispersion}{r dispersion}
+\item{dispersion}{A scalar value for the dispersion of the negative binomial.}
 }
 \description{
 This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 }
 \details{
-runs a negative binomial generalised linear model
+This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods, 
+this function is run to solve the model.
 }
