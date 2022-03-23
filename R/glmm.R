@@ -26,9 +26,9 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     # X - fixed effects model matrix
     # Z - random effects model matrix
     # y - observed phenotype
-  
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
+    r <- dispersion
     
     # OLS for the betas is usually a good starting point for NR                    
     curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)  
@@ -49,7 +49,6 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     #compute mu.vec using inverse link function                   
     mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
-    r <- dispersion
     theta_diff <- rep(Inf, nrow(curr_theta))
     sigma_diff <- Inf
 
@@ -60,7 +59,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     conv.list <- list()
     iters <- 1
     meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
-
+    
     while(meet.conditions){
       
         #compute all matrices - information about them found within their respective functions
@@ -94,6 +93,10 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
         theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
+        if (isTRUE(theta_update)) {
+          stop("Hessian is computationally singular - cannot solve GLMM")
+        }
+        
         theta_diff <- abs(theta_update - curr_theta)
         
         # update B, u and mu_vec to determine new values of score and hessian matrices
@@ -102,14 +105,18 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         curr_beta <- curr_theta[colnames(X), , drop=FALSE]
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
-  
+        
+        if (any(is.infinite(mu.vec))) {
+          stop("Estimates increasing to infinity - cannot solve GLMM.")
+        }
+        
         iters <- iters + 1
-        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
+        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit) 
     }
     
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
     Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
-    df <- Satterthwaite_df(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
+    df <- Satterthwaite_df(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
         
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
@@ -124,7 +131,8 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
                        "SE"=SE,
                        "Zscore"=Zscore,
                        "df" = df,
-                       "pvalue"=Pvalue)
+                       "pvalue"=Pvalue,
+                       "ystar" = y_star)
     
     return(final.list)
 }
@@ -282,7 +290,11 @@ solve_equations <- function(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_b
     
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
-    theta_update <- solve(LHS) %*% RHS
+    theta_update <- tryCatch({solve(LHS) %*% RHS}
+             , error = function(e){ 
+               exit <- TRUE
+               }
+    )
     return(theta_update)
 }
 
@@ -297,16 +309,6 @@ matrix.trace <- function(x){
     }
 }
 
-#' @importFrom MASS ginv
-#' @export
-inv <- function(x){
-  if (det(x) > 8.313969e-20) {
-    solve(x)
-  } else { 
-    stop("det is 0")
-  }
-}
-
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix solve diag
 #' @export
@@ -315,7 +317,8 @@ calculateSE <- function(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv) {
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
     LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
-    se <- sqrt(diag(solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)))
+    vcov <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+    se <- sqrt(diag(vcov))
     return(se)
 }
 
@@ -338,7 +341,7 @@ computePvalue <- function(Zscore=Zscore, df=df) {
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
+Satterthwaite_df <- function(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
 
   ###---- first calculate g = derivative of C with respect to sigma ----
     function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
@@ -361,7 +364,7 @@ Satterthwaite_df <- function(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, 
     V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
     for (i in 1:length(random.levels)) {
       for (j in 1:length(random.levels)) {
-        V_a[i,j] <- 2*(1/(matrix.trace(P %*% V_partial[[i]] %*% P %*% V_partial[[j]])))
+        V_a[i,j] <- 2*(1/(matrix.trace(PV[[i]] %*% PV[[j]])))
       }
     }
 
