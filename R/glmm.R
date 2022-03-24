@@ -30,12 +30,12 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
 
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
-    
-    # OLS for the betas is usually a good starting point for NR                    
-    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)  
+
+    # OLS for the betas is usually a good starting point for NR
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
 
     # create full Z with expanded random effect levels
-    full.Z <- initializeFullZ(Z)
+    full.Z <- initializeFullZ(Z, cluster_levels = random.levels)
     colnames(full.Z) <- unlist(random.levels)
 
     # sample random value for RE us
@@ -43,6 +43,11 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
 
     # sample variances of the us
     curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+    rownames(curr_sigma) <- colnames(Z)
+
+    u_indices <- sapply(seq_along(random.levels),
+                        FUN=function(RX) which(colnames(full.Z) %in% random.levels[[RX]]),
+                        simplify=FALSE)
 
     #create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
@@ -60,7 +65,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     conv.list <- list()
     iters <- 1
     meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
-    
+
     while(meet.conditions){
         #compute all matrices - information about them found within their respective functions
         D <- computeD(mu=mu.vec)
@@ -71,7 +76,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         W_inv <- solve(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
         V_star_inv <- solve(V_star)
-        V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels, curr_sigma=curr_sigma)
+        V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels, u_indices=u_indices)
 
         #---- First estimate variance components with Newton Raphson procedure ---#
         if (isFALSE(REML)) {
@@ -92,11 +97,11 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         G_inv <- solve(curr_G)
 
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
-        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
+        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star)
         if (isTRUE(theta_update)) {
           stop("Hessian is computationally singular - cannot solve GLMM")
         }
-        
+
         theta_diff <- abs(theta_update - curr_theta)
 
         # update B, u and mu_vec to determine new values of score and hessian matrices
@@ -109,13 +114,14 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         if (any(is.infinite(mu.vec))) {
           stop("Estimates increasing to infinity - cannot solve GLMM.")
         }
-        
+
         iters <- iters + 1
-        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit) 
+        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
 
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
     Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
+    Va <- computeVarCovar(random.levels, PV)
     df <- Satterthwaite_df(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
 
@@ -444,7 +450,7 @@ solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
 
     theta_update <- tryCatch({solve(LHS) %*% RHS}
-             , error = function(e){ 
+             , error = function(e){
                exit <- TRUE
                }
     )
@@ -652,6 +658,20 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv) {
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
     C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+}
+
+
+#' @importMethodsFrom Matrix %*%
+#' @export
+computeVarCovar <- function(random.levels, PV){
+    V_a <- matrix(NA, nrow=length(random.levels), ncol=length(random.levels))
+    for (i in 1:length(random.levels)) {
+        for (j in 1:length(random.levels)) {
+            V_a[i,j] <- 2*(1/(matrix.trace(PV[[i]] %*% PV[[j]])))
+        }
+    }
+
+    return(V_a)
 }
 
 
