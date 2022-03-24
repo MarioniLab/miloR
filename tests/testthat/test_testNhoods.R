@@ -237,3 +237,235 @@ test_that("Providing a subset model.matrix is reproducible", {
     expect_identical(kd.ref1, kd.ref2)
 })
 
+sim1.meta$Condition_num <- c(1, 1, 1, 0, 0, 0)
+sim1.meta$Replicate_num <- c(1, 2, 3, 1, 2, 3)
+sim1.meta$Replicate2 <- c(1, 2, 1, 2, 1, 2)
+
+test_that("Adding random effects on small sample size does not compute", {
+    
+    # running with 1 fe and 1 re, both characters
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Replicate),
+                            design.df=sim1.meta)),
+                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
+    
+    # running with 1 fe and 1 re, both numeric
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num),
+                                             design.df=sim1.meta)),
+                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
+    
+    # running with 2 fe and 2 re, both characters
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
+                                             design.df=sim1.meta)),
+                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
+})
+
+initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
+    # construct the full Z with all random effect levels
+    n.cols <- ncol(Z)
+    col.classes <- apply(Z, 2, class)
+    i.z.list <- list()
+    for(i in seq_len(n.cols)){
+        i.class <- col.classes[i]
+        if(i.class %in% c("factor")){ # treat as factors
+            i.levels <- levels(Z[, i, drop=FALSE])
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        } else if(i.class %in% c("character")){
+            i.levels <- unique(Z[, i, drop=FALSE])
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        } else if(i.class %in% c("numeric")){ # split into unique levels if integer levels
+            i.mod <- all(Z[, i, drop=FALSE] %% 1 == 0)
+            if(isTRUE(i.mod)){
+                i.levels <- unique(Z[, i])
+                i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+                i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+            } else{
+                i.z <- Z[, i, drop=FALSE] # if float then treat as continuous
+            }
+        } else if(i.class %in% c("integer")){
+            i.levels <- (unique(Z[, i]))
+            i.levels <- as.factor(paste(sort(as.integer(i.levels))))
+            i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
+        }
+        colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
+        
+        # to standardise or not?
+        if(isTRUE(stand.cols)){
+            q <- ncol(i.z)
+            i.ident <- diag(1L, nrow=nrow(i.z), ncol=nrow(i.z))
+            i.star <- i.z - ((i.ident %*% i.z)/q)
+            i.z <- i.star
+        }
+        
+        i.z.list[[colnames(Z)[i]]] <- i.z
+    }
+    full.Z <- do.call(cbind, i.z.list)
+    return(full.Z)
+}
+
+SimulateXZ <- function(N, n.fe, n.re, re.levels, fe.levels){
+    
+    # create a per-level mean effect for each FE
+    if(length(fe.levels) != n.fe){
+        stop("List entries need to match number of input fixed effects")
+    }
+    
+    if(length(re.levels) != n.re){
+        stop("List entries need to match number of input random effects")
+    }
+    
+    # create the design matrices
+    X <- matrix(0L, ncol=n.fe+1, nrow=N)
+    X[, 1] <- 1
+    colnames(X) <- c("Intercept", names(fe.levels))
+    
+    Z <- matrix(0L, ncol=n.re, nrow=N)
+    
+    for(i in seq_len(n.fe)){
+        if(fe.levels[[i]] == 1){
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                rnorm(1, mean=0, sd=1)
+            })
+        } else if(fe.levels[[i]] == 2){
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                sample(c(0, 1), 1)
+            })
+            X[, i+1] <- as.factor(X[, i+1])
+        }else{
+            X[, i+1] <- sapply(seq_len(N), FUN=function(B){
+                sample(seq_len(fe.levels[[i]]), 1)
+            })
+            X[, i+1] <- as.factor(X[, i+1])
+        }
+    }
+    
+    # Make categorical effects 0 or 1 (not 1 or 2)
+    X[,2] <- X[,2] - 1
+    
+    for(j in seq_len(n.re)){
+        if(re.levels[[j]] == 1){
+            Z[, j] <- sapply(seq_len, FUN=function(R){
+                rnorm(1, mean=1, sd=1)
+            })
+        } else{
+            Z[, j] <- sapply(seq_len(N), FUN=function(R){
+                sample(seq_len(re.levels[[j]]), 1)
+            })
+            Z[, j] <- factor(Z[, j], levels=c(1:re.levels[[j]]))
+        }
+    }
+    colnames(Z) <- names(re.levels)
+    
+    sim.data <- do.call(cbind.data.frame, list(X, Z))
+    return(sim.data)
+}
+
+
+SimulateY <- function(N, X, Z, fe.betas, re.sigmas,
+                      dispersion, grand.mean, n.fe, n.re,
+                      re.levels,
+                      fe.levels){
+    
+    # create a per-level mean effect for each FE
+    if(length(fe.levels) != n.fe){
+        stop("List entries need to match number of input fixed effects")
+    }
+    
+    if(length(re.levels) != n.re){
+        stop("List entries need to match number of input random effects")
+    }
+    
+    # construct the full Z
+    random.levels <- sapply(seq_len(length(re.levels)), FUN=function(RX) {
+        rx.name <- names(re.levels)[RX]
+        paste(rx.name, seq_len(re.levels[[rx.name]]), sep="_")
+    }, simplify=FALSE)
+    names(random.levels) <- names(re.levels)
+    
+    full.Z <- initializeFullZsim(Z, random.levels)
+    
+    # get a combination over random effects 
+    # and sample each level from the same ~Normal(0, sigma)
+    # note that the variance would be G if we also had random slopes
+    re.thetas <- list()
+    for(i in seq_len(length(re.levels))){
+        i.re <- names(random.levels[i])
+        i.levels <- length(random.levels[[i.re]])
+        i.re.means <- rnorm(n=i.levels, 0, sd=sqrt(re.sigmas[[i.re]])) # sample a random effect value
+        i.re.list <- sapply(seq_len(i.levels), FUN=function(X) i.re.means[X])
+        names(i.re.list) <- random.levels[[i.re]]
+        re.thetas[[i.re]] <- i.re.list
+    }
+    
+    B <- full.Z %*% unlist(re.thetas)
+    # map the fixed effects to mean values
+    betas <- c(grand.mean, unlist(fe.betas))
+    Beta <- X %*% betas
+    
+    i.error <- matrix(data = rnorm(N, mean=0, sd=0.001), ncol = 1)
+    
+    # construct the y.means equation, depending on desired distribution and FE/RE
+    y.means <- exp(Beta + B) 
+    y.means <- y.means + i.error
+    
+    y.counts <- rnbinom(N, mu = y.means, size = dispersion)
+    
+    sim.data <- data.frame("Mean.Count"=y.counts)
+    sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
+    
+    return(sim.data)
+}
+
+N=150
+fe.levels <- list("FE1"=2)
+re.levels <- list("RE1"=10)
+design.sim <- SimulateXZ(N=N, n.fe=length(fe.levels), n.re=length(re.levels), re.levels=re.levels, fe.levels=fe.levels)
+
+n <- 10 # number of neighborhoods
+sim.list <- c()
+
+for (i in 1:n) {
+    r.dispersion <- runif(1, min = 2, max = 2.5)
+    fe.betas=list("FE1"=runif(1, min = 0.15, max = 0.25))
+    re.sigmas=list("RE1"=runif(1, min = 0.05, max = 0.1))
+    grand.mean=runif(1, min = 1, max = 2)
+    sim.list[[i]]  <- SimulateY(N=N, X=sapply(design.sim[,1:2], as.numeric), Z=design.sim[,3, drop=FALSE], fe.betas=fe.betas, re.sigmas=re.sigmas, dispersion=r.dispersion, grand.mean=grand.mean, n.fe=length(fe.betas), n.re=length(re.sigmas), re.levels=re.levels, fe.levels=fe.levels)
+}
+
+names(sim.list) <- 1:n
+
+y <- lapply(sim.list, `[[`, 1)
+y_matrix <- matrix(unlist(y), nrow = 150, ncol = n)
+colnames(y_matrix) <- paste("n", 1:n, sep = "_")
+
+y_counts <- Matrix(t(y_matrix), sparse = T)
+rownames(y_counts) <- 1:nrow(y_counts)
+colnames(y_counts) <- 1:ncol(y_counts)
+sim1.mylo@nhoodCounts <- y_counts
+
+test_that("Providing a subset model.matrix is reproducible for glmm", {
+    X <- sapply(design.sim[,2, drop = F], as.numeric)
+    Z <- design.sim[,3, drop = F]
+    design.df <- cbind(X, Z)
+    colnames(design.df) <- c("ConditionB", "RE")
+    rownames(design.df) <- 1:nrow(design.df)
+    
+    require(Matrix)
+    subset.samples <- sample(rownames(design.df))
+    exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
+    out.da <- suppressWarnings(testNhoods(sim1.mylo, design=~ConditionB + (1|RE), fdr.weighting="k-distance",
+                                          min.mean=1,
+                                          design.df=design.df[subset.samples, ]))
+    expect_identical(nrow(out.da), exp.nh)
+    
+    set.seed(42)
+    kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~ConditionB + (1|RE), fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=design.df[subset.samples, ]))
+    kd.ref2 <- suppressWarnings(testNhoods(sim1.mylo, design=~ConditionB + (1|RE), fdr.weighting="k-distance",
+                                           min.mean=1,
+                                           design.df=design.df[subset.samples, ]))
+    expect_equal(kd.ref1, kd.ref2, tolerance=1e-6)
+})
+
