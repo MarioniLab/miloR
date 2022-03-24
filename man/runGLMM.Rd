@@ -10,7 +10,7 @@ runGLMM(
   y,
   random.levels = NULL,
   REML = TRUE,
-  glmm.control = list(theta.tol = 1e-06, max.iter = 50),
+  glmm.control = list(theta.tol = 1e-06, max.iter = 100),
   dispersion = NULL
 )
 }
@@ -33,6 +33,7 @@ runGLMM(
 This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 }
 \details{
+
 This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods, 
 this function is run to solve the model.
 }

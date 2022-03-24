@@ -117,7 +117,7 @@ We define the neighbourhood of a cell, the index, as the group of cells connecte
 As well as $d$ and $k$, for sampling we need to define a few additional parameters:
 
 - `prop`: the proportion of cells to randomly sample to start with. We suggest using `prop=0.1` for datasets of less than 30k cells. For bigger datasets using `prop=0.05` should be sufficient (and makes computation faster).
-- `refined`: indicates whether you want to use the sampling refinement algorith, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using `random` instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
+- `refined`: indicates whether you want to use the sampling refinement algorithm, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using `random` instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
 
 ```{r}
 embryo_milo <- makeNhoods(embryo_milo, prop = 0.1, k = 30, d=30, refined = TRUE, reduced_dims = "pca.corrected")
@@ -180,7 +180,7 @@ da_results <- testNhoods(embryo_milo, design = ~ sequencing.batch + stage, desig
 head(da_results)
 ```
 
-This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between developmental stages. The main statistics we consider here are: 
+This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates whether there is significant differential abundance between developmental stages. The main statistics we consider here are: 
 
 - `logFC`: indicates the log-Fold change in cell numbers between samples from E7.5 and samples from E7.0
 - `PValue`: reports P-values before FDR correction
@@ -211,7 +211,7 @@ ggplot(da_results, aes(logFC, -log10(SpatialFDR))) +
 
 Looks like we have detected several neighbourhoods were there is a significant difference in cell abundances between developmental stages. 
 
-To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying singificant DA are colored by their log-Fold Change.
+To visualize DA results relating them to the embedding of single cells, we can build an abstracted graph of neighbourhoods that we can superimpose on the single-cell embedding. Here each node represents a neighbourhood, while edges indicate how many cells two neighbourhoods have in common. Here the layout of nodes is determined by the position of the index cell in the UMAP embedding of all single-cells. The neighbourhoods displaying significant DA are colored by their log-Fold Change.
 
 ```{r, fig.width=15, fig.height=8, dev="jpeg"}
 embryo_milo <- buildNhoodGraph(embryo_milo)
@@ -228,7 +228,7 @@ umap_pl + nh_graph_pl +
   plot_layout(guides="collect")
 ```
 
-We might also be interested in visualizing wheather DA is particularly evident in certain cell types. To do this, we assign a cell type label to each neighbourhood by finding the most abundant cell type within cells in each neighbourhood. We can label neighbourhoods in the results `data.frame` using the function `annotateNhoods`. This also saves the fraction of cells harbouring the label.
+We might also be interested in visualizing whether DA is particularly evident in certain cell types. To do this, we assign a cell type label to each neighbourhood by finding the most abundant cell type within cells in each neighbourhood. We can label neighbourhoods in the results `data.frame` using the function `annotateNhoods`. This also saves the fraction of cells harbouring the label.
 
 ```{r}
 da_results <- annotateNhoods(embryo_milo, da_results, coldata_col = "celltype")
@@ -252,39 +252,6 @@ plotDAbeeswarm(da_results, group.by = "celltype")
 
 This is already quite informative: we can see that certain early development cell types, such as epiblast and primitive streak, are enriched in the earliest time stage, while others are enriched later in development, such as ectoderm cells. Interestingly, we also see plenty of DA neighbourhood with a mixed label. This could indicate that transitional states show changes in abundance in time. 
 
-<!-- # Identifying signatures of DA subpopulations -->
-
-<!-- Once we have identified neighbourhoods with significant DA, we might be interested in learning more about the gene expression signatures that define these subpopulations.  -->
-<!-- Here the analyst might get creative, depending on the specific characteristics of their dataset and the biological question of interest. In the `miloR` package, we provide functionality to explore neighbourhood markers through the function `findNhoodMarkers`. This groups significantly DA neighbourhoods that show concordant Fold-Change and performs a test for differential expression between cells in those neighbourhoods.  -->
-
-<!-- In practice, it might be convenient to subset a selected number of neighbourhoods of interest for gene-level downstream analysis. For the sake of demonstration, here we focus on identifying signatures of DA subpopulations in the endoderm development lineage.  -->
-
-<!-- ```{r} -->
-<!-- logcounts(embryo_milo) <- log1p(counts(embryo_milo)) -->
-<!-- dge_smp <- findNhoodMarkers(embryo_milo, da_results,  -->
-<!--                                      assay = "counts", gene.offset = FALSE, da.fdr = 0.1, -->
-<!--                                      aggregate.samples = TRUE, sample_col = "sample", -->
-<!--                                      subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm") -->
-<!--                                      ) -->
-
-<!-- head(dge_smp) -->
-<!-- ``` -->
-
-<!-- This identifies n marker genes at FDR 10% that distinguish two main groups within the epiblast neighbourhoods, one significantly depleted in the early stage and one significantly enriched. We can visualize expression of the detected marker genes using the function `plotNhoodExpressionDA`. This shows the average expression in each neighbourhood, ranked by log-Fold Change in the DA test. Note that the gene x nhood expression matrix can be pre-computed and stored using the `calcNhoodExpression` function, to avoid repeating the computation every time you need to plot. -->
-
-<!-- In this case we mainly identified negative markers of the epiblast neighbourhoods enriched with age. -->
-
-<!-- ```{r, fig.height=7, fig.width=9} -->
-<!-- markers <- dge_smp[which(dge_smp$adj.P.Val_1 < 0.1 ), "GeneID"] -->
-<!-- logcounts(embryo_milo) <- log1p(counts(embryo_milo)) -->
-<!-- embryo_milo <- calcNhoodExpression(embryo_milo, subset.row=markers) -->
-
-<!-- plotNhoodExpressionDA(embryo_milo, da_results, features = markers, -->
-<!--                       subset.nhoods = da_results$celltype %in% c("Anterior Primitive Streak", "Def. endoderm", "Gut", "Visceral endoderm"), -->
-<!--                       assay="logcounts",  -->
-<!--                       scale_to_1 = TRUE, cluster_features = TRUE -->
-<!--                       ) -->
-<!-- ``` -->
 
 # Finding markers of DA populations
 
@@ -337,13 +304,6 @@ plotNhoodGroups(embryo_milo, da_results, layout="umap")
 ```{r, dev="jpeg"}
 plotDAbeeswarm(da_results, "NhoodGroup")
 ```
-
-We can see that some groups are made up of single neighbourhoods.
-
-<!-- ```{r, fig.height=7, fig.width=7} -->
-<!-- singletons <- names(which(table(da_results$NhoodGroup)==1)) -->
-<!-- plotNhoodGroups(embryo_milo, da_results, layout="umap", show_groups = singletons,  size_range=c(0.2,4))  -->
-<!-- ``` -->
 
 We can easily check how changing the grouping parameters changes the groups we obtain, starting with the LFC delta by plotting with different values of `max.lfc.delta` 
 (not executed here).
@@ -444,7 +404,7 @@ ggplot(nhood_markers, aes(logFC_5, -log10(adj.P.Val_5 ))) +
   geom_point(alpha=0.5, size=0.5) +
   geom_hline(yintercept = 3)
 
-markers <- rownames(nhood_markers)[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
+markers <- nhood_markers$GeneID[nhood_markers$adj.P.Val_5 < 0.01 & nhood_markers$logFC_5 > 0]
 ```
 
 We can visualize the expression in neighbourhoods using `plotNhoodExpressionGroups`.

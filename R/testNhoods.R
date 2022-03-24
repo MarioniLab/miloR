@@ -110,12 +110,15 @@ testNhoods <- function(x, design, design.df,
     if(is(design, "formula")){
         # parse to find random and fixed effects
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
+
         if(any(grepl(parse, pattern="1*\\|"))){
             message("Random effects found")
+
             is.lmm <- TRUE
             # make model matrices for fixed and random effects
             z.model <- .parse_formula(design, design.df, vtype="re")
             rownames(z.model) <- rownames(design.df)
+
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
             max.iters <- max.iters
@@ -285,6 +288,7 @@ testNhoods <- function(x, design, design.df,
                       "Converged"=unlist(lapply(fit, `[[`, 6)))
         rownames(res) <- 1:length(fit)
         colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+
 
     } else {
         

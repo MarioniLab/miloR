@@ -33,7 +33,7 @@ library(patchwork)
 
 # Introduction
 
-Milo is a tool for analysis of complex single cell datasets generated from replicated multi-condition experiments, which detects changes in composition between conditions. While differential abundance (DA) is commonly quantified in discrete cell clusters, Milo uses partally overlapping neighbourhoods of cells on a KNN graph. Starting from a graph that faithfully recapitulates the biology of the cell population, Milo analysis consists of 3 steps:
+Milo is a tool for analysis of complex single cell datasets generated from replicated multi-condition experiments, which detects changes in composition between conditions. While differential abundance (DA) is commonly quantified in discrete cell clusters, Milo uses partially overlapping neighbourhoods of cells on a KNN graph. Starting from a graph that faithfully recapitulates the biology of the cell population, Milo analysis consists of 3 steps:
 
 1. Sampling of representative neighbourhoods 
 2. Testing for differential abundance of conditions in all neighbourhoods
@@ -142,7 +142,7 @@ For sampling you need to define a few parameters:
 - `prop`: the proportion of cells to randomly sample to start with (usually 0.1 - 0.2 is sufficient)
 - `k`: the k to use for KNN refinement (we recommend using the same k used for KNN graph building)
 - `d`: the number of reduced dimensions to use for KNN refinement (we recommend using the same d used for KNN graph building)
-- `refined` indicated whether you want to use the sampling refinement algorith, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using random instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
+- `refined` indicated whether you want to use the sampling refinement algorithm, or just pick cells at random. The default and recommended way to go is to use refinement. The only situation in which you might consider using random instead, is if you have batch corrected your data with a graph based correction algorithm, such as [BBKNN](https://github.com/Teichlab/bbknn), but the results of DA testing will be suboptimal.
 
 ```{r}
 traj_milo <- makeNhoods(traj_milo, prop = 0.1, k = 10, d=30, refined = TRUE)
@@ -197,7 +197,7 @@ rownames(traj_design) <- traj_design$Sample
 da_results <- testNhoods(traj_milo, design = ~ Condition, design.df = traj_design)
 ```
 
-This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates wheather there is significant differential abundance between conditions.
+This calculates a Fold-change and corrected P-value for each neighbourhood, which indicates whether there is significant differential abundance between conditions.
 
 ```{r}
 da_results %>%

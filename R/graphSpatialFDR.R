@@ -158,7 +158,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
 
     # use 1/connectivity as the weighting for the weighted BH adjustment from Cydar
     w <- 1/unlist(t.connect)
-    w[is.infinite(w)] <- 0
+    w[is.infinite(w)] <- 1
 
     # Computing a density-weighted q-value.
     o <- order(pvalues)

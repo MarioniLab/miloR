@@ -71,6 +71,7 @@
     # need to decide on how to handle intercept terms - i.e. FE or RE
     sp.form <- unlist(strsplit(as.character(in.form),
                                split="+", fixed=TRUE))
+
     if(vtype %in% c("re")){
         v.terms <- unlist(lapply(sp.form, FUN=function(sp) {
             return(ifelse(grepl(trimws(sp), pattern="\\|"), .rEParse(trimws(sp)), NA))
@@ -87,6 +88,7 @@
 
     return(d.mat)
 }
+
 
 #' @export
 .rEParse <- function(re.form) {

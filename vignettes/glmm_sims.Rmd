@@ -29,7 +29,7 @@ library(lmerTest)
 ```
 
 ```{r}
-source("~/Documents/Milo2.0/R_scripts/miloR/R/glmm_new.R")
+source("~/src/miloR/R/glmm_new.R")
 ```
 
 I'll start by writing a function that simulates a data set with N observations. This will be useful for evaluating the consistency of our model over repeated runs.
@@ -328,7 +328,7 @@ sim.df$RE1 <- as.factor(sim.df$RE1)
 
 By having this wrapped up in a function I can replicate it multiple times to get a series of simulations.
 
-```{r, fig.height=2.55, fig.width=4.95}
+```{r, fig.height=3.55, fig.width=4.95}
 sim.melt <- melt(sim.df, id.vars=c("Mean", "Mean.Count", "Intercept", "FE2"))
 
 ggplot(sim.melt, aes(x=value, y=Mean.Count)) +
@@ -349,8 +349,8 @@ ggplot(sim.df, aes(x=FE2, y=Mean.Count)) +
     NULL
 ```
 
-This shows the relationship between the continuous variables and the mean counts. With these data I will compare my implementation to glmmTMB and a straight-up 
-ANOVA-mixed model.
+This shows the relationship between the continuous variables and the mean counts. With these data I will compare my implementation to glmmTMB 
+and a straight-up ANOVA-mixed model.
 
 ## glmmTMB
 
@@ -373,21 +373,22 @@ cc <- coef(summary(nb.glm))
 ## My model
 
 ```{r, warning=TRUE}
+set.seed(41) #42
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
 X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
 y <- sim.df$Mean.Count
 dispersion <- 0.5
 
-random.levels <- list("RE3"=paste("RE3", levels(as.factor(sim.df$RE3)), sep="_"))
-X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
-Z <- as.matrix(data.frame("RE3"=as.numeric(sim.df$RE3)))
-y <- sim.df$Mean.Count
-dispersion <- 0.5
+# covariance between u's
+glmm.control <- glmmControl.defaults()
+glmm.control$theta.tol <- 1e-5
+glmm.control$max.iter <- 15
 
 model.list <- miloR::runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion)
 model.coef <- c(model.list$FE, model.list$Sigma)
 ```
+
 
 ```{r}
 print("coefficients")
@@ -403,65 +404,55 @@ model.list$pvalue
 Above shows the coefficient and variance component estimates. We can evaluate the model a bit more by looking at the convergence and loglihood across iterations.
 
 ```{r}
-
+conv.list <- model.list$Iterations
 diff.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Theta.Diff
-                            names(x) <- rownames(X$Theta.Diff)
-                            x
-                            })))
+                            if(!is.null(ncol(X$Theta.Diff))){
+                                x <- X$Theta.Diff[, 1]
+                                names(x) <- rownames(X$Theta.Diff)
+                            } else{
+                               x <- X$Theta.Diff
+                               names(x) <- c(colnames(X), paste(colnames(Z), c(1:length(levels(as.factor(sim.df$RE1)))), sep="_"))
+                            }
+                            x})))
 diff.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 12)
-# likli.df <- do.call(rbind.data.frame,
-#                     lapply(conv.list, function(X){
-#                         X$Loglihood
-#                         }))
-# colnames(likli.df) <- c("Loglihood")
-# likli.df$Iters <- seq_len(nrow(likli.df))
-
-# full.logli.df <- do.call(rbind.data.frame,
-#                     lapply(conv.list, function(X){
-#                         X$Full.Loglihood
-#                         }))
-# colnames(full.logli.df) <- c("Full.Loglihood")
-# full.logli.df$Iters <- seq_len(nrow(full.logli.df))
 
 
 theta.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Theta
-                            names(x) <- rownames(X$Theta)
+                            if(!is.null(ncol(X$Theta))){
+                                x <- X$Theta[, 1]
+                                names(x) <- rownames(X$Theta)
+                            } else{
+                                x <- x$Theta
+                                names(x) <- c(colnames(X), paste(colnames(Z), c(1:length(levels(as.factor(sim.df$RE1)))), sep="_"))
+                            }
                             x
                             })))
 theta.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 12)
 
 variance.diff.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Sigma.Diff
+                            if(!is.null(ncol(X$Sigma.Diff))){
+                                x <- X$Sigma.Diff[, 1]
+                            } else{
+                                x <- X$Sigma.Diff
+                            }
                             x
                             })))
+
 variance.diff.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 1)
 
 variance.df <- melt(do.call(cbind,
                         lapply(conv.list, function(X){
-                            x <- X$Sigma
+                            if(!is.null(ncol(X$Sigma))){
+                                x <- X$Sigma[, 1]
+                            } else{
+                                x <- X$Sigma
+                            }
                             x
                             })))
 variance.df$Var2 <- rep(1:(max(as.numeric(names(model.list$Iterations)))), each = 1)
-
-# var.comp.df <- melt(do.call(cbind,
-#                             lapply(conv.list, function(X){
-#                                 x <- X$Var.Comps
-#                                 names(x) <- c(names(random.levels), "residual")
-#                                 x
-#                                 })))
-
-# diff.var.comp.df <- melt(do.call(cbind,
-#                             lapply(conv.list, function(X){
-#                                 x <- X$Var.Comp.Diff
-#                                 names(x) <- c(names(random.levels), "residual")
-#                                 x
-#                                 })))
-# diff.var.comp.df <- diff.var.comp.df[!is.na(diff.var.comp.df$Var1), ]
 ```
 
 ```{r}
@@ -534,44 +525,6 @@ ggplot(variance.df, aes(x=Var2, y=(value), colour=Var1, group=Var1)) +
 ```
 
 Let's also plot the shape of the loglihood over the different parameter values for the variance components.
-
-```{r, fig.height=3.15, fig.width=8.15}
-var.loglihood.df <- merge(likli.df, var.comp.df, by.x='Iters', by.y='Var2')
-colnames(var.loglihood.df) <- c("Iters", "Loglihood", "VarComp", "VarComp.value")
-var.loglihood.df <- merge(var.loglihood.df, theta.df, by.x='Iters', by.y='Var2')
-
-ggplot(var.loglihood.df, 
-       aes(x=VarComp.value, y=Loglihood, colour=VarComp, group=Var1)) +
-    # geom_point() +
-    geom_line() +
-    theme_cowplot() +
-    scale_colour_npg() +
-    # scale_x_continuous(breaks=c(0:100)) +
-    labs(x="Param value", y="Loglihood") +
-    facet_wrap(~VarComp, scales="free_x") +
-    # expand_limits(y=c(0)) +
-    NULL
-```
-
-
-```{r, fig.height=6.15, fig.width=8.15}
-var.loglihood.df <- merge(full.logli.df, var.comp.df, by.x='Iters', by.y='Var2')
-colnames(var.loglihood.df) <- c("Iters", "Loglihood", "VarComp", "VarComp.value")
-var.loglihood.df <- merge(var.loglihood.df, theta.df, by.x='Iters', by.y='Var2')
-
-ggplot(var.loglihood.df, 
-       aes(x=value, y=Loglihood, colour=Var1, group=Var1)) +
-    # geom_point() +
-    geom_line() +
-    theme_cowplot() +
-    scale_colour_ptol() +
-    # scale_x_continuous(breaks=c(0:100)) +
-    labs(x="Param value", y="Loglihood") +
-    facet_wrap(~Var1, scales="free_x") +
-    # expand_limits(y=c(0)) +
-    NULL
-```
-
 Without the Hessian for the variance components we can't estimate any SEs. If only one of the REs is included then the model can be quite unstable, however, 
 this might just be how I've set up the simulations as much as the model being problematic.
 
