@@ -136,7 +136,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
 
 #' @importMethodsFrom Matrix %*%
 #' @export
-computeW <- function(D_inv=D_inv, V=V){
+computeW <- function(D_inv, V){
     W = D_inv %*% V %*% D_inv
     return(W)
 }
@@ -200,11 +200,6 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
     # (A + UBU^T)^-1 = A^-1 - A^-1UB[I + U^TA^-1UB]^-1U^TA^-1
     # Only requires A^-1, where B = ZGZ^T, A=W, U=Z
 
-    # Rcpp function
-    # I <- diag(x=1, nrow=ncol(full.Z), ncol=ncol(full.Z))
-    # midinv <- solve(I + (t(full.Z) %*% W_inv %*% full.Z %*% curr_G))
-    #
-    # vsinv_R <-  W_inv - (W_inv %*% full.Z %*% curr_G %*% midinv %*% t(full.Z) %*% W_inv)
     vsinv_C <- invertPseudoVar(as.matrix(W_inv), as.matrix(curr_G), as.matrix(full.Z))
 
     return(vsinv_C)
@@ -218,10 +213,7 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
     mat.list <- list()
     mat.list[["XBETA"]] <- X %*% curr_beta
     mat.list[["ZU"]] <- full.Z %*% curr_u
-    # mat.list[["VSTARDi"]] <- multiP(partials=V_partial, psvar_in=as.matrix(V_star_inv))
 
-
-    # mat.list[["VSTARDi"]] <- sapply(seq_along(V_partial), FUN=function(i) V_star_inv %*% V_partial[[i]]) # this is also a list of matrices
     mat.list[["YSTARMINXB"]] <- y_star - mat.list[["XBETA"]]
     mat.list[["XTVSTAR"]] <- t(X) %*% V_star_inv
     mat.list[["VSTARX"]] <- V_star_inv %*% X
@@ -660,18 +652,7 @@ Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V
     jac_list <- lapply(1:ncol(jac), function(i)
         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
 
-    #next, calculate V_a, the asymptotic covariance matrix of the estimated covariance parameters
-    #given by formula below
-
-    # ## make Va then broadcast out to the RE levels
-    # V_a <- Matrix(0L, nrow=length(curr_sigma), ncol=length(curr_sigma))
-    #
-    # for(i in seq_along(V_partial)){
-    #     for(j in seq_along(V_partial)){
-    #         ## broadcast out to the individual RE levels
-    #         V_a[i, j] <- 2*(1/(matrix.trace(V_partial[[i]] %*% V_partial[[j]]))) # V_partial contains P * dV/dSigma
-    #     }
-    # }
+    # V_a is provided externally
 
     df <- rep(NA, length(curr_beta))
     for (i in 1:length(curr_beta)) {
