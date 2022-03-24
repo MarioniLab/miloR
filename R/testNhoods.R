@@ -217,7 +217,7 @@ testNhoods <- function(x, design, design.df,
         warning("Sample names in design matrix and nhood counts are not matched. Reordering")
         x.model <- x.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
         if(is.lmm){
-            z.model <- z.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+            z.model <- z.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), , drop = FALSE]
         }
     }
 

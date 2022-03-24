@@ -184,10 +184,15 @@ computeD <- function(mu){
 #' @importFrom Matrix crossprod
 #' @export
 computeV_star <- function(full.Z, curr_G, W){
+<<<<<<< HEAD
     # V_star_R <- (full.Z %*% curr_G %*% t(full.Z)) + W
     V_star_C <- computeVStar(as.matrix(full.Z), as.matrix(curr_G), as.matrix(W))
 
     return(V_star_C)
+=======
+    V_star = full.Z %*% curr_G %*% t(full.Z) + W
+    return(V_star)
+>>>>>>> 7861faf (latest updates)
 }
 
 
@@ -201,6 +206,7 @@ computey_star <- function(X, curr_beta, full.Z, D_inv, curr_u, y){
 
 #' @importMethodsFrom Matrix %*%
 #' @export
+<<<<<<< HEAD
 computeV_partial <- function(full.Z, random.levels, u_indices){
     # wrapper for c++ function
     # currently doesn't support a sparse matrix (why???)
@@ -208,6 +214,16 @@ computeV_partial <- function(full.Z, random.levels, u_indices){
     V_partial_vec_C <- pseudovarPartial(x=as.matrix(full.Z), rlevels=random.levels, cnames=colnames(full.Z))
 
     return(V_partial_vec_C)
+=======
+computeV_partial <- function(full.Z, random.levels, curr_sigma){
+    V_partial_vec <- list()
+    indx <- c(0, cumsum(lengths(random.levels)))
+    for (i in 1:length(random.levels)) {
+      Z.temp <- full.Z[ , (indx[i]+1):(indx[i+1])]
+      V_partial_vec[[i]] <- Z.temp %*% t(Z.temp)
+    }
+    return(V_partial_vec)
+>>>>>>> 7861faf (latest updates)
 }
 
 
@@ -225,6 +241,7 @@ computeVstar_inverse <- function(full.Z, curr_G, W_inv){
 
 #' @importMethodsFrom Matrix %*%
 #' @export
+<<<<<<< HEAD
 preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star){
     # precompute certain matrices from matrix multiplications that are needed > once
     mat.list <- list()
@@ -236,11 +253,20 @@ preComputeMatrices <- function(V_star_inv, V_partial, X, curr_beta, full.Z, curr
     mat.list[["VSTARX"]] <- V_star_inv %*% X
 
     return(mat.list)
+=======
+sigmaScore <- function(V_star_inv, V_partial, y_star, X, curr_beta, random.levels){
+    score_vec <- Matrix(0, nrow = length(V_partial), ncol = 1, sparse = TRUE)
+    for (i in 1:length(V_partial)){
+      score_vec[i,1] <- -0.5*matrix.trace(V_star_inv %*% V_partial[[i]]) + 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
+    }
+    return(score_vec)
+>>>>>>> 7861faf (latest updates)
 }
 
 
 #' @importMethodsFrom Matrix %*%
 #' @export
+<<<<<<< HEAD
 sigmaScore <- function(matrix_list, V_partial, V_star_inv, random.levels){
     score_vec <- NA
     for (i in seq_along(random.levels)) {
@@ -251,12 +277,19 @@ sigmaScore <- function(matrix_list, V_partial, V_star_inv, random.levels){
         score_vec[i] <- LHS + RHS
     }
     return(score_vec)
+=======
+sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
+  info_vec <- Matrix(sapply(1:length(random.levels), function(i){
+    0.5*matrix.trace(V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% V_partial[[i]])}), ncol =1, sparse = TRUE)
+  return(info_vec)
+>>>>>>> 7861faf (latest updates)
 }
 
 
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix
 #' @export
+<<<<<<< HEAD
 sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 
     sigma_info <- Matrix(0L, ncol=length(V_partial), nrow=length(V_partial))
@@ -269,6 +302,14 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
         }
     }
     return(sigma_info)
+=======
+computePV <- function(V_partial, P){
+  PV <- list()
+  for (i in 1:length(V_partial)) {
+    PV[[i]] <- P %*% V_partial[[i]]
+  }
+  return(PV)
+>>>>>>> 7861faf (latest updates)
 }
 
 
@@ -276,6 +317,7 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix
 #' @export
+<<<<<<< HEAD
 sigmaScoreREML <- function(y_star, PV, P, random.levels){
     score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
 
@@ -288,12 +330,21 @@ sigmaScoreREML <- function(y_star, PV, P, random.levels){
     }
 
     return(score_vec)
+=======
+sigmaScoreREML <- function(V_star_inv, V_partial, y_star, X, curr_beta, P, random.levels, PV){
+  score_vec <- Matrix(0, nrow = length(V_partial), ncol = 1, sparse = TRUE)
+  for (i in 1:length(V_partial)) {
+    score_vec[i,1] <- -0.5*matrix.trace(PV[[i]]) + 0.5*t(y_star - X %*% curr_beta) %*% V_star_inv %*% V_partial[[i]] %*% V_star_inv %*% (y_star - X %*% curr_beta)
+  }
+  return(score_vec)
+>>>>>>> 7861faf (latest updates)
 }
 
 
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix crossprod Matrix
 #' @export
+<<<<<<< HEAD
 sigmaInformationREML <- function(PV, random.levels) {
     # this should be a matrix
     sigma_info <- Matrix(0L, ncol=length(random.levels), nrow=length(random.levels))
@@ -305,12 +356,19 @@ sigmaInformationREML <- function(PV, random.levels) {
     }
 
     return(sigma_info)
+=======
+sigmaInformationREML <- function(V_star_inv, V_partial, P, random.levels, PV) {
+  info_vec <- Matrix(sapply(1:length(random.levels), function(i){
+    0.5*matrix.trace(PV[[i]] %*% PV[[i]])}), ncol=1, sparse = TRUE)
+  return(info_vec)
+>>>>>>> 7861faf (latest updates)
 }
 
 
 #' @importMethodsFrom Matrix %*%
 #' @export
 computeP_REML <- function(V_star_inv, X) {
+<<<<<<< HEAD
     # breaking these down to individual steps speeds up the operations considerably
     tx.m <- t(X) %*% V_star_inv
     x.inv <- computeInv(tx.m %*% X)
@@ -321,6 +379,10 @@ computeP_REML <- function(V_star_inv, X) {
     P <- V_star_inv - Pminus %*% tx.inv
 
     return(P)
+=======
+   P <- V_star_inv - V_star_inv %*% X %*% solve(t(X) %*% V_star_inv %*% X) %*% t(X) %*% V_star_inv
+   return(P)
+>>>>>>> 7861faf (latest updates)
 }
 
 
@@ -445,7 +507,10 @@ computePV <- function(V_partial, P){
 #' @importFrom Matrix solve
 #' @export
 solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7861faf (latest updates)
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
@@ -625,7 +690,10 @@ glmmControl.defaults <- function(...){
 #' @importFrom Matrix solve diag
 #' @export
 calculateSE <- function(X, full.Z, W_inv, G_inv) {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 7861faf (latest updates)
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
@@ -698,10 +766,18 @@ makeCoefMatrix <- function(X, full.Z, W_inv, G_inv){
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
 
-    if(any(class(curr_sigma) %in% c("Matrix", "matrix", "dgeMatrix", "dgCMatrix"))){
-        curr_sigma <- as.vector(curr_sigma)
+Satterthwaite_df <- function(X, PV, SE, REML, W_inv, full.Z, curr_sigma, curr_beta, random.levels, V_partial, V_star_inv, G_inv) {
+
+  ###---- first calculate g = derivative of C with respect to sigma ----
+    function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
+      UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
+      UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
+      LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
+      LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
+      n <- length(random.levels)
+      diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
+      C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
     }
 
     jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
