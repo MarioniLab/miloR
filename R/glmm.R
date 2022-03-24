@@ -1,17 +1,17 @@
 #' Perform differential abundance testing using a NB-generalised linear mixed model
-#' 
+#'
 #' This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 #'
 #' @param X A matrix containing the fixed effects of the model.
 #' @param Z A matrix containing the random effects of the model.
-#' @param y A matrix containing the observed phenotype over each neighborhood. 
+#' @param y A matrix containing the observed phenotype over each neighborhood.
 #' @param REML A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.
 #' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
 #' @param glmm.control A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.
 #' @param dispersion A scalar value for the dispersion of the negative binomial.
-#' 
-#' @details 
-#' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods, 
+#'
+#' @details
+#' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
 #' this function is run to solve the model.
 #'
 #'
@@ -27,27 +27,27 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     # X - fixed effects model matrix
     # Z - random effects model matrix
     # y - observed phenotype
-  
+
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
-    
-    # OLS for the betas is usually a good starting point for NR                    
-    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)  
+
+    # OLS for the betas is usually a good starting point for NR
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
 
     # create full Z with expanded random effect levels
     full.Z <- initializeFullZ(Z)
     colnames(full.Z) <- unlist(random.levels)
-    
+
     # sample random value for RE us
     curr_u <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1, sparse = TRUE)
-    
+
     # sample variances of the us
     curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
-    
+
     #create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
 
-    #compute mu.vec using inverse link function                   
+    #compute mu.vec using inverse link function
     mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
     r <- dispersion
@@ -87,16 +87,16 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         }
         sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma, random.levels=random.levels)
         sigma_diff <- abs(sigma_update - curr_sigma)
-        
+
         # update sigma, G, and G_inv
         curr_sigma <- sigma_update
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
         G_inv <- solve(curr_G)
-        
+
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
-        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
+        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star)
         theta_diff <- abs(theta_update - curr_theta)
-        
+
         # update B, u and mu_vec to determine new values of score and hessian matrices
         curr_theta <- theta_update
         rownames(curr_theta) <- c(colnames(X), colnames(full.Z))
@@ -107,12 +107,12 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         iters <- iters + 1
         meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
     }
-    
+
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
     Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
     df <- Satterthwaite_df(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
-        
+
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
     final.list <- list("FE"=as.vector(curr_beta),
                        "RE"=as.vector(curr_u),
@@ -121,7 +121,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "converged"=converged,
                        "Iters"=iters,
-                       "Dispersion"=r, 
+                       "Dispersion"=r,
                        "SE"=SE,
                        "Zscore"=Zscore,
                        "df" = df,
@@ -129,7 +129,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
 		       "VSTAR"=V_star,
 		       "Hessian"=information_sigma,
                        "pvalue"=Pvalue)
-		       
+
     return(final.list)
 }
 
@@ -424,7 +424,7 @@ computePV <- function(V_partial, P){
 #' @importFrom Matrix Matrix
 #' @export
 initializeFullZ <- function(Z) {
-  full.Z <- matrix(,nrow=nrow(Z), ncol = 0)
+  full.Z <- matrix(0L, nrow=nrow(Z), ncol = 0)
   for (i in 1:ncol(Z)) {
     temp.Z <- Matrix(table(seq_along(1:nrow(Z)), Z[,i]), sparse = TRUE)
     full.Z <- cbind(full.Z, temp.Z)
@@ -593,7 +593,7 @@ matrix.trace <- function(x){
 inv <- function(x){
   if (det(x) > 8.313969e-20) {
     solve(x)
-  } else { 
+  } else {
     stop("det is 0")
   }
 }

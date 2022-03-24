@@ -10,20 +10,25 @@ computeVStar <- function(Z, G, W) {
 #' Iteratively estimate GLMM fixed and random effect parameters, and variance
 #' component parameters using Fisher scoring based on the Pseudo-likelihood
 #' approximation to a Normal loglihood.
-#' @param Z sp_mat - sparse matrix that maps random effect variable levels to
+#' @param Z mat - sparse matrix that maps random effect variable levels to
 #' observations
-#' @param X sp_mat - sparse matrix that maps fixed effect variables to
+#' @param X mat - sparse matrix that maps fixed effect variables to
 #' observations
-#' @param muvec NumericVector vector of estimated phenotype means
-#' @param curr_theta NumericVector vector of initial parameter estimates
-#' @param curr_beta NumericVector vector of initial beta estimates
-#' @param curr_u NumericVector of initial u estimates
-#' @param curr_G NumericVector of initial sigma estimates
-#' @param y NumericVector of observed counts
+#' @param muvec vec vector of estimated phenotype means
+#' @param curr_theta vec vector of initial parameter estimates
+#' @param curr_beta vec vector of initial beta estimates
+#' @param curr_u vec of initial u estimates
+#' @param curr_sigma vec of initial sigma estimates
+#' @param curr_G mat c X c matrix of variance components
+#' @param y vec of observed counts
+#' @param u_indices List a List, each element contains the indices of Z relevant
+#' to each RE and all its levels
+#' @param theta_conv double Convergence tolerance for paramter estimates
 #' @param rlevels List containing mapping of RE variables to individual
 #' levels
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
+#' @param maxit int maximum number of iterations if theta_conv is FALSE
 fitPLGlmm <- function(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
     .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }
@@ -71,7 +76,4 @@ pseudovarPartial <- function(x, rlevels, cnames) {
 pseudovarPartial_C <- function(Z, u_indices) {
     .Call('_miloR_pseudovarPartial_C', PACKAGE = 'miloR', Z, u_indices)
 }
-
-#' Compute the matrix trace of a product of 4 matrices
-NULL
 
