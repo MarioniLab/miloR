@@ -30,9 +30,9 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
 
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
-
-    # OLS for the betas is usually a good starting point for NR
-    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
+    
+    # OLS for the betas is usually a good starting point for NR                    
+    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)  
 
     # create full Z with expanded random effect levels
     full.Z <- initializeFullZ(Z)
@@ -50,8 +50,6 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     #compute mu.vec using inverse link function
     mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
-    r <- dispersion
-
     theta_diff <- rep(Inf, nrow(curr_theta))
     sigma_diff <- Inf
 
@@ -62,13 +60,13 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     conv.list <- list()
     iters <- 1
     meet.conditions <- !((all(theta_diff < theta.conv)) & (sigma_diff < theta.conv) | iters >= max.hit)
-
+    
     while(meet.conditions){
         #compute all matrices - information about them found within their respective functions
         D <- computeD(mu=mu.vec)
         D_inv <- solve(D)
         y_star <- computey_star(X=X, curr_beta = curr_beta, full.Z = full.Z, D_inv = D_inv, curr_u = curr_u, y=y)
-        V <- computeV(mu=mu.vec, r=r)
+        V <- computeV(mu=mu.vec, r=dispersion)
         W <- computeW(D_inv=D_inv, V=V)
         W_inv <- solve(W)
         V_star <- computeV_star(full.Z=full.Z, curr_G=curr_G, W=W)
@@ -94,7 +92,11 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         G_inv <- solve(curr_G)
 
         #---- Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u---####
-        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star)
+        theta_update <- solve_equations(X=X, W_inv=W_inv, full.Z=full.Z, G_inv=G_inv, curr_beta=curr_beta, curr_u=curr_u, y_star=y_star) 
+        if (isTRUE(theta_update)) {
+          stop("Hessian is computationally singular - cannot solve GLMM")
+        }
+        
         theta_diff <- abs(theta_update - curr_theta)
 
         # update B, u and mu_vec to determine new values of score and hessian matrices
@@ -104,13 +106,17 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         curr_u <- curr_theta[colnames(full.Z), , drop=FALSE]
         mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
 
+        if (any(is.infinite(mu.vec))) {
+          stop("Estimates increasing to infinity - cannot solve GLMM.")
+        }
+        
         iters <- iters + 1
-        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit)
+        meet.conditions <- !((all(theta_diff < theta.conv)) & (all((sigma_diff) < theta.conv))| iters >= max.hit) 
     }
 
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
     Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
-    df <- Satterthwaite_df(X=X, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
+    df <- Satterthwaite_df(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
 
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
@@ -121,13 +127,13 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
                        "Sigma.Converged"=sigma_diff < theta.conv,
                        "converged"=converged,
                        "Iters"=iters,
-                       "Dispersion"=r,
+                       "Dispersion"=dispersion,
                        "SE"=SE,
                        "Zscore"=Zscore,
                        "df" = df,
-		       "G"=curr_G,
-		       "VSTAR"=V_star,
-		       "Hessian"=information_sigma,
+                       "G"=curr_G,
+                       "VSTAR"=V_star,
+                       "Hessian"=information_sigma,
                        "pvalue"=Pvalue)
 
     return(final.list)
@@ -437,7 +443,12 @@ solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
     LHS <- rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight))
     RHS <- rbind((t(X) %*% W_inv %*% y_star), (t(full.Z) %*% W_inv %*% y_star))
 
-    theta_update <- solve(LHS) %*% RHS
+    theta_update <- tryCatch({solve(LHS) %*% RHS}
+             , error = function(e){ 
+               exit <- TRUE
+               }
+    )
+
     return(theta_update)
 }
 
@@ -580,6 +591,7 @@ matrix.trace <- function(x){
     }
 }
 
+
 #' @importFrom MASS ginv
 #' @export
 inv <- function(x){
@@ -607,7 +619,8 @@ calculateSE <- function(X, full.Z, W_inv, G_inv) {
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
     LowerRight <- t(full.Z) %*% W_inv %*% full.Z + G_inv
-    se <- sqrt(diag(solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)))
+    vcov <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+    se <- sqrt(diag(vcov))
     return(se)
 }
 

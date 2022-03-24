@@ -33,6 +33,7 @@ runGLMM(
 This function will perform DA testing on all nhoods using a negative binomial generalised linear mixed model
 }
 \details{
-This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
+
+This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods, 
 this function is run to solve the model.
 }

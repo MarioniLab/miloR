@@ -356,7 +356,7 @@ and a straight-up ANOVA-mixed model.
 
 ```{r}
 sim.df$RE3 <- runif(nrow(sim.df))
-nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + FE2 + (1|RE3), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
 summary(nb.glm)
 
 cc <- coef(summary(nb.glm))
@@ -377,7 +377,6 @@ set.seed(41) #42
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim.df$RE1)), sep="_"), "RE2"=paste("RE2", levels(as.factor(sim.df$RE2)), sep="_"))
 X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)-1, "FE2"=as.numeric(sim.df$FE2)))
 Z <- as.matrix(data.frame("RE1"=as.numeric(sim.df$RE1), "RE2"=as.numeric(sim.df$RE2)))
-Z <- as.matrix("RE1" <- runif(nrow(X)))
 y <- sim.df$Mean.Count
 dispersion <- 0.5
 
@@ -1168,7 +1167,12 @@ ggplot(to_plot_f, aes(y = value, x = true_value, group = analysis)) +
     #scale_y_continuous(limits = c(0, 5e-20), expand = c(0,0)) +
     scale_fill_brewer(palette="Blues") +
     NULL
-
-, breaks = seq(0.05, 1, 0.2),
 ```
->>>>>>> alice
+
+```{r}
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+summary(nb.glm)
+runGLMM()
+lmer()
+```
+

@@ -212,65 +212,94 @@ names(sim.list) <- 1:n
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-s.l <- sim.list
-y <- lapply(s.l, `[[`, 1)
+y <- lapply(sim.list, `[[`, 1)
 y_matrix <- matrix(unlist(y), nrow = 150, ncol = n)
 colnames(y_matrix) <- paste("n", 1:n, sep = "_")
-means <- colMeans(y_matrix)
-variance <- apply(y_matrix, 2, function(x) var(x))
+#means <- colMeans(y_matrix)
+#variance <- apply(y_matrix, 2, function(x) var(x))
 
-plot(x = (means), y = (variance), main="Mean vs. variance",
-   xlab="Mean", ylab="Variance", pch=20)
-abline(coef = c(0,1))
+# plot(x = (means), y = (variance), main="Mean vs. variance",
+#    xlab="Mean", ylab="Variance", pch=20)
+# abline(coef = c(0,1))
 
-hist(y_matrix)
+#hist(y_matrix)
 #hist(matrix(nhoodCounts(milo.obj)))
 ```
 
 
 ```{r}
-dge <- DGEList(counts=t(y_matrix), lib.size=colSums(t(y_matrix)))
-dge <- calcNormFactors(dge, method="TMM")
-dge <- estimateDisp(dge, robust = TRUE)
-dispersion <- dge$trended.dispersion
+# dge <- DGEList(counts=t(y_matrix), lib.size=colSums(t(y_matrix)))
+# dge <- calcNormFactors(dge, method="TMM")
+# dge <- estimateDisp(dge, robust = TRUE)
+# dispersion <- dge$trended.dispersion
+# 
+# # run glmm
+# X <- sapply(design.sim[,1:2], as.numeric)
+# Z <- design.sim[,3, drop = F]
+# random.levels <- list("RE1"=paste("RE1", levels(as.factor(design.sim$RE1)), sep="_"))
+# 
+# message("Running glmm - this may take a few minutes")
+# 
+# try(
+#     glmmWrapper <- function(sim.df, dispersion){
+#         y <- sim.df$Mean.Count
+#         dispersion <- 1/dispersion
+#         nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+#         model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
+#         out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+#                              "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
+#     })
+# 
+# fit <- mapply(FUN = glmmWrapper, sim.list, dispersion, SIMPLIFY = F)
+# 
+# 
+# results.df <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+#                     "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+#                     "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+#                     "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+# vars <- c("(intercept)", "(slope)")
+# rownames(results.df) <- paste("N", rep(names(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(results.df)/2))
+# head(results.df)
+```
+
+```{r}
+# side note, checking satterthwaite
+dispersion <- 3
+sim.df <- sim.list[[1]]
 
 # run glmm
 X <- sapply(design.sim[,1:2], as.numeric)
 Z <- design.sim[,3, drop = F]
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(design.sim$RE1)), sep="_"))
+y <- sim.df$Mean.Count
 
-message("Running glmm - this may take a few minutes")
+nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+#summary(nb.glm)
+model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
 
-try(
-    glmmWrapper <- function(sim.df, dispersion){
-        y <- sim.df$Mean.Count
-        dispersion <- 1/dispersion
-        nb.glm <- glmmTMB(Mean.Count ~ 1 + FE1 + (1|RE1), data=sim.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
-        model.list <- runGLMM(X=X, Z=Z, y=y, random.levels=random.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
-        out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
-                             "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
-    })
+sim.df$ystar <- as.vector(model.list$ystar)
+test <- lmerTest::lmer(ystar ~ 1 + FE1 + (1|RE1), data = sim.df, REML = TRUE)
+#summary(test)
 
-fit <- mapply(FUN = glmmWrapper, sim.list, dispersion, SIMPLIFY = F)
+coef(summary(test))
+cbind(model.list$FE, model.list$SE, model.list$df, model.list$Zscore, model.list$pvalue)
+coef(summary(nb.glm))
 
+plot <- cbind.data.frame(matrix(coef(summary(test))[,5]), model.list$pvalue, matrix(coef(summary(nb.glm))$cond[,4]))
+colnames(plot) <- c("lmer", "glmm", "TMB")
+plot$variable <- rownames(plot)
+plot_longer <- pivot_longer(plot, cols = c("lmer", "glmm", "TMB"))
+plot_longer1 <- dplyr::filter(plot_longer, variable == "Intercept")
 
-results.df <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
-                    "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
-                    "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                    "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
-vars <- c("(intercept)", "(slope)")
-rownames(results.df) <- paste("N", rep(names(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(results.df)/2))
-head(results.df)
-```
-```{r}
-# # side note, checking satterthwaite
-# sim.df$ystar <- as.vector(y_star)
-# test <- lmerTest::lmer(ystar ~ 1 + FE1 + (1|RE1), data = sim.df, REML = TRUE)
-# #summary(test)
-# 
-# coef(summary(test))
-# cbind(model.list$FE, model.list$SE, model.list$df, model.list$Zscore, model.list$pvalue)
-# coef(summary(nb.glm))
+ggplot(plot_longer, aes(y = -log10(value), x = name, group = variable)) +
+    geom_bar(stat = "identity", color = "black", position = position_dodge(), aes(fill=variable)) +
+    theme_bw() + 
+    xlab("") +
+    ylab("-log10(pvalue)") +
+    theme(text = element_text(size = 18)) +
+    scale_y_continuous(limits = c(0, 17), expand = c(0,0)) +
+    scale_fill_brewer(palette="Blues") +
+    NULL
 ```
 
 
@@ -281,26 +310,7 @@ head(results.df)
 ```
 
 ```{r}
-# data(sim_trajectory)
-# milo.meta <- sim_trajectory$meta
-# milo.obj <- Milo(sim_trajectory$SCE)
-# milo.obj <- buildGraph(milo.obj, k=20, d=30)
-# milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
-# milo.obj <- calcNhoodDistance(milo.obj, d=30)
-# milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
-# milo.design <- as.data.frame(xtabs(~ Condition + Sample, data=milo.meta))
-# milo.design <- milo.design[milo.design$Freq > 0, ]
-# rownames(milo.design) <- milo.design$Sample
-# milo.design <- milo.design[colnames(nhoodCounts(milo.obj)),]
-# 
-# #add column for random effects
-# milo.design$RE <- c(1, 1, 2, 2, 3, 3)
-# x <- milo.obj
-# milo.obj1 <- testNhoods(milo.obj, design=~Condition + (1|RE), design.df=milo.design)
-```
-
-
-```{r}
+# this one shouldn't work
 data(sim_trajectory)
 milo.meta <- sim_trajectory$meta
 milo.obj <- Milo(sim_trajectory$SCE)
@@ -308,6 +318,26 @@ milo.obj <- buildGraph(milo.obj, k=20, d=30)
 milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
 milo.obj <- calcNhoodDistance(milo.obj, d=30)
 milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
+milo.design <- as.data.frame(xtabs(~ Condition + Sample, data=milo.meta))
+milo.design <- milo.design[milo.design$Freq > 0, ]
+rownames(milo.design) <- milo.design$Sample
+milo.design <- milo.design[colnames(nhoodCounts(milo.obj)),]
+
+#add column for random effects
+milo.design$RE <- c(1, 2, 1, 2, 3, 3)
+x <- milo.obj
+milo.obj1 <- testNhoods(milo.obj, design=~Condition + (1|RE), design.df=milo.design)
+#milo.obj1 <- testNhoods(milo.obj, design=~Condition, design.df=milo.design)
+```
+
+
+```{r}
+# this one should work: 1 random effect
+data(sim_trajectory)
+milo.meta <- sim_trajectory$meta
+milo.obj <- Milo(sim_trajectory$SCE)
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
 
 y_counts <- Matrix(t(y_matrix), sparse = T)
 rownames(y_counts) <- 1:nrow(y_counts)
@@ -319,8 +349,30 @@ Z <- design.sim[,3, drop = F]
 design.df <- cbind(X, Z)
 colnames(design.df) <- c("ConditionB", "RE")
 rownames(design.df) <- 1:nrow(design.df)
-
+x <- milo.obj
 milo.res <- testNhoods(milo.obj, design= ~ConditionB + (1|RE), design.df=design.df)
+```
+
+
+```{r}
+# check to see if 2+ random effects work
+design.df <- cbind(cbind(X, Z), c(1, 1, 2, 2, 3, 3, 4, 4, 5, 5))
+colnames(design.df) <- c("ConditionB", "RE1", "RE2")
+rownames(design.df) <- 1:nrow(design.df)
+x <- milo.obj
+milo.res <- testNhoods(milo.obj, design= ~ConditionB + (1|RE1) + (1|RE2), design.df=design.df)
+```
+
+```{r}
+# check to see if continuous RE would work
+design.df <- cbind(cbind(X, Z), runif(150))
+colnames(design.df) <- c("ConditionB", "RE1", "RE2")
+rownames(design.df) <- 1:nrow(design.df)
+design.df <- cbind.data.frame(design.df, "y" = Matrix(t(y_matrix), sparse = T)[1,])
+test <- glmmTMB(y ~ 1 + ConditionB + (1|RE1) + (1|RE2), data = design.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+summary(test)
+x <- milo.obj
+milo.res <- testNhoods(milo.obj, design= ~ConditionB + (1|RE1) + (1|RE2), design.df=design.df)
 ```
 
 

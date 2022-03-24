@@ -105,14 +105,14 @@ NULL
 testNhoods <- function(x, design, design.df,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
-                       norm.method=c("TMM", "RLE", "logMS")){
+                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50){
     is.lmm <- FALSE
     if(is(design, "formula")){
         # parse to find random and fixed effects
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
 
         if(any(grepl(parse, pattern="1*\\|"))){
-            message("Random effects found - running GLMM model")
+            message("Random effects found")
 
             is.lmm <- TRUE
             # make model matrices for fixed and random effects
@@ -121,27 +121,28 @@ testNhoods <- function(x, design, design.df,
 
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
+            max.iters <- max.iters
 
             if(all(rownames(x.model) != rownames(z.model))){
                 stop("Discordant sample names for mixed model design matrices")
             }
 
         } else{
-            model <- model.matrix(design, data=design.df)
-            rownames(model) <- rownames(design.df)
+            x.model <- model.matrix(design, data=design.df)
+            rownames(x.model) <- rownames(design.df)
         }
     } else if(is(design, "matrix")){
-        model <- design
-        if(nrow(model) != nrow(design.df)){
+        x.model <- design
+        if(nrow(x.model) != nrow(design.df)){
             stop("Design matrix and model matrix are not the same dimensionality")
         }
 
-        if(any(rownames(model) != rownames(design.df))){
+        if(any(rownames(x.model) != rownames(design.df))){
             warning("Design matrix and model matrix dimnames are not the same")
             # check if rownames are a subset of the design.df
-            check.names <- any(rownames(model) %in% rownames(design.df))
+            check.names <- any(rownames(x.model) %in% rownames(design.df))
             if(isTRUE(check.names)){
-                rownames(model) <- rownames(design.df)
+                rownames(x.model) <- rownames(design.df)
             } else{
                 stop("Design matrix and model matrix rownames are not a subset")
             }
@@ -163,176 +164,141 @@ testNhoods <- function(x, design, design.df,
     }
 
     subset.counts <- FALSE
-    if(is.lmm){
-        if((ncol(nhoodCounts(x)) != nrow(x.model)) | (ncol(nhoodCounts(x)) != nrow(z.model))){
-            # need to allow for design.df with a subset of samples only
-            if((all(rownames(x.model) %in% colnames(nhoodCounts(x)))) & (all(rownames(z.model) %in% colnames(nhoodCounts(x))))){
-                message("Design matrix is a strict subset of the nhood counts")
-                subset.counts <- TRUE
-            } else{
-                stop("Design matrix (", nrow(x.model), ") and nhood counts (",
-                     ncol(nhoodCounts(x)), ") are not the same dimension")
-            }
+    if(ncol(nhoodCounts(x)) != nrow(x.model)){
+        # need to allow for design.df with a subset of samples only
+        if(all(rownames(x.model) %in% colnames(nhoodCounts(x)))){
+            message("Design matrix is a strict subset of the nhood counts")
+            subset.counts <- TRUE
+         } else{
+             stop("Design matrix (", nrow(x.model), ") and nhood counts (", ncol(nhoodCounts(x)), ") are not the same dimension")
         }
-    }else{
-        if(ncol(nhoodCounts(x)) != nrow(model)){
+    }
+        
+    if(is.lmm){
+        if(ncol(nhoodCounts(x)) != nrow(z.model)){
             # need to allow for design.df with a subset of samples only
-            if(all(rownames(model) %in% colnames(nhoodCounts(x)))){
-                message("Design matrix is a strict subset of the nhood counts")
+            if(all(rownames(z.model) %in% colnames(nhoodCounts(x)))){
+                message("Random effects design matrix is a strict subset of the nhood counts")
                 subset.counts <- TRUE
             } else{
-                stop("Design matrix (", nrow(model), ") and nhood counts (",
+                stop("Random effects design matrix (", nrow(z.model), ") and nhood counts (",
                      ncol(nhoodCounts(x)), ") are not the same dimension")
             }
         }
     }
-
+    
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
     if(min.mean > 0){
         if(isTRUE(subset.counts)){
-            if(is.lmm){
-                keep.nh <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
-            } else{
-                keep.nh <- rowMeans(nhoodCounts(x)[, rownames(model)]) >= min.mean
-            }
+            keep.nh <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
         } else{
             keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
         }
     } else{
         if(isTRUE(subset.counts)){
-            if(is.lmm){
-                keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(x.model)]))
-            } else{
-                keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(model)]))
-            }
+            keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(x.model)]))
         }else{
             keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
         }
     }
 
     if(isTRUE(subset.counts)){
-        if(is.lmm){
-            keep.samps <- intersect(rownames(x.model), colnames(nhoodCounts(x)[keep.nh, ]))
-        } else{
-            keep.samps <- intersect(rownames(model), colnames(nhoodCounts(x)[keep.nh, ]))
-        }
+        keep.samps <- intersect(rownames(x.model), colnames(nhoodCounts(x)[keep.nh, ]))
     } else{
         keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
     }
 
-    if(is.lmm){
-        if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
-            stop("Sample names in design matrix and nhood counts are not matched.
+    if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
+        stop("Sample names in design matrix and nhood counts are not matched.
              Set appropriate rownames in design matrix.")
-        } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
-            warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+    } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
+        warning("Sample names in design matrix and nhood counts are not matched. Reordering")
+        x.model <- x.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
+        if(is.lmm){
             z.model <- z.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
-            x.model <- x.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
-        }
-    } else{
-        if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
-            stop("Sample names in design matrix and nhood counts are not matched.
-             Set appropriate rownames in design matrix.")
-        } else if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(model)) & any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(model))){
-            warning("Sample names in design matrix and nhood counts are not matched. Reordering")
-            model <- model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), ]
         }
     }
 
-    if(is.lmm){
-        if(length(norm.method) > 1){
-            message("Using TMM normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="TMM")
-        } else if(norm.method %in% c("TMM")){
-            message("Using TMM normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="TMM")
-        } else if(norm.method %in% c("RLE")){
-            message("Using RLE normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="RLE")
-        }else if(norm.method %in% c("logMS")){
-            message("Using logMS normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-        }
+    if(length(norm.method) > 1){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("TMM")){
+        message("Using TMM normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="TMM")
+    } else if(norm.method %in% c("RLE")){
+        message("Using RLE normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+        dge <- calcNormFactors(dge, method="RLE")
+    }else if(norm.method %in% c("logMS")){
+        message("Using logMS normalisation")
+        dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
+                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+    }
+    
+    dge <- estimateDisp(dge, x.model)
+    # extract trended dispersion for glmm
+    dispersion <- dge$trended.dispersion
         
-        #extract dispersion value for glmm
-        dge <- estimateDisp(dge)
-        #dge <- estimateDisp(dge, x.model)
-        dispersion <- dge$trended.dispersion
-        
-        # run glmm 
-        message("Running glmm - this may take a few minutes")
+    if (is.lmm) {
+        message("Running GLMM model - this may take a few minutes")
         rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
         names(rand.levels) <- colnames(z.model)
         
-        # count / (lib.size * norm.factors)  ???
-        #should this be a separate function?
-        glmmWrapper <- function(y, dispersion){
-            dispersion <- 1/dispersion
-            data.df <- cbind.data.frame(y, x.model, z.model)
-            nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE_1), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
-            try({model.list <- runGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=50))
-            out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
-                                                    "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))})
+        glmmWrapper <- function(y, dispersion, i){
+            #data.df <- cbind.data.frame(y, x.model, z.model)
+            #nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE1) + (1|RE2), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+            model.list <- runGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+            #out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+            #                                        "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
         }
-        fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = dispersion[i]))
+        fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = 1/dispersion[i], i))
+
+        # res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+        #                     "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+        #                     "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+        #                     "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])),
+        #                     "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
+        # vars <- c("(intercept)", "(slope)")
+        # rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
+        # print(res1)
         
-        res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)), 
-                            "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
-                            "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                            "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])), 
-                            "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
-        vars <- c("(intercept)", "(slope)")
-        rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-        print(res1)
+        # give warning if >10% neighborhoods didn't converge
+        if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
+            warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
+        } 
+        # or if >50% of variances are negative
+        for (re in 1:length(rand.levels)) {
+            if (sum(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re)) < 0)/length(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) > 0.5 | 
+                mean(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) < 0.007) {
+                warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
+            } 
+        }
         
         # real res has to reflect output from glmQLFit 
-        # does this need to be reqritten to accomodate > 1 FE?
         res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)), 
                       "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
-                      "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), "RE Variance"=unlist(lapply(fit, `[[`, 3)),
+                      "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
                       "Converged"=unlist(lapply(fit, `[[`, 6)))
         rownames(res) <- 1:length(fit)
-        
-        #res <- extractResults(model.list) # this function doesn't exist yet
-    } else{
-        if(length(norm.method) > 1){
-            message("Using TMM normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="TMM")
-        } else if(norm.method %in% c("TMM")){
-            message("Using TMM normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="TMM")
-        } else if(norm.method %in% c("RLE")){
-            message("Using RLE normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-            dge <- calcNormFactors(dge, method="RLE")
-        }else if(norm.method %in% c("logMS")){
-            message("Using logMS normalisation")
-            dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                           lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
-        }
+        colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
 
-        dge <- estimateDisp(dge, model)
-        fit <- glmQLFit(dge, model, robust=robust)
+
+    } else {
+        
+        fit <- glmQLFit(dge, x.model, robust=robust)
         if(!is.null(model.contrasts)){
-            mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=model)
+            mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)
             res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
                                          sort.by='none', n=Inf))
         } else{
-            n.coef <- ncol(model)
+            n.coef <- ncol(x.model)
             res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
         }
     }
