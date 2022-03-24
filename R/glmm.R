@@ -419,16 +419,16 @@ computePV <- function(V_partial, P){
 }
 
 
-#' @importFrom Matrix Matrix
-#' @export
-initializeFullZ <- function(Z) {
-  full.Z <- matrix(0L, nrow=nrow(Z), ncol = 0)
-  for (i in 1:ncol(Z)) {
-    temp.Z <- Matrix(table(seq_along(1:nrow(Z)), Z[,i]), sparse = TRUE)
-    full.Z <- cbind(full.Z, temp.Z)
-  }
-  return(full.Z)
-}
+## @importFrom Matrix Matrix
+## @export
+#initializeFullZ <- function(Z) {
+#  full.Z <- matrix(0L, nrow=nrow(Z), ncol = 0)
+#  for (i in 1:ncol(Z)) {
+#    temp.Z <- Matrix(table(seq_along(1:nrow(Z)), Z[,i]), sparse = TRUE)
+#    full.Z <- cbind(full.Z, temp.Z)
+#  }
+#  return(full.Z)
+#}
 
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix solve
