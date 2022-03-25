@@ -78,6 +78,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         V_star_inv <- solve(V_star)
         V_partial <- computeV_partial(full.Z=full.Z, random.levels=random.levels, u_indices=u_indices)
 
+        matrix.list <- preComputeMatrices(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star)
         #---- First estimate variance components with Newton Raphson procedure ---#
         if (isFALSE(REML)) {
             score_sigma <- sigmaScore(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels)
@@ -85,10 +86,10 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         } else if (isTRUE(REML)) {
             P <- computeP_REML(V_star_inv=V_star_inv, X=X)
             PV <- computePV(V_partial=V_partial, P=P)
-            score_sigma <- sigmaScoreREML(PV=PV, V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, P=P, random.levels=random.levels)
-            information_sigma <- sigmaInformationREML(PV=PV, V_star_inv=V_star_inv, V_partial=V_partial, P=P, random.levels=random.levels)
+            score_sigma <- sigmaScoreREML(PV=PV, P=P, y_star=y_star, random.levels=random.levels)
+            information_sigma <- sigmaInformationREML(PV=PV, random.levels=random.levels)
         }
-        sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma, random.levels=random.levels)
+        sigma_update <- FisherScore(score_vec=score_sigma, hess_mat=information_sigma, theta_hat=curr_sigma)
         sigma_diff <- abs(sigma_update - curr_sigma)
 
         # update sigma, G, and G_inv
@@ -122,7 +123,11 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
     SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
     Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
     Va <- computeVarCovar(random.levels, PV)
-    df <- Satterthwaite_df(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
+    mint <- nrow(curr_beta)
+    cint <- nrow(curr_u)
+    coeff.matrix <- makeCoefMatrix(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
+    df <- Satterthwaite_df(coeff.mat=coeff.matrix, mint=mint, cint=cint, SE=SE, V_a=Va,
+                           V_partial=V_partial, G_inv=G_inv, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels)
     Pvalue <- computePvalue(Zscore=Zscore, df=df)
 
     converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
@@ -271,12 +276,12 @@ sigmaInformation <- function(V_star_inv, V_partial, random.levels) {
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix
 #' @export
-sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
+sigmaScoreREML <- function(y_star, PV, P, random.levels){
     score_vec <- Matrix(0L, ncol=1, nrow=length(random.levels), sparse=FALSE)
 
     for (i in seq_along(random.levels)) {
-        LHS <- -0.5 * matrix.trace(matrix_list[["PVSTARi"]][[i]])
-        rhs.1 <- t(y_star) %*% matrix_list[["PVSTARi"]][[i]]
+        LHS <- -0.5 * matrix.trace(PV[[i]])
+        rhs.1 <- t(y_star) %*% PV[[i]]
         rhs.2 <- rhs.1 %*% P
         RHS <- 0.5 * (rhs.2 %*% y_star)
         score_vec[i, ] <- LHS + RHS
@@ -289,13 +294,13 @@ sigmaScoreREML <- function(matrix_list, V_star_inv, y_star, P, random.levels){
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix crossprod Matrix
 #' @export
-sigmaInformationREML <- function(matrix_list, random.levels) {
+sigmaInformationREML <- function(PV, random.levels) {
     # this should be a matrix
     sigma_info <- Matrix(0L, ncol=length(random.levels), nrow=length(random.levels))
 
     for(i in seq_along(random.levels)){
         for(j in seq_along(random.levels)){
-            sigma_info[i, j] <- 0.5*matrix.trace(crossprod(matrix_list[["PVSTARi"]][[i]], matrix_list[["PVSTARi"]][[j]]))
+            sigma_info[i, j] <- 0.5*matrix.trace(crossprod(PV[[i]], PV[[j]]))
         }
     }
 
@@ -575,7 +580,7 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     mint <- length(curr_beta)
     cint <- length(curr_u)
     dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
-                            final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]])
+                            final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]], random.levels)
     pvals <- computePvalue(final.list[["t"]], dfs)
 
     final.list[["DF"]] <- dfs
@@ -649,7 +654,7 @@ computePvalue <- function(Zscore, df) {
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 ###---- first calculate g = derivative of C with respect to sigma ----
-function_jac <- function(x, coeff.mat, mint, cint, G_inv) {
+function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     UpperLeft <- coeff.mat[c(1:mint), c(1:mint)]
     UpperRight <- coeff.mat[c(1:mint), c((mint+1):(mint+cint))]
     LowerLeft <- coeff.mat[c((mint+1):(mint+cint)), c(1:mint)]
@@ -674,14 +679,32 @@ computeVarCovar <- function(random.levels, PV){
     return(V_a)
 }
 
+#' @importMethodsFrom Matrix %*% t
+#' @export
+makeCoefMatrix <- function(X, full.Z, W_inv, G_inv){
+    UpperLeft <- t(X) %*% W_inv %*% X
+    UpperRight <- t(X) %*% W_inv %*% full.Z
+    LowerLeft <- t(full.Z) %*% W_inv %*% X
+    LowerRight <- (t(full.Z) %*% W_inv %*% full.Z) + G_inv
+
+    COEFF <- as(rbind(cbind(UpperLeft, UpperRight), cbind(LowerLeft, LowerRight)), "matrix") # this is required for jacobian to work
+
+    return(COEFF)
+}
+
+
 
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv) {
+Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
 
-    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv)
+    if(any(class(curr_sigma) %in% c("Matrix", "matrix", "dgeMatrix", "dgCMatrix"))){
+        curr_sigma <- as.vector(curr_sigma)
+    }
+
+    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
     jac_list <- lapply(1:ncol(jac), function(i)
         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
 
