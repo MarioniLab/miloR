@@ -252,22 +252,22 @@ testNhoods <- function(x, design, design.df,
         names(rand.levels) <- colnames(z.model)
         
         glmmWrapper <- function(y, dispersion, i){
-            #data.df <- cbind.data.frame(y, x.model, z.model)
-            #nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE1) + (1|RE2), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+            data.df <- cbind.data.frame(y, x.model, z.model)
+            nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
             model.list <- runGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
-            #out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
-            #                                        "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
+            out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+                                                   "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
         }
         fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = 1/dispersion[i], i))
 
-        # res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
-        #                     "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
-        #                     "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-        #                     "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])),
-        #                     "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
-        # vars <- c("(intercept)", "(slope)")
-        # rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-        # print(res1)
+        res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+                            "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+                            "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                            "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                            "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
+        vars <- c("(intercept)", "(slope)")
+        rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
+        print(res1)
         
         # give warning if >10% neighborhoods didn't converge
         if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){

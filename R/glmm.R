@@ -678,35 +678,56 @@ makeCoefMatrix <- function(X, full.Z, W_inv, G_inv){
     return(COEFF)
 }
 
-
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(X, PV, SE, REML, W_inv, full.Z, curr_sigma, curr_beta, random.levels, V_partial, V_star_inv, G_inv) {
-
-  ###---- first calculate g = derivative of C with respect to sigma ----
-    function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
-      UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
-      UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
-      LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
-      LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
-      n <- length(random.levels)
-      diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
-      C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
-    }
-
-    jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
-    jac_list <- lapply(1:ncol(jac), function(i)
-        array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
-
-    # V_a is provided externally
-
-    df <- rep(NA, length(curr_beta))
-    for (i in 1:length(curr_beta)) {
-        jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1)
-        denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
-        df[i] <- 2*((SE[i]^2)^2)/denom
-    }
-    return(as.matrix(df))
+Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
+  
+  if(any(class(curr_sigma) %in% c("Matrix", "matrix", "dgeMatrix", "dgCMatrix"))){
+    curr_sigma <- as.vector(curr_sigma)
+  }
+  
+  jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
+  jac_list <- lapply(1:ncol(jac), function(i)
+    array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
+  
+  # V_a is provided externally
+  
+  df <- rep(NA, length(curr_beta))
+  for (i in 1:length(curr_beta)) {
+    jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1)
+    denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
+    df[i] <- 2*((SE[i]^2)^2)/denom
+  }
+  return(as.matrix(df))
 }
+
+
+# Satterthwaite_df <- function(X, PV, SE, REML, W_inv, full.Z, curr_sigma, curr_beta, random.levels, V_partial, V_star_inv, G_inv) {
+# 
+#   ###---- first calculate g = derivative of C with respect to sigma ----
+#     function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
+#       UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
+#       UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
+#       LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
+#       LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
+#       n <- length(random.levels)
+#       diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
+#       C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+#     }
+# 
+#     jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
+#     jac_list <- lapply(1:ncol(jac), function(i)
+#         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
+# 
+#     # V_a is provided externally
+# 
+#     df <- rep(NA, length(curr_beta))
+#     for (i in 1:length(curr_beta)) {
+#         jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1)
+#         denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
+#         df[i] <- 2*((SE[i]^2)^2)/denom
+#     }
+#     return(as.matrix(df))
+# }
