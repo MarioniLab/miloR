@@ -115,9 +115,11 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodExpression=Matrix(0L, sparse=TRUE),
                .k=NULL)
 
-    reducedDims(out) <- SimpleList()
-    altExps(out) <- SimpleList()
     colData(out) <- DataFrame()
+    out@int_elementMetadata  <- DataFrame()
+    out@int_colData <- DataFrame()
+    altExps(out) <- SimpleList()
+    reducedDims(out) <- SimpleList()
 
     if (objectVersion(out) >= "1.11.3"){
         colPairs(out) <- SimpleList()
