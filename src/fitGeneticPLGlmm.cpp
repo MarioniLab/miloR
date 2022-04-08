@@ -15,10 +15,11 @@ using namespace Rcpp;
 //' Iteratively estimate GLMM fixed and random effect parameters, and variance
 //' component parameters using Fisher scoring based on the Pseudo-likelihood
 //' approximation to a Normal loglihood.
-//' @param Z mat - sparse matrix that maps random effect variable levels to
+//' @param Z mat - n X (q + g) sparse matrix that maps random effect variable levels to
+//' observations - augmented by the n X g genotype matrix
+//' @param X mat - n X m sparse matrix that maps fixed effect variables to
 //' observations
-//' @param X mat - sparse matrix that maps fixed effect variables to
-//' observations
+//' @param K mat - n X n matrix containing genetic relationships between observations
 //' @param muvec vec vector of estimated phenotype means
 //' @param curr_theta vec vector of initial parameter estimates
 //' @param curr_beta vec vector of initial beta estimates
@@ -34,13 +35,14 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
+//' @param offset vector of offsets to include in the linear predictor
 // [[Rcpp::export]]
-List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
-               arma::vec offsets, arma::vec curr_beta,
-               arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
-               arma::mat curr_G, const arma::vec& y, List u_indices,
-               double theta_conv,
-               const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
+List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K,
+                      arma::vec muvec, arma::vec offsets, arma::vec curr_beta,
+                      arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
+                      arma::mat curr_G, const arma::vec& y, List u_indices,
+                      double theta_conv,
+                      const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
     List outlist(10);
@@ -69,7 +71,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     arma::mat coeff_mat(m+c, m+c);
     List V_partial(c);
-    V_partial = pseudovarPartial_C(Z, u_indices);
+    V_partial = pseudovarPartial_G(Z, K, u_indices);
     // compute outside the loop
     List VP_partial(c);
 
@@ -96,6 +98,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     for(int px = 0; px < stot; px++){
         u_ix[px] = m + px;
     }
+
+
 
     bool converged = false;
     while(!meet_cond){

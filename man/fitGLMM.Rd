@@ -6,10 +6,11 @@
 \usage{
 fitGLMM(
   X,
-  Z,
+  full.Z,
   y,
+  offsets,
   init.theta = NULL,
-  crossed = FALSE,
+  Kin = NULL,
   random.levels = NULL,
   REML = FALSE,
   glmm.control = list(theta.tol = 1e-06, max.iter = 100),

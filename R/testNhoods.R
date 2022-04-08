@@ -11,6 +11,10 @@
 #' argument
 #' @param design.df A \code{data.frame} containing meta-data to which \code{design}
 #' refers to
+#' @param genotypes (optional) An n X g \code{matrix} containing individual genotypes over g
+#' SNPs/SNVs/other genetic variants. Rownames should correspond to the column names
+#' of \code{nhoods(x)} and rownames of \code{design.df}. Genotypes should be in additive
+#' format, i.e. AA=0, Aa=1, aa=2.
 #' @param min.mean A scalar used to threshold neighbourhoods on the minimum
 #' average cell counts across samples.
 #' @param model.contrasts A string vector that defines the contrasts used to perform
@@ -30,7 +34,9 @@
 #' when there are very large compositional differences between samples.
 #' @param reduced.dim A character scalar referring to the reduced dimensional slot used to compute distances for
 #' the spatial FDR. This should be the same as used for graph building.
-#'
+#' @param REML A logical scalar that controls the variance component behaviour to use either restricted maximum
+#' likelihood (REML) or maximum likelihood (ML). The former is recommened to account for the bias in the ML
+#' variance estimates.
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -102,22 +108,37 @@ NULL
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
-testNhoods <- function(x, design, design.df,
+testNhoods <- function(x, design, design.df, genotypes=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
-                       min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA",
+                       min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50){
     is.lmm <- FALSE
     if(is(design, "formula")){
         # parse to find random and fixed effects
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
-
-        if(any(grepl(parse, pattern="1*\\|"))){
+        find_re <- any(grepl(parse, pattern="1*\\|"))
+        if(find_re | !is.null(genotypes)){
             message("Random effects found")
 
             is.lmm <- TRUE
-            # make model matrices for fixed and random effects
-            z.model <- .parse_formula(design, design.df, vtype="re")
-            rownames(z.model) <- rownames(design.df)
+            if(find_re | is.null(genotypes)){
+                # make model matrices for fixed and random effects
+                z.model <- .parse_formula(design, design.df, vtype="re")
+                rownames(z.model) <- rownames(design.df)
+            } else if(find_re | !is.null(genotypes)){
+                if(!all(rownames(genotypes) == rownames(design.df))){
+                    stop("Genotype rownames do not match design.df rownames")
+                }
+
+                z.model <- .parse_formula(design, design.df, vtype="re")
+                rownames(z.model) <- rownames(design.df)
+
+                # rescale genotypes
+                genotypes <- (genotypes - 1)/(1/(sqrt(ncol(genotypes))))
+                z.model <- do.call(cbind, list(z.model, genotypes))
+            } else if(!find_re | !is.null(genotypes)){
+                z.model <- (genotypes - 1)/(1/(sqrt(ncol(genotypes))))
+            }
 
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
@@ -173,7 +194,7 @@ testNhoods <- function(x, design, design.df,
              stop("Design matrix (", nrow(x.model), ") and nhood counts (", ncol(nhoodCounts(x)), ") are not the same dimension")
         }
     }
-        
+
     if(is.lmm){
         if(ncol(nhoodCounts(x)) != nrow(z.model)){
             # need to allow for design.df with a subset of samples only
@@ -186,7 +207,7 @@ testNhoods <- function(x, design, design.df,
             }
         }
     }
-    
+
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
@@ -241,57 +262,69 @@ testNhoods <- function(x, design, design.df,
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
     }
-    
+
+    # estimate disperions _before_ all models
     dge <- estimateDisp(dge, x.model)
-    # extract trended dispersion for glmm
-    dispersion <- dge$trended.dispersion
-        
+
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
         rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
         names(rand.levels) <- colnames(z.model)
-        
-        glmmWrapper <- function(y, dispersion, i){
-            data.df <- cbind.data.frame(y, x.model, z.model)
-            nb.glm <- glmmTMB(y ~ 1 + ConditionB + (1|RE), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
-            model.list <- runGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
-            out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
-                                                   "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
-        }
-        fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = 1/dispersion[i], i))
+        # extract trended dispersion for glmm
+        dispersion <- dge$trended.dispersion
+        offsets <- dge$samples$norm.factors
 
-        res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
-                            "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
-                            "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                            "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                            "TMB est"= unlist(lapply(fit, `[[`, 13)), "TMB var"=rep(unlist(lapply(fit, `[[`, 14)), each = length(lapply(fit, `[[`, 1)[[1]])))
-        vars <- c("(intercept)", "(slope)")
-        rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-        print(res1)
-        
-        # give warning if >10% neighborhoods didn't converge
-        if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
-            warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
-        } 
-        # or if >50% of variances are negative
-        for (re in 1:length(rand.levels)) {
-            if (sum(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re)) < 0)/length(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) > 0.5 | 
-                mean(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) < 0.007) {
-                warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
-            } 
-        }
-        
-        # real res has to reflect output from glmQLFit 
-        res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)), 
-                      "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)), 
-                      "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
-                      "Converged"=unlist(lapply(fit, `[[`, 6)))
-        rownames(res) <- 1:length(fit)
-        colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
 
+        if(!is.null(genotypes)){
+
+            message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
+            Kin <- genotypes %*% genotypes
+
+            glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
+                model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+            }
+
+        } else{
+            ## this needs tidying up
+            glmmWrapper <- function(y, dispersion, i, x.model, z.model, offsets, rand.levels, REML, glmm.control){
+                model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+            }
+
+            fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
+                                                                     i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
+
+            res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+                          "t value" = unlist(lapply(fit, `[[`, 10)),
+                          "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                          "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+            vars <- colnames(x.model)
+            rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
+            # print(res1)
+
+            # give warning if >10% neighborhoods didn't converge
+            if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
+                warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
+            }
+            # or if >50% of variances are negative
+            for (re in 1:length(rand.levels)) {
+                if (sum(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re)) < 0)/length(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) > 0.5 |
+                    mean(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) < 0.007) {
+                    warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
+                }
+            }
+
+            # real res has to reflect output from glmQLFit
+            res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)),
+                          "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+                          "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
+                          "Converged"=unlist(lapply(fit, `[[`, 6)))
+            rownames(res) <- 1:length(fit)
+            colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        }
 
     } else {
-        
+
         fit <- glmQLFit(dge, x.model, robust=robust)
         if(!is.null(model.contrasts)){
             mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)

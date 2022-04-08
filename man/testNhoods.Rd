@@ -16,6 +16,11 @@ argument}
 \item{design.df}{A \code{data.frame} containing meta-data to which \code{design}
 refers to}
 
+\item{genotypes}{(optional) An n X g \code{matrix} containing individual genotypes over g
+SNPs/SNVs/other genetic variants. Rownames should correspond to the column names
+of \code{nhoods(x)} and rownames of \code{design.df}. Genotypes should be in additive
+format, i.e. AA=0, Aa=1, aa=2.}
+
 \item{min.mean}{A scalar used to threshold neighbourhoods on the minimum
 average cell counts across samples.}
 
@@ -40,6 +45,10 @@ when there are very large compositional differences between samples.}
 
 \item{reduced.dim}{A character scalar referring to the reduced dimensional slot used to compute distances for
 the spatial FDR. This should be the same as used for graph building.}
+
+\item{REML}{A logical scalar that controls the variance component behaviour to use either restricted maximum
+likelihood (REML) or maximum likelihood (ML). The former is recommened to account for the bias in the ML
+variance estimates.}
 }
 \value{
 A \code{data.frame} of model results, which contain:

@@ -403,7 +403,6 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
-    # full.Z <- Matrix(full.Z, sparse = FALSE)
     return(full.Z)
 }
 
@@ -421,22 +420,11 @@ computePV <- function(V_partial, P){
 }
 
 
-## @importFrom Matrix Matrix
-## @export
-#initializeFullZ <- function(Z) {
-#  full.Z <- matrix(0L, nrow=nrow(Z), ncol = 0)
-#  for (i in 1:ncol(Z)) {
-#    temp.Z <- Matrix(table(seq_along(1:nrow(Z)), Z[,i]), sparse = TRUE)
-#    full.Z <- cbind(full.Z, temp.Z)
-#  }
-#  return(full.Z)
-#}
-
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix solve
 #' @export
 solve_equations <- function(X, W_inv, full.Z, G_inv, curr_beta, curr_u, y_star){
-  
+
     UpperLeft <- t(X) %*% W_inv %*% X
     UpperRight <- t(X) %*% W_inv %*% full.Z
     LowerLeft <- t(full.Z) %*% W_inv %*% X
@@ -498,7 +486,7 @@ computeInv <- function(x){
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
 #' @export
-fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL, REML=FALSE,
+fitGLMM <- function(X, full.Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5){
 
@@ -512,7 +500,7 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     max.hit <- glmm.control[["max.iter"]]
 
     # create full Z with expanded random effect levels
-    full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+    # full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     # random value initiation from runif
     curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
@@ -523,23 +511,17 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     rownames(curr_beta) <- colnames(X)
 
     # compute sample variances of the us
-    curr_sigma <- matrix(unlist(lapply(mapUtoIndiv(full.Z, curr_u, random.levels=random.levels),
-                                       FUN=function(Bj){
-                                           (1/(length(Bj)-1)) * crossprod(Bj, Bj)
-                                           })), ncol=1)
-    rownames(curr_sigma) <- colnames(Z)
+    curr_sigma <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1, sparse = TRUE)
+    rownames(curr_sigma) <- colnames(full.Z)
 
     #create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
 
     #compute mu.vec using inverse link function
-    mu.vec <- exp((X %*% curr_beta) + (full.Z %*% curr_u))
+    mu.vec <- exp(offsets + (X %*% curr_beta) + (full.Z %*% curr_u))
 
     # use y_bar as the sample mean and s_hat as the sample variance
     new.r <- dispersion
-
-    # theta_diff <- rep(Inf, nrow(curr_theta))
-    # sigma_diff <- rep(80000, nrow(curr_sigma))
 
     #compute variance-covariance matrix G
     curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
@@ -558,10 +540,23 @@ fitGLMM <- function(X, Z, y, init.theta=NULL, crossed=FALSE, random.levels=NULL,
     curr_theta <- curr_theta[, 1]
     curr_sigma <- curr_sigma[, 1]
 
-    final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, curr_beta=curr_beta,
-                            curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                            curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                            curr_disp=new.r, REML=TRUE, maxit=15)
+    if(is.null(Kin)){
+        print(length(curr_u))
+        print(length(curr_sigma))
+        print(length(curr_beta))
+        print(length(offsets))
+        final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
+                                curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                                curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                curr_disp=new.r, REML=TRUE, maxit=15)
+    } else{
+        final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets, muvec=mu.vec, offset=offset, curr_beta=curr_beta,
+                                       curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                                       curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                       curr_disp=new.r, REML=TRUE, maxit=15)
+    }
+
+
 
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
@@ -683,17 +678,17 @@ makeCoefMatrix <- function(X, full.Z, W_inv, G_inv){
 #' @importFrom numDeriv jacobian
 #' @export
 Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
-  
+
   if(any(class(curr_sigma) %in% c("Matrix", "matrix", "dgeMatrix", "dgCMatrix"))){
     curr_sigma <- as.vector(curr_sigma)
   }
-  
+
   jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
   jac_list <- lapply(1:ncol(jac), function(i)
     array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
-  
+
   # V_a is provided externally
-  
+
   df <- rep(NA, length(curr_beta))
   for (i in 1:length(curr_beta)) {
     jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1)
@@ -702,32 +697,3 @@ Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V
   }
   return(as.matrix(df))
 }
-
-
-# Satterthwaite_df <- function(X, PV, SE, REML, W_inv, full.Z, curr_sigma, curr_beta, random.levels, V_partial, V_star_inv, G_inv) {
-# 
-#   ###---- first calculate g = derivative of C with respect to sigma ----
-#     function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
-#       UpperLeft <- t(X.fun) %*% W_inv.fun %*% X.fun
-#       UpperRight <- t(X.fun) %*% W_inv.fun %*% full.Z.fun
-#       LowerLeft <- t(full.Z.fun) %*% W_inv.fun %*% X.fun
-#       LowerRight <- t(full.Z.fun) %*% W_inv.fun %*% full.Z.fun
-#       n <- length(random.levels)
-#       diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
-#       C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
-#     }
-# 
-#     jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
-#     jac_list <- lapply(1:ncol(jac), function(i)
-#         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
-# 
-#     # V_a is provided externally
-# 
-#     df <- rep(NA, length(curr_beta))
-#     for (i in 1:length(curr_beta)) {
-#         jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1)
-#         denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
-#         df[i] <- 2*((SE[i]^2)^2)/denom
-#     }
-#     return(as.matrix(df))
-# }
