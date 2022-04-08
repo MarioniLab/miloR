@@ -10,6 +10,36 @@ computeVStar <- function(Z, G, W) {
 #' Iteratively estimate GLMM fixed and random effect parameters, and variance
 #' component parameters using Fisher scoring based on the Pseudo-likelihood
 #' approximation to a Normal loglihood.
+#' @param Z mat - n X (q + g) sparse matrix that maps random effect variable levels to
+#' observations - augmented by the n X g genotype matrix
+#' @param X mat - n X m sparse matrix that maps fixed effect variables to
+#' observations
+#' @param K mat - n X n matrix containing genetic relationships between observations
+#' @param muvec vec vector of estimated phenotype means
+#' @param curr_theta vec vector of initial parameter estimates
+#' @param curr_beta vec vector of initial beta estimates
+#' @param curr_u vec of initial u estimates
+#' @param curr_sigma vec of initial sigma estimates
+#' @param curr_G mat c X c matrix of variance components
+#' @param y vec of observed counts
+#' @param u_indices List a List, each element contains the indices of Z relevant
+#' to each RE and all its levels
+#' @param theta_conv double Convergence tolerance for paramter estimates
+#' @param rlevels List containing mapping of RE variables to individual
+#' levels
+#' @param curr_disp double Dispersion parameter estimate
+#' @param REML bool - use REML for variance component estimation
+#' @param maxit int maximum number of iterations if theta_conv is FALSE
+#' @param offset vector of offsets to include in the linear predictor
+fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
+    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+}
+
+#' GLMM parameter estimation using pseudo-likelihood
+#'
+#' Iteratively estimate GLMM fixed and random effect parameters, and variance
+#' component parameters using Fisher scoring based on the Pseudo-likelihood
+#' approximation to a Normal loglihood.
 #' @param Z mat - sparse matrix that maps random effect variable levels to
 #' observations
 #' @param X mat - sparse matrix that maps fixed effect variables to
@@ -29,8 +59,8 @@ computeVStar <- function(Z, G, W) {
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
-fitPLGlmm <- function(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
-    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
+    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }
 
 #' Compute the inverse of a structured covariance matrix

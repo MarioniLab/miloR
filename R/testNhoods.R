@@ -268,8 +268,9 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
-        rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
+        rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) paste0(colnames(z.model)[X], unique(z.model[, X])))
         names(rand.levels) <- colnames(z.model)
+
         # extract trended dispersion for glmm
         dispersion <- dge$trended.dispersion
         offsets <- dge$samples$norm.factors
@@ -288,19 +289,20 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         } else{
             ## this needs tidying up
             glmmWrapper <- function(y, dispersion, i, x.model, z.model, offsets, rand.levels, REML, glmm.control){
-                model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+                model.list <- fitGLMM(X=x.model, Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
             }
 
-            fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
-                                                                     i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
+            fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
+                                                                      i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
+            print(fit[[1]])
 
-            res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
-                          "t value" = unlist(lapply(fit, `[[`, 10)),
-                          "P(>|t|)" = unlist(lapply(fit, `[[`, 12)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
-                          "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+            res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, "FE")), "Std. Error"= unlist(lapply(fit, `[[`, "SE")),
+                          "t value" = unlist(lapply(fit, `[[`, "t")), "P(>|t|)" = unlist(lapply(fit, `[[`, "PVALS")),
+                          "RE Variance"=rep(unlist(lapply(fit, `[[`, "Sigma")), each = length(lapply(fit, `[[`, 1)[[1]])),
+                          "Converged"=rep(unlist(lapply(fit, `[[`, "converged")), each = length(lapply(fit, `[[`, 1)[[1]])))
             vars <- colnames(x.model)
             rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-            # print(res1)
+            print(res1)
 
             # give warning if >10% neighborhoods didn't converge
             if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){

@@ -135,6 +135,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
+        // inference
         curr_theta = theta_update;
         curr_beta = curr_theta.elem(beta_ix);
         curr_u = curr_theta.elem(u_ix);
@@ -155,7 +156,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         converged = _thconv && _siconv;
     }
 
-    // inference
     arma::vec se(computeSE(m, c, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this

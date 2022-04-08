@@ -156,8 +156,25 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
     rhs_u.col(0) = Zt * Winv * ystar;
 
     rhs = arma::join_cols(rhs_beta, rhs_u);
-    theta_up = arma::inv(coeffmat) * rhs;
 
-    return theta_up;
+    // need a check for singular hessian here
+    try{
+        double _rcond = arma::rcond(coeffmat);
+        bool is_singular;
+        is_singular = _rcond < 1e-12;
+
+        // check for singular condition
+        if(is_singular){
+            throw std::range_error("Hessian is computationally singular");
+        }
+
+        theta_up = arma::inv(coeffmat) * rhs;
+        return theta_up;
+    } catch(std::exception &ex){
+        forward_exception_to_r(ex);
+    } catch(...){
+        Rf_error("c++ exception (unknown reason)");
+    }
+
 }
 

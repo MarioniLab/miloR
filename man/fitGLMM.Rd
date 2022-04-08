@@ -6,7 +6,7 @@
 \usage{
 fitGLMM(
   X,
-  full.Z,
+  Z,
   y,
   offsets,
   init.theta = NULL,

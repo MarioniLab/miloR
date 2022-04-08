@@ -242,21 +242,25 @@ sim1.meta$Replicate_num <- c(1, 2, 3, 1, 2, 3)
 sim1.meta$Replicate2 <- c(1, 2, 1, 2, 1, 2)
 
 test_that("Adding random effects on small sample size does not compute", {
-    
+
+    # having a singular Hessian depends on some of the staring values <- this test needs to
+    # be reproducible and not depend on setting a specific seed. The easiest way might be to have
+    # a variance component that is effectively 0.
+    set.seed(101)
     # running with 1 fe and 1 re, both characters
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Replicate),
                             design.df=sim1.meta)),
-                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
-    
+                 "Hessian is computationally singular")
+
     # running with 1 fe and 1 re, both numeric
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num),
                                              design.df=sim1.meta)),
-                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
-    
+                 "Hessian is computationally singular")
+
     # running with 2 fe and 2 re, both characters
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
                                              design.df=sim1.meta)),
-                 "Estimates increasing to infinity - cannot solve GLMM.|Hessian is computationally singular - cannot solve GLMM")
+                 "Hessian is computationally singular")
 })
 
 initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
@@ -289,7 +293,7 @@ initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
         colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
-        
+
         # to standardise or not?
         if(isTRUE(stand.cols)){
             q <- ncol(i.z)
@@ -297,7 +301,7 @@ initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
             i.star <- i.z - ((i.ident %*% i.z)/q)
             i.z <- i.star
         }
-        
+
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
@@ -305,23 +309,23 @@ initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
 }
 
 SimulateXZ <- function(N, n.fe, n.re, re.levels, fe.levels){
-    
+
     # create a per-level mean effect for each FE
     if(length(fe.levels) != n.fe){
         stop("List entries need to match number of input fixed effects")
     }
-    
+
     if(length(re.levels) != n.re){
         stop("List entries need to match number of input random effects")
     }
-    
+
     # create the design matrices
     X <- matrix(0L, ncol=n.fe+1, nrow=N)
     X[, 1] <- 1
     colnames(X) <- c("Intercept", names(fe.levels))
-    
+
     Z <- matrix(0L, ncol=n.re, nrow=N)
-    
+
     for(i in seq_len(n.fe)){
         if(fe.levels[[i]] == 1){
             X[, i+1] <- sapply(seq_len(N), FUN=function(B){
@@ -339,10 +343,10 @@ SimulateXZ <- function(N, n.fe, n.re, re.levels, fe.levels){
             X[, i+1] <- as.factor(X[, i+1])
         }
     }
-    
+
     # Make categorical effects 0 or 1 (not 1 or 2)
     X[,2] <- X[,2] - 1
-    
+
     for(j in seq_len(n.re)){
         if(re.levels[[j]] == 1){
             Z[, j] <- sapply(seq_len, FUN=function(R){
@@ -356,7 +360,7 @@ SimulateXZ <- function(N, n.fe, n.re, re.levels, fe.levels){
         }
     }
     colnames(Z) <- names(re.levels)
-    
+
     sim.data <- do.call(cbind.data.frame, list(X, Z))
     return(sim.data)
 }
@@ -366,26 +370,26 @@ SimulateY <- function(N, X, Z, fe.betas, re.sigmas,
                       dispersion, grand.mean, n.fe, n.re,
                       re.levels,
                       fe.levels){
-    
+
     # create a per-level mean effect for each FE
     if(length(fe.levels) != n.fe){
         stop("List entries need to match number of input fixed effects")
     }
-    
+
     if(length(re.levels) != n.re){
         stop("List entries need to match number of input random effects")
     }
-    
+
     # construct the full Z
     random.levels <- sapply(seq_len(length(re.levels)), FUN=function(RX) {
         rx.name <- names(re.levels)[RX]
         paste(rx.name, seq_len(re.levels[[rx.name]]), sep="_")
     }, simplify=FALSE)
     names(random.levels) <- names(re.levels)
-    
+
     full.Z <- initializeFullZsim(Z, random.levels)
-    
-    # get a combination over random effects 
+
+    # get a combination over random effects
     # and sample each level from the same ~Normal(0, sigma)
     # note that the variance would be G if we also had random slopes
     re.thetas <- list()
@@ -397,23 +401,23 @@ SimulateY <- function(N, X, Z, fe.betas, re.sigmas,
         names(i.re.list) <- random.levels[[i.re]]
         re.thetas[[i.re]] <- i.re.list
     }
-    
+
     B <- full.Z %*% unlist(re.thetas)
     # map the fixed effects to mean values
     betas <- c(grand.mean, unlist(fe.betas))
     Beta <- X %*% betas
-    
+
     i.error <- matrix(data = rnorm(N, mean=0, sd=0.001), ncol = 1)
-    
+
     # construct the y.means equation, depending on desired distribution and FE/RE
-    y.means <- exp(Beta + B) 
+    y.means <- exp(Beta + B)
     y.means <- y.means + i.error
-    
+
     y.counts <- rnbinom(N, mu = y.means, size = dispersion)
-    
+
     sim.data <- data.frame("Mean.Count"=y.counts)
     sim.data <- do.call(cbind.data.frame, list(sim.data, X, Z))
-    
+
     return(sim.data)
 }
 
@@ -450,7 +454,7 @@ test_that("Providing a subset model.matrix is reproducible for glmm", {
     design.df <- cbind(X, Z)
     colnames(design.df) <- c("ConditionB", "RE")
     rownames(design.df) <- 1:nrow(design.df)
-    
+
     require(Matrix)
     subset.samples <- sample(rownames(design.df))
     exp.nh <- sum(Matrix::rowMeans(nhoodCounts(sim1.mylo)[, subset.samples]) >= 1)
@@ -458,7 +462,7 @@ test_that("Providing a subset model.matrix is reproducible for glmm", {
                                           min.mean=1,
                                           design.df=design.df[subset.samples, ]))
     expect_identical(nrow(out.da), exp.nh)
-    
+
     set.seed(42)
     kd.ref1 <- suppressWarnings(testNhoods(sim1.mylo, design=~ConditionB + (1|RE), fdr.weighting="k-distance",
                                            min.mean=1,

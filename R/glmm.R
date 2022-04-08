@@ -385,7 +385,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
                 i.z <- Z[, i, drop=FALSE] # if float then treat as continuous
             }
         } else if(i.class %in% c("integer")){
-            i.levels <- (unique(Z[, i]))
+            i.levels <- unique(Z[, i])
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
@@ -486,7 +486,7 @@ computeInv <- function(x){
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
 #' @export
-fitGLMM <- function(X, full.Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=NULL, REML=FALSE,
+fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5){
 
@@ -500,7 +500,7 @@ fitGLMM <- function(X, full.Z, y, offsets, init.theta=NULL, Kin=NULL, random.lev
     max.hit <- glmm.control[["max.iter"]]
 
     # create full Z with expanded random effect levels
-    # full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+    full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
     # random value initiation from runif
     curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
@@ -511,8 +511,8 @@ fitGLMM <- function(X, full.Z, y, offsets, init.theta=NULL, Kin=NULL, random.lev
     rownames(curr_beta) <- colnames(X)
 
     # compute sample variances of the us
-    curr_sigma <- Matrix(runif(ncol(full.Z), 0, 1), ncol=1, sparse = TRUE)
-    rownames(curr_sigma) <- colnames(full.Z)
+    curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+    rownames(curr_sigma) <- colnames(Z)
 
     #create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
@@ -541,10 +541,6 @@ fitGLMM <- function(X, full.Z, y, offsets, init.theta=NULL, Kin=NULL, random.lev
     curr_sigma <- curr_sigma[, 1]
 
     if(is.null(Kin)){
-        print(length(curr_u))
-        print(length(curr_sigma))
-        print(length(curr_beta))
-        print(length(offsets))
         final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
