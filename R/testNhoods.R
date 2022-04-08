@@ -294,7 +294,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
             fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
                                                                       i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
-            print(fit[[1]])
+            # print(fit[[1]])
 
             res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, "FE")), "Std. Error"= unlist(lapply(fit, `[[`, "SE")),
                           "t value" = unlist(lapply(fit, `[[`, "t")), "P(>|t|)" = unlist(lapply(fit, `[[`, "PVALS")),
@@ -302,7 +302,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                           "Converged"=rep(unlist(lapply(fit, `[[`, "converged")), each = length(lapply(fit, `[[`, 1)[[1]])))
             vars <- colnames(x.model)
             rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-            print(res1)
+            # print(res1)
 
             # give warning if >10% neighborhoods didn't converge
             if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
