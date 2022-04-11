@@ -113,11 +113,10 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE),
-               .k=NULL)
+               .k=NULL,
+               int_elementMetadata=DataFrame(),
+               int_colData=DataFrame())
 
-    colData(out) <- DataFrame()
-    out@int_elementMetadata  <- DataFrame()
-    out@int_colData <- DataFrame()
     altExps(out) <- SimpleList()
     reducedDims(out) <- SimpleList()
 
