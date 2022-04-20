@@ -35,7 +35,7 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
-//' @param offset vector of offsets to include in the linear predictor
+//' @param offsets vector of offsets to include in the linear predictor
 // [[Rcpp::export]]
 List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K,
                       arma::vec muvec, arma::vec offsets, arma::vec curr_beta,
@@ -99,8 +99,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         u_ix[px] = m + px;
     }
 
-
-
     bool converged = false;
     while(!meet_cond){
         D.diag() = muvec;
@@ -109,7 +107,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(Dinv, Vmu);
         Winv = W.i();
-        V_star = computeVStar(Z, curr_G, W);
+        V_star = computeVStar(Z, curr_G, W); // this also needs to include K
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
 
         if(REML){

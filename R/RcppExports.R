@@ -30,7 +30,7 @@ computeVStar <- function(Z, G, W) {
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
-#' @param offset vector of offsets to include in the linear predictor
+#' @param offsets vector of offsets to include in the linear predictor
 fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
     .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }

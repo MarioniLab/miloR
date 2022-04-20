@@ -14,7 +14,8 @@ fitGLMM(
   random.levels = NULL,
   REML = FALSE,
   glmm.control = list(theta.tol = 1e-06, max.iter = 100),
-  dispersion = 0.5
+  dispersion = 0.5,
+  geno.only = FALSE
 )
 }
 \description{

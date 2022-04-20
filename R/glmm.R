@@ -339,7 +339,7 @@ FisherScore <- function(score_vec, hess_mat, theta_hat, lambda=1e-5, det.tol=1e-
 
 #' @importFrom Matrix sparseMatrix diag
 #' @export
-initialiseG <- function(cluster_levels, sigmas){
+initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
     # construct the correct size of G given the random effects and variance components
     # names of cluster_levels and columns of Z must match
     # the independent sigmas go on the diagonal and the off-diagonal are the crossed/interactions
@@ -351,7 +351,16 @@ initialiseG <- function(cluster_levels, sigmas){
 
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
-        diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
+        if(!is.null(Kin)){
+            diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
+        } else{
+            if(rownames(sigmas[x, , drop=FALSE]) %in% c("Genetic")){
+                diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] * Kin
+            }else{
+                diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
+            }
+        }
+
         i <- j <- i+x.q
     }
     return(as.matrix(G))
@@ -486,9 +495,10 @@ computeInv <- function(x){
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
 #' @export
-fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=NULL, REML=FALSE,
+fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
+                    random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
-                    dispersion = 0.5){
+                    dispersion = 0.5, geno.only=FALSE){
 
     # model components
     # X - fixed effects model matrix
@@ -499,22 +509,72 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=N
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
 
-    # create full Z with expanded random effect levels
-    full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-
-    # random value initiation from runif
-    curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
-    rownames(curr_u) <- colnames(full.Z)
-
     # OLS for the betas is usually a good starting point for NR
     curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
     rownames(curr_beta) <- colnames(X)
 
-    # compute sample variances of the us
-    curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
-    rownames(curr_sigma) <- colnames(Z)
+    if(isFALSE(geno.only) & !is.null(Kin)){
+        # create full Z with expanded random effect levels
+        full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+        # random value initiation from runif
+        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        rownames(curr_u) <- colnames(full.Z)
 
-    #create a single variable for the thetas
+        # compute sample variances of the us
+        curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        rownames(curr_sigma) <- colnames(Z)
+
+        ## add the genetic components
+        ## augment Z with I
+        geno.I <- diag(nrow(full.Z))
+        colnames(geno.I) <- paste0("Genetic", seq_len(ncol(geno.I)))
+        full.Z <- do.call(cbind, list(full.Z, geno.I))
+
+        # add a genetic variance component
+        sigma_g <- Matrix(runif(1, 0, 1), ncol=1, nrow=1, sparse=TRUE)
+        rownames(sigma_g) <- "Genetic"
+        curr_sigma <- do.call(rbind, list(curr_sigma, sigma_g))
+
+        # add genetic BLUPs
+        g_u <- matrix(runif(nrow(full.Z), 0, 1), ncol=1)
+        rownames(g_u) <- colnames(geno.I)
+        curr_u <- do.call(rbind, list(curr_u, g_u))
+
+        random.levels <- c(random.levels, list("Genetic"=colnames(geno.I)))
+
+        #compute variance-covariance matrix G
+        curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
+    } else if(isTRUE(geno.only) & !is.null(Kin)){
+        # this means Z is an identity matrix
+        full.Z <- Z
+        colnames(full.Z) <- paste0("Genetic", seq_len(ncol(full.Z)))
+
+        # random value initiation from runif
+        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        rownames(curr_u) <- colnames(full.Z)
+
+        # compute sample variances of the us
+        curr_sigma <- Matrix(runif(1, 0, 1), ncol=1, sparse = TRUE)
+        rownames(curr_sigma) <- "Genetic"
+
+        #compute variance-covariance matrix G
+        curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
+    } else if(is.null(Kin)){
+        # create full Z with expanded random effect levels
+        full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+        # random value initiation from runif
+        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        rownames(curr_u) <- colnames(full.Z)
+
+        # compute sample variances of the us
+        curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        rownames(curr_sigma) <- colnames(Z)
+
+        #compute variance-covariance matrix G
+        curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
+    }
+
+    # create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
 
     #compute mu.vec using inverse link function
@@ -523,12 +583,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=N
     # use y_bar as the sample mean and s_hat as the sample variance
     new.r <- dispersion
 
-    #compute variance-covariance matrix G
-    curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
-
     conv.list <- list()
     iters <- 1
-
+    # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
     u_indices <- sapply(seq_along(random.levels),
                         FUN=function(RX) which(colnames(full.Z) %in% random.levels[[RX]]),
                         simplify=FALSE)
@@ -536,20 +593,22 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL, random.levels=N
     # flatten column matrices to vectors
     mu.vec <- mu.vec[, 1]
     curr_beta <- curr_beta[, 1]
+
+    curr_sigma <- curr_sigma[, 1]
     curr_u <- curr_u[, 1]
     curr_theta <- curr_theta[, 1]
-    curr_sigma <- curr_sigma[, 1]
 
     if(is.null(Kin)){
         final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                curr_disp=new.r, REML=TRUE, maxit=15)
+                                curr_disp=new.r, REML=TRUE, maxit=max.hit)
     } else{
-        final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets, muvec=mu.vec, offset=offset, curr_beta=curr_beta,
+        final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
+                                       muvec=mu.vec, curr_beta=curr_beta,
                                        curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                        curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                       curr_disp=new.r, REML=TRUE, maxit=15)
+                                       curr_disp=new.r, REML=TRUE, maxit=max.hit)
     }
 
 

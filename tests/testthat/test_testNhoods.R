@@ -241,23 +241,18 @@ sim1.meta$Condition_num <- c(1, 1, 1, 0, 0, 0)
 sim1.meta$Replicate_num <- c(1, 2, 3, 1, 2, 3)
 sim1.meta$Replicate2 <- c(1, 2, 1, 2, 1, 2)
 
-test_that("Adding random effects on small sample size does not compute", {
+test_that("Singular Hessians are detectable and fail appropriately", {
 
     # having a singular Hessian depends on some of the staring values <- this test needs to
     # be reproducible and not depend on setting a specific seed. The easiest way might be to have
     # a variance component that is effectively 0.
-    set.seed(101)
-    # running with 1 fe and 1 re, both characters
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Replicate),
+
+    # collinear fixed and random effects
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
                             design.df=sim1.meta)),
                  "Hessian is computationally singular")
 
-    # running with 1 fe and 1 re, both numeric
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num),
-                                             design.df=sim1.meta)),
-                 "Hessian is computationally singular")
-
-    # running with 2 fe and 2 re, both characters
+    # more variables than observations
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
                                              design.df=sim1.meta)),
                  "Hessian is computationally singular")

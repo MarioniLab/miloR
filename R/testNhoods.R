@@ -113,6 +113,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50){
     is.lmm <- FALSE
+    geno.only <- FALSE
     if(is(design, "formula")){
         # parse to find random and fixed effects
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
@@ -133,11 +134,14 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
 
-                # rescale genotypes
-                genotypes <- (genotypes - 1)/(1/(sqrt(ncol(genotypes))))
-                z.model <- do.call(cbind, list(z.model, genotypes))
+                # rescale genotypes by 1/sqrt(m), where m = number of SNPs
+                genotypes <- (genotypes - 1)/(sqrt(ncol(genotypes)))
             } else if(!find_re | !is.null(genotypes)){
-                z.model <- (genotypes - 1)/(1/(sqrt(ncol(genotypes))))
+                genotypes <- (genotypes - 1)/(sqrt(ncol(genotypes)))
+                z.model <- diag(nrow(genotypes))
+                colnames(z.model) <- paste0("Genetic", seq_len(nrow(genotypes)))
+                rownames(z.model) <- rownames(design.df)
+                geno.only <- TRUE
             }
 
             x.model <- .parse_formula(design, design.df, vtype="fe")
@@ -268,8 +272,12 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
-        rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) paste0(colnames(z.model)[X], unique(z.model[, X])))
-        names(rand.levels) <- colnames(z.model)
+        if(isFALSE(geno.only)){
+            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) paste0(colnames(z.model)[X], unique(z.model[, X])))
+            names(rand.levels) <- colnames(z.model)
+        } else{
+            rand.levels <- list("Genetic"=colnames(z.model))
+        }
 
         # extract trended dispersion for glmm
         dispersion <- dge$trended.dispersion
@@ -278,18 +286,33 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
 
         if(!is.null(genotypes)){
+            if(isTRUE(geno.only)){
+                message("Running genetic model with ", nrow(genotypes), " genetic variants")
+            } else{
+                message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
+            }
 
-            message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
             Kin <- genotypes %*% genotypes
 
-            glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
-                model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+            if(geno.only){
+                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
+                    model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
+                                          REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters),
+                                          geno.only=geno.only)
+                }
+            } else{
+                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, genotypes, rand.levels, REML, glmm.control){
+                    model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, genotypes=genotypes, random.levels=rand.levels,
+                                          REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+                }
             }
+
 
         } else{
             ## this needs tidying up
             glmmWrapper <- function(y, dispersion, i, x.model, z.model, offsets, rand.levels, REML, glmm.control){
-                model.list <- fitGLMM(X=x.model, Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+                model.list <- fitGLMM(X=x.model, Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE,
+                                      dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
             }
 
             fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],

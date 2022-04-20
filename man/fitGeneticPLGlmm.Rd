@@ -35,6 +35,8 @@ observations}
 
 \item{muvec}{vec vector of estimated phenotype means}
 
+\item{offsets}{vector of offsets to include in the linear predictor}
+
 \item{curr_beta}{vec vector of initial beta estimates}
 
 \item{curr_theta}{vec vector of initial parameter estimates}
@@ -60,8 +62,6 @@ levels}
 \item{REML}{bool - use REML for variance component estimation}
 
 \item{maxit}{int maximum number of iterations if theta_conv is FALSE}
-
-\item{offset}{vector of offsets to include in the linear predictor}
 }
 \description{
 Iteratively estimate GLMM fixed and random effect parameters, and variance
