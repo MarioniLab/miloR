@@ -29,7 +29,7 @@ List pseudovarPartial(arma::mat x, List rlevels, StringVector cnames){
 
         // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
         arma::sp_mat omat(x.cols(low, hi) * x.cols(low, hi).t());
-        outlist(i) = omat;
+        outlist[i] = omat;
     }
 
     return outlist;
@@ -68,7 +68,7 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
         // arma::mat zcol();
         arma::mat _omat = V_partial(i);
         arma::mat omat(P * _omat);
-        outlist(i) = omat;
+        outlist[i] = omat;
     }
 
     return outlist;
@@ -92,7 +92,7 @@ List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
             // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
             // arma::mat zcol();
             arma::mat _omat(Z.cols(icols - 1) * Z.cols(icols - 1).t());
-            outlist(i) = _omat;
+            outlist[i] = _omat;
         }
     }
 
