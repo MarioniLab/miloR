@@ -81,7 +81,9 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
         matrix.list <- preComputeMatrices(V_star_inv, V_partial, X, curr_beta, full.Z, curr_u, y_star)
         #---- First estimate variance components with Newton Raphson procedure ---#
         if (isFALSE(REML)) {
-            score_sigma <- sigmaScore(V_star_inv=V_star_inv, V_partial=V_partial, y_star=y_star, X=X, curr_beta=curr_beta, random.levels=random.levels)
+            P <- computeP_REML(V_star_inv=V_star_inv, X=X) #needed for computeVarCovar
+            PV <- computePV(V_partial=V_partial, P=P) #needed for computeVarCovar
+            score_sigma <- sigmaScore(matrix_list=matrix.list, V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels)
             information_sigma <- sigmaInformation(V_star_inv=V_star_inv, V_partial=V_partial, random.levels=random.levels)
         } else if (isTRUE(REML)) {
             P <- computeP_REML(V_star_inv=V_star_inv, X=X)
