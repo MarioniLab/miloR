@@ -6,8 +6,8 @@ Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Description: Milo performs single-cell differential abundance testing. Cell states are modelled 
-    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a 
-    negative bionomial generalized linear model.
+    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using either 
+    a negative bionomial generalized linear model or negative binomial generalized linear mixed model.
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
@@ -87,6 +87,7 @@ Collate:
     'methods.R'
     'plotNhoods.R'
     'sim_discrete.R'
+    'sim_family.R'
     'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'

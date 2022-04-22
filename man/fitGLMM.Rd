@@ -2,7 +2,7 @@
 % Please edit documentation in R/glmm.R
 \name{fitGLMM}
 \alias{fitGLMM}
-\title{Wrapper function for fitPLGlmm}
+\title{Perform differential abundance testing using a NB-generalised linear mixed model}
 \usage{
 fitGLMM(
   X,
@@ -18,6 +18,25 @@ fitGLMM(
   geno.only = FALSE
 )
 }
+\arguments{
+\item{X}{A matrix containing the fixed effects of the model.}
+
+\item{Z}{A matrix containing the random effects of the model.}
+
+\item{y}{A matrix containing the observed phenotype over each neighborhood.}
+
+\item{random.levels}{A list describing the random effects of the model, and for each, the different unique levels.}
+
+\item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
+
+\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.}
+
+\item{dispersion}{A scalar value for the dispersion of the negative binomial.}
+}
 \description{
-Wrapper function for fitPLGlmm
+This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model
+}
+\details{
+This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
+this function is run to solve the model.
 }
