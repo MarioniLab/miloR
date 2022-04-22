@@ -165,7 +165,7 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 
         // check for singular condition
         if(is_singular){
-            throw std::range_error("Hessian is computationally singular");
+            Rcpp::stop("Hessian is computationally singular");
         }
 
         theta_up = arma::inv(coeffmat) * rhs;
