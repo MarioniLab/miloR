@@ -144,9 +144,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     }
 
     # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
-    u_indices <- sapply(seq_along(random.levels),
+    u_indices <- sapply(seq_along(names(random.levels)),
                         FUN=function(RX) {
-                            which(colnames(full.Z) %in% paste(names(random.levels)[RX], random.levels[[RX]], sep="_"))
+                            which(colnames(full.Z) %in% paste0(names(random.levels)[RX], random.levels[[RX]]))
                         }, simplify=FALSE)
 
     if(sum(unlist(lapply(u_indices, length))) != ncol(full.Z)){
@@ -288,7 +288,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
 
-        colnames(i.z) <- paste(z.names[i], cluster_levels[[colnames(Z)[i]]], sep="_")
+        colnames(i.z) <- paste0(colnames(Z)[i], cluster_levels[[colnames(Z)[i]]])
 
         # to standardise or not?
         if(isTRUE(stand.cols)){

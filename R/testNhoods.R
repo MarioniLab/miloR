@@ -273,7 +273,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
         if(isFALSE(geno.only)){
-            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) paste0(colnames(z.model)[X], unique(z.model[, X])))
+            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
             names(rand.levels) <- colnames(z.model)
         } else{
             rand.levels <- list("Genetic"=colnames(z.model))
