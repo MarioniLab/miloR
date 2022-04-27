@@ -237,9 +237,9 @@ test_that("Providing a subset model.matrix is reproducible", {
     expect_identical(kd.ref1, kd.ref2)
 })
 
-sim1.meta$Condition_num <- c(1, 1, 1, 0, 0, 0)
-sim1.meta$Replicate_num <- c(1, 2, 3, 1, 2, 3)
-sim1.meta$Replicate2 <- c(1, 2, 1, 2, 1, 2)
+sim1.meta$Condition_num <- paste0("Condition_num", c(1, 1, 1, 0, 0, 0))
+sim1.meta$Replicate_num <- paste0("Replicate_num", c(1, 2, 3, 1, 2, 3))
+sim1.meta$Replicate2 <- paste0("Replicate2", c(1, 2, 1, 2, 1, 2))
 
 test_that("Singular Hessians are detectable and fail appropriately", {
 
@@ -250,12 +250,13 @@ test_that("Singular Hessians are detectable and fail appropriately", {
     # collinear fixed and random effects
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
                             design.df=sim1.meta)),
-                 "Hessian is computationally singular")
+                 "Zero eigenvalues in D")
 
     # more variables than observations
+    set.seed(42)
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
                                              design.df=sim1.meta)),
-                 "Hessian is computationally singular")
+                 "Zero eigenvalues in D")
 })
 
 initializeFullZsim <- function(Z, cluster_levels, stand.cols=FALSE){
