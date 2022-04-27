@@ -128,6 +128,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// check_na_arma_numeric
+Rcpp::LogicalVector check_na_arma_numeric(arma::vec X);
+RcppExport SEXP _miloR_check_na_arma_numeric(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(check_na_arma_numeric(X));
+    return rcpp_result_gen;
+END_RCPP
+}
+// check_inf_arma_numeric
+Rcpp::LogicalVector check_inf_arma_numeric(arma::vec X);
+RcppExport SEXP _miloR_check_inf_arma_numeric(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(check_inf_arma_numeric(X));
+    return rcpp_result_gen;
+END_RCPP
+}
+// check_zero_arma_numeric
+Rcpp::LogicalVector check_zero_arma_numeric(arma::vec X);
+RcppExport SEXP _miloR_check_zero_arma_numeric(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(check_zero_arma_numeric(X));
+    return rcpp_result_gen;
+END_RCPP
+}
+// check_zero_arma_complex
+Rcpp::LogicalVector check_zero_arma_complex(arma::cx_vec X);
+RcppExport SEXP _miloR_check_zero_arma_complex(SEXP XSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::cx_vec >::type X(XSEXP);
+    rcpp_result_gen = Rcpp::wrap(check_zero_arma_complex(X));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_miloR_computeVStar", (DL_FUNC) &_miloR_computeVStar, 3},
@@ -137,6 +181,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_miloR_multiP", (DL_FUNC) &_miloR_multiP, 2},
     {"_miloR_pseudovarPartial", (DL_FUNC) &_miloR_pseudovarPartial, 3},
     {"_miloR_pseudovarPartial_C", (DL_FUNC) &_miloR_pseudovarPartial_C, 2},
+    {"_miloR_check_na_arma_numeric", (DL_FUNC) &_miloR_check_na_arma_numeric, 1},
+    {"_miloR_check_inf_arma_numeric", (DL_FUNC) &_miloR_check_inf_arma_numeric, 1},
+    {"_miloR_check_zero_arma_numeric", (DL_FUNC) &_miloR_check_zero_arma_numeric, 1},
+    {"_miloR_check_zero_arma_complex", (DL_FUNC) &_miloR_check_zero_arma_complex, 1},
     {NULL, NULL, 0}
 };
 

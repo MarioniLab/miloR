@@ -56,3 +56,22 @@ Rcpp::LogicalVector check_zero_arma_numeric(arma::vec X){
 
     return _out;
 }
+
+
+
+// [[Rcpp::export]]
+Rcpp::LogicalVector check_zero_arma_complex(arma::cx_vec X){
+    // don't being function names with '_'
+    // input is an arma::vec
+    const int& n = X.size();
+    Rcpp::LogicalVector _out(n);
+    bool _iszero;
+
+    for(int i=0; i < n; i++){
+        // check for NA of any time
+        _iszero = X[i] == 0.0;
+        _out[i] = _iszero;
+    }
+
+    return _out;
+}

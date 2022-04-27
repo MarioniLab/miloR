@@ -107,3 +107,19 @@ pseudovarPartial_C <- function(Z, u_indices) {
     .Call('_miloR_pseudovarPartial_C', PACKAGE = 'miloR', Z, u_indices)
 }
 
+check_na_arma_numeric <- function(X) {
+    .Call('_miloR_check_na_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_inf_arma_numeric <- function(X) {
+    .Call('_miloR_check_inf_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_zero_arma_numeric <- function(X) {
+    .Call('_miloR_check_zero_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_zero_arma_complex <- function(X) {
+    .Call('_miloR_check_zero_arma_complex', PACKAGE = 'miloR', X)
+}
+

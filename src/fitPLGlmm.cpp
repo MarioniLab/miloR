@@ -1,13 +1,13 @@
 #include<RcppArmadillo.h>
-#include<RcppEigen.h>
+#include<Rcpp.h>
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(RcppEigen)]]
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "invertPseudoVar.h"
 #include "pseudovarPartial.h"
 #include "multiP.h"
 #include "inference.h"
+#include "utils.h"
 using namespace Rcpp;
 
 //' GLMM parameter estimation using pseudo-likelihood
@@ -60,6 +60,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::vec y_star(n);
 
     arma::mat Vmu(n, n);
+    Vmu.zeros();
     arma::mat W(n, n);
     arma::mat Winv(n, n);
 
@@ -99,8 +100,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     bool converged = false;
     while(!meet_cond){
-        D.diag() = muvec;
+        // check for all zero eigen values
+        arma::cx_vec d_eigenval = arma::eig_gen(D); // this needs to handle complex values
+        LogicalVector _check_zero = check_zero_arma_complex(d_eigenval);
+        bool _any_zero = all(_check_zero).is_true();
+        Rcout << d_eigenval << std::endl;
+
+        if(_any_zero){
+            stop("Zero eigenvalues in D - do you have collinear variables?");
+        }
+
         Dinv = D.i();
+
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(Dinv, Vmu);
@@ -140,7 +151,26 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         curr_beta = curr_theta.elem(beta_ix);
         curr_u = curr_theta.elem(u_ix);
 
+        // need to check for infinite and NA values here...
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+        LogicalVector _check_mu = check_na_arma_numeric(muvec);
+        bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
+
+        LogicalVector _check_inf = check_inf_arma_numeric(muvec);
+        bool _any_inf = any(_check_inf).is_true();
+
+        Rcout << _any_na << std::endl;
+        Rcout << _any_inf << std::endl;
+        Rcout << muvec << std::endl;
+
+        if(_any_na){
+            warning("NA estimates in linear predictor - consider an alternative model");
+        }
+
+        if(_any_inf){
+            stop("Infinite parameter estimates - consider an alternative model");
+        }
+
         iters++;
 
         bool _thconv = false;
@@ -168,5 +198,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     return outlist;
 }
+
 
 

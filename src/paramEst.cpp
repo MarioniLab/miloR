@@ -15,7 +15,7 @@ arma::vec sigmaScoreREML_arma (Rcpp::List pvstar_i, const arma::vec& ystar, cons
     // arma::sp_mat _P(P);
 
     for(int i=0; i < c; i++){
-        const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
+        const arma::mat& P_pvi = pvstar_i[i]; // this is P * partial derivative
 
         double lhs = -0.5 * arma::trace(P_pvi);
         arma::mat mid1(1, 1);
@@ -37,10 +37,10 @@ arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P){
     // this is a symmetric matrix so only need to fill the upper or
     // lower triangle to make it O(n^2/2) rather than O(n^2)
     for(int i=0; i < c; i++){
-        const arma::mat& _ipP = pvstari(i); // this is P * \d Var/ \dsigma
+        const arma::mat& _ipP = pvstari[i]; // this is P * \d Var/ \dsigma
 
         for(int j=i; j < c; j++){
-            const arma::mat& P_jp = pvstari(j); // this is P * \d Var/ \dsigma
+            const arma::mat& P_jp = pvstari[j]; // this is P * \d Var/ \dsigma
             arma::mat a_ij(_ipP * P_jp); // this is the biggest bottleneck - it takes >2s!
             double _artr = arma::trace(a_ij);
 
@@ -65,7 +65,7 @@ arma::vec sigmaScore (arma::vec ystar, arma::vec beta, arma::mat X, Rcpp::List V
     ystarminx = ystar - (X * beta);
 
     for(int i=0; i < c; i++){
-        arma::mat _ip = V_partial(i);
+        arma::mat _ip = V_partial[i];
         double lhs = -0.5 * arma::trace(V_star_inv * _ip);
         arma::mat rhs_mat(1, 1);
 
@@ -107,11 +107,26 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
     int m = theta_hat.size();
     arma::vec theta(m);
     arma::mat hessinv(hess.n_rows, hess.n_cols);
-    // will need a check here for singular hessians...
-    hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
 
-    theta = theta_hat + (hessinv * score_vec);
-    return theta;
+    // will need a check here for singular hessians...
+    try{
+        double _rcond = arma::rcond(hess);
+        bool is_singular;
+        is_singular = _rcond < 1e-9;
+
+        // check for singular condition
+        if(is_singular){
+            Rcpp::stop("Variance Component Hessian is computationally singular");
+        }
+
+        hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
+        theta = theta_hat + (hessinv * score_vec);
+        return theta;
+    } catch(std::exception &ex){
+        forward_exception_to_r(ex);
+    } catch(...){
+        Rf_error("c++ exception (unknown reason)");
+    }
 }
 
 
@@ -161,14 +176,15 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
     try{
         double _rcond = arma::rcond(coeffmat);
         bool is_singular;
-        is_singular = _rcond < 1e-12;
+        is_singular = _rcond < 1e-9;
 
         // check for singular condition
         if(is_singular){
-            Rcpp::stop("Hessian is computationally singular");
+            Rcpp::stop("Coefficients Hessian is computationally singular");
         }
 
         theta_up = arma::inv(coeffmat) * rhs;
+
         return theta_up;
     } catch(std::exception &ex){
         forward_exception_to_r(ex);
