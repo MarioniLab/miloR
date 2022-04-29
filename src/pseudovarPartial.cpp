@@ -8,11 +8,11 @@ using namespace Rcpp;
 //' Compute the partial derivatives of the pseudovariance as t(Z[, i]) %*% Z[, i]
 //' for the ith variance component
 //'
-//' @param Matrix x - the fully expanded Z matrix that maps observations to
+//' @param matrix x - the fully expanded Z matrix that maps observations to
 //' random effect variables
-//' @param List rlevels - a list that maps the random effect variable to the
+//' @param list rlevels - a list that maps the random effect variable to the
 //' individual levels
-//' @param List dimnames - a list of the matrix `x` dimension names.
+//' @param vec cnames - a StringVector of column names from fully expanded Z matrix
 // [[Rcpp::export]]
 List pseudovarPartial(arma::mat x, List rlevels, StringVector cnames){
     // this currently doesn't support sparse matrices - it's not super clear how to do

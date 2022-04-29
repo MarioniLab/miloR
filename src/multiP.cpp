@@ -9,9 +9,9 @@ using namespace Rcpp;
 //' For each variance component, we compute the matrix multiplication of the
 //' relevant partial derivative of dV_start/dSigm with the pseudovariance matrix
 //'
-//' @param List partials - list containing matrices of partial derivatives of the pseudovariance
+//' @param list partials - list containing matrices of partial derivatives of the pseudovariance
 //' for each variance component
-//' @param SparseMatrix psvar_in - inverse of the pseudovariance matrix
+//' @param mat psvar_in - inverse of the pseudovariance matrix
 // [[Rcpp::export]]
 List multiP(List partials, arma::mat psvar_in){
     int nsize = partials.size();

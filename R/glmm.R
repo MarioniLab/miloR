@@ -5,10 +5,14 @@
 #' @param X A matrix containing the fixed effects of the model.
 #' @param Z A matrix containing the random effects of the model.
 #' @param y A matrix containing the observed phenotype over each neighborhood.
+#' @param offsets A vector containing the (log) offsets to apply normalisation for different numbers of cells across samples.
+#' @param init.theta A column vector (m X 1 matrix) of initial estimates of fixed and random effect coefficients
+#' @param Kin A n x n covariance matrix to explicitly model variation between observations
 #' @param REML A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.
 #' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
 #' @param glmm.control A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.
 #' @param dispersion A scalar value for the dispersion of the negative binomial.
+#' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,

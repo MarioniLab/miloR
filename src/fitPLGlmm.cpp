@@ -20,6 +20,7 @@ using namespace Rcpp;
 //' @param X mat - sparse matrix that maps fixed effect variables to
 //' observations
 //' @param muvec vec vector of estimated phenotype means
+//' @param offsets vec vector of model offsets
 //' @param curr_theta vec vector of initial parameter estimates
 //' @param curr_beta vec vector of initial beta estimates
 //' @param curr_u vec of initial u estimates

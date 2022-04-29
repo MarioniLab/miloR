@@ -295,13 +295,13 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
             if(geno.only){
                 glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
-                    model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
+                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
                                           REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters),
                                           geno.only=geno.only)
                 }
             } else{
                 glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, genotypes, rand.levels, REML, glmm.control){
-                    model.list <- fitGLMM(X=x.model, full.Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, genotypes=genotypes, random.levels=rand.levels,
+                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, genotypes=genotypes, random.levels=rand.levels,
                                           REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
                 }
             }
