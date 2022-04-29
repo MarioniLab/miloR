@@ -45,6 +45,7 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' @param X mat - sparse matrix that maps fixed effect variables to
 #' observations
 #' @param muvec vec vector of estimated phenotype means
+#' @param offsets vec vector of model offsets
 #' @param curr_theta vec vector of initial parameter estimates
 #' @param curr_beta vec vector of initial beta estimates
 #' @param curr_u vec of initial u estimates
@@ -82,9 +83,9 @@ invertPseudoVar <- function(A, B, Z) {
 #' For each variance component, we compute the matrix multiplication of the
 #' relevant partial derivative of dV_start/dSigm with the pseudovariance matrix
 #'
-#' @param List partials - list containing matrices of partial derivatives of the pseudovariance
+#' @param list partials - list containing matrices of partial derivatives of the pseudovariance
 #' for each variance component
-#' @param SparseMatrix psvar_in - inverse of the pseudovariance matrix
+#' @param mat psvar_in - inverse of the pseudovariance matrix
 multiP <- function(partials, psvar_in) {
     .Call('_miloR_multiP', PACKAGE = 'miloR', partials, psvar_in)
 }
@@ -94,11 +95,11 @@ multiP <- function(partials, psvar_in) {
 #' Compute the partial derivatives of the pseudovariance as t(Z[, i]) %*% Z[, i]
 #' for the ith variance component
 #'
-#' @param Matrix x - the fully expanded Z matrix that maps observations to
+#' @param matrix x - the fully expanded Z matrix that maps observations to
 #' random effect variables
-#' @param List rlevels - a list that maps the random effect variable to the
+#' @param list rlevels - a list that maps the random effect variable to the
 #' individual levels
-#' @param List dimnames - a list of the matrix `x` dimension names.
+#' @param vec cnames - a StringVector of column names from fully expanded Z matrix
 pseudovarPartial <- function(x, rlevels, cnames) {
     .Call('_miloR_pseudovarPartial', PACKAGE = 'miloR', x, rlevels, cnames)
 }

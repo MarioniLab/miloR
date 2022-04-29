@@ -25,6 +25,12 @@ fitGLMM(
 
 \item{y}{A matrix containing the observed phenotype over each neighborhood.}
 
+\item{offsets}{A vector containing the (log) offsets to apply normalisation for different numbers of cells across samples.}
+
+\item{init.theta}{A column vector (m X 1 matrix) of initial estimates of fixed and random effect coefficients}
+
+\item{Kin}{A n x n covariance matrix to explicitly model variation between observations}
+
 \item{random.levels}{A list describing the random effects of the model, and for each, the different unique levels.}
 
 \item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
@@ -32,6 +38,8 @@ fitGLMM(
 \item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.}
 
 \item{dispersion}{A scalar value for the dispersion of the negative binomial.}
+
+\item{geno.only}{A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.}
 }
 \description{
 This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model

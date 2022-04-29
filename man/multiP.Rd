@@ -8,10 +8,10 @@ pseudovariance matrix}
 multiP(partials, psvar_in)
 }
 \arguments{
-\item{List}{partials - list containing matrices of partial derivatives of the pseudovariance
+\item{list}{partials - list containing matrices of partial derivatives of the pseudovariance
 for each variance component}
 
-\item{SparseMatrix}{psvar_in - inverse of the pseudovariance matrix}
+\item{mat}{psvar_in - inverse of the pseudovariance matrix}
 }
 \description{
 For each variance component, we compute the matrix multiplication of the

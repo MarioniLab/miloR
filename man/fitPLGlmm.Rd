@@ -32,6 +32,8 @@ observations}
 
 \item{muvec}{vec vector of estimated phenotype means}
 
+\item{offsets}{vec vector of model offsets}
+
 \item{curr_beta}{vec vector of initial beta estimates}
 
 \item{curr_theta}{vec vector of initial parameter estimates}
