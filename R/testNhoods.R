@@ -282,7 +282,6 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         # extract trended dispersion for glmm
         dispersion <- dge$trended.dispersion
         offsets <- dge$samples$norm.factors
-
         glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
 
         if(!is.null(genotypes)){
@@ -317,7 +316,6 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
             fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
                                                                       i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
-            # print(fit[[1]])
 
             res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, "FE")), "Std. Error"= unlist(lapply(fit, `[[`, "SE")),
                           "t value" = unlist(lapply(fit, `[[`, "t")), "P(>|t|)" = unlist(lapply(fit, `[[`, "PVALS")),

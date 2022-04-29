@@ -62,13 +62,19 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat Vmu(n, n);
     Vmu.zeros();
     arma::mat W(n, n);
+    W.zeros();
     arma::mat Winv(n, n);
+    Winv.zeros();
 
     arma::mat V_star(n, n);
+    V_star.zeros();
     arma::mat V_star_inv(n, n);
+    V_star_inv.zeros();
     arma::mat P(n, n);
+    P.zeros();
 
     arma::mat coeff_mat(m+c, m+c);
+    coeff_mat.zeros();
     List V_partial(c);
     V_partial = pseudovarPartial_C(Z, u_indices);
     // compute outside the loop
@@ -76,11 +82,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
+    information_sigma.zeros();
     arma::vec sigma_update(c);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
     arma::mat G_inv(stot, stot);
+    G_inv.zeros();
 
     arma::vec theta_update(m+stot);
     arma::vec theta_diff(theta_update.size());
@@ -100,13 +108,14 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     bool converged = false;
     while(!meet_cond){
+        D.diag() = muvec;
+
         // check for all zero eigen values
         arma::cx_vec d_eigenval = arma::eig_gen(D); // this needs to handle complex values
         LogicalVector _check_zero = check_zero_arma_complex(d_eigenval);
-        bool _any_zero = all(_check_zero).is_true();
-        Rcout << d_eigenval << std::endl;
+        bool _all_zero = any(_check_zero).is_true();
 
-        if(_any_zero){
+        if(_all_zero){
             stop("Zero eigenvalues in D - do you have collinear variables?");
         }
 
@@ -152,16 +161,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         curr_u = curr_theta.elem(u_ix);
 
         // need to check for infinite and NA values here...
-        muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+        // muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+        muvec = exp((X * curr_beta) + (Z * curr_u));
         LogicalVector _check_mu = check_na_arma_numeric(muvec);
         bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
 
         LogicalVector _check_inf = check_inf_arma_numeric(muvec);
         bool _any_inf = any(_check_inf).is_true();
-
-        Rcout << _any_na << std::endl;
-        Rcout << _any_inf << std::endl;
-        Rcout << muvec << std::endl;
 
         if(_any_na){
             warning("NA estimates in linear predictor - consider an alternative model");

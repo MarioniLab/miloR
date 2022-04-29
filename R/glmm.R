@@ -135,11 +135,11 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         stop("Infinite values in initial estimates - reconsider model")
     }
 
-    if(any(is.na(mu.vec))){
-        if(any(is.na(offsets))){
-            warning("NA values in offsets - setting to zero")
+    if(isTRUE(any(is.na(mu.vec[, 1])))){
+        if(isTRUE(any(is.na(offsets)))){
+            stop("NA values in offsets - remove these samples before re-running model")
         } else{
-            warning("NAs values in initial estimates - setting to zero")
+            stop("NAs values in initial estimates - remove these samples before re-running model")
         }
     }
 
