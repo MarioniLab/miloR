@@ -32,7 +32,7 @@ Rcpp::LogicalVector check_inf_arma_numeric(arma::vec X){
 
     for(int i=0; i < n; i++){
         // check for NA of any time
-        _isinf = !isfinite(X[i]);
+        _isinf = !std::isfinite(X[i]);
         _out[i] = _isinf;
     }
 
