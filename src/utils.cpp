@@ -14,7 +14,7 @@ Rcpp::LogicalVector check_na_arma_numeric(arma::vec X){
 
     for(int i=0; i < n; i++){
         // check for NA of any time
-        _isnan = isnan(X[i]);
+        _isnan = std::isnan(X[i]);
         _out[i] = _isnan;
     }
 
