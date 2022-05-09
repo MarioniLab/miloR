@@ -50,7 +50,7 @@ Imports: BiocNeighbors,
          RcppArmadillo,
          RcppEigen,
          Rcpp,
-	 numDeriv
+         numDeriv
 Suggests: 
     testthat,
     mvtnorm,
