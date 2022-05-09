@@ -360,7 +360,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
     }
 
     res$Nhood <- as.numeric(rownames(res))
-    message("Performing spatial FDR correction with", fdr.weighting[1], " weighting")
+    message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,

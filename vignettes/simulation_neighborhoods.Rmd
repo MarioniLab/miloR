@@ -192,7 +192,7 @@ SimulateY <- function(N, X, Z, fe.betas, re.sigmas,
 
 ```{r, warning=FALSE, message=FALSE}
 
-N=150
+N=30
 fe.levels <- list("FE1"=2)
 re.levels <- list("RE1"=10)
 design.sim <- SimulateXZ(N=N, n.fe=length(fe.levels), n.re=length(re.levels), re.levels=re.levels, fe.levels=fe.levels)
@@ -213,7 +213,7 @@ names(sim.list) <- 1:n
 
 ```{r, warning=FALSE, message=FALSE}
 y <- lapply(sim.list, `[[`, 1)
-y_matrix <- matrix(unlist(y), nrow = 150, ncol = n)
+y_matrix <- matrix(unlist(y), nrow = N, ncol = n)
 colnames(y_matrix) <- paste("n", 1:n, sep = "_")
 #means <- colMeans(y_matrix)
 #variance <- apply(y_matrix, 2, function(x) var(x))
@@ -222,8 +222,16 @@ colnames(y_matrix) <- paste("n", 1:n, sep = "_")
 #    xlab="Mean", ylab="Variance", pch=20)
 # abline(coef = c(0,1))
 
-#hist(y_matrix)
-#hist(matrix(nhoodCounts(milo.obj)))
+data(sim_trajectory)
+milo.meta <- sim_trajectory$meta
+milo.obj <- Milo(sim_trajectory$SCE)
+milo.obj <- buildGraph(milo.obj, k=20, d=30)
+milo.obj <- makeNhoods(milo.obj, k=20, d=30, refined=TRUE, prop=0.2)
+milo.obj <- calcNhoodDistance(milo.obj, d=30)
+milo.obj <- countCells(milo.obj, samples="Sample", meta.data=milo.meta)
+
+hist(y_matrix)
+hist(matrix(nhoodCounts(milo.obj)))
 ```
 
 
