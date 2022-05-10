@@ -76,6 +76,7 @@ jobs:
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
           BiocManager::install("MouseGastrulationData")
+	  BiocManager::install("MouseThymusAgeing")
         shell: Rscript {0}
 
       - name: Check
