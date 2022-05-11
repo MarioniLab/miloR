@@ -6,7 +6,7 @@
 // using namespace Rcpp;
 
 // All functions used for inference
-
+// [[Rcpp::export]]
 arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     // compute the fixed effect standard errors from the MME coefficient matrix
     arma::mat ul(m, m);
@@ -39,7 +39,7 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
 
 }
 
-
+// [[Rcpp::export]]
 arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
 
     const int& m = curr_beta.size();
@@ -62,7 +62,7 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
     return tscore;
 }
 
-
+// [[Rcpp::export]]
 arma::mat varCovar(const Rcpp::List& psvari, const int& c){
 
     arma::mat Va(c, c);
