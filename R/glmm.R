@@ -168,7 +168,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     if(is.null(Kin)){
         final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                                curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                 curr_disp=dispersion, REML=TRUE, maxit=max.hit)
     } else{
         final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
