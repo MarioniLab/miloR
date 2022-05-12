@@ -21,8 +21,23 @@ arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
     arma::mat mid(c, c);
     mid = I + (Z.t() * A * Z * B); // If we know the structure in B can we simplify this more???
     arma::mat midinv(c, c);
-    midinv = mid.i();
 
-    omt = A - (A * Z * B * midinv * Z.t() * A); // stack multiplications like this appear to be slow
-    return omt;
+    try{
+        double _rcond = arma::rcond(mid);
+        bool is_singular;
+        is_singular = _rcond < 1e-12;
+
+        // check for singular condition
+        if(is_singular){
+            Rcpp::stop("Pseudovariance component matrix is computationally singular");
+        }
+
+        midinv = mid.i();
+        omt = A - (A * Z * B * midinv * Z.t() * A); // stack multiplications like this appear to be slow
+        return omt;
+    } catch(std::exception &ex){
+        forward_exception_to_r(ex);
+    } catch(...){
+        Rf_error("c++ exception (unknown reason)");
+    }
 }

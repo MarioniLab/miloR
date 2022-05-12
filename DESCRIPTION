@@ -1,13 +1,13 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 1.3.4
+Version: 1.5.0
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@cruk.cam.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Description: Milo performs single-cell differential abundance testing. Cell states are modelled 
-    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a 
-    negative bionomial generalized linear model.
+    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using either 
+    a negative bionomial generalized linear model or negative binomial generalized linear mixed model.
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
@@ -50,7 +50,7 @@ Imports: BiocNeighbors,
          RcppArmadillo,
          RcppEigen,
          Rcpp,
-	 numDeriv
+         numDeriv
 Suggests: 
     testthat,
     mvtnorm,
@@ -60,12 +60,14 @@ Suggests:
     knitr,
     rmarkdown,
     uwot,
+    scuttle,
     BiocStyle,
     MouseGastrulationData,
     MouseThymusAgeing,
     magick,
     RCurl,
     curl,
+    scuttle,
     graphics
 RoxygenNote: 7.1.2
 NeedsCompilation: no
@@ -87,6 +89,7 @@ Collate:
     'methods.R'
     'plotNhoods.R'
     'sim_discrete.R'
+    'sim_family.R'
     'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'

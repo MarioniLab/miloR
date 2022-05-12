@@ -7,10 +7,13 @@
 pseudovarPartial(x, rlevels, cnames)
 }
 \arguments{
-\item{Matrix}{x - the fully expanded Z matrix that maps observations to
+\item{matrix}{x - the fully expanded Z matrix that maps observations to
 random effect variables}
 
-\item{List}{dimnames - a list of the matrix `x` dimension names.}
+\item{list}{rlevels - a list that maps the random effect variable to the
+individual levels}
+
+\item{vec}{cnames - a StringVector of column names from fully expanded Z matrix}
 }
 \description{
 Compute the partial derivatives of the pseudovariance as t(Z[, i]) %*% Z[, i]

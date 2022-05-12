@@ -10,10 +10,11 @@ computeVStar <- function(Z, G, W) {
 #' Iteratively estimate GLMM fixed and random effect parameters, and variance
 #' component parameters using Fisher scoring based on the Pseudo-likelihood
 #' approximation to a Normal loglihood.
-#' @param Z mat - sparse matrix that maps random effect variable levels to
+#' @param Z mat - n X (q + g) sparse matrix that maps random effect variable levels to
+#' observations - augmented by the n X g genotype matrix
+#' @param X mat - n X m sparse matrix that maps fixed effect variables to
 #' observations
-#' @param X mat - sparse matrix that maps fixed effect variables to
-#' observations
+#' @param K mat - n X n matrix containing genetic relationships between observations
 #' @param muvec vec vector of estimated phenotype means
 #' @param curr_theta vec vector of initial parameter estimates
 #' @param curr_beta vec vector of initial beta estimates
@@ -29,8 +30,38 @@ computeVStar <- function(Z, G, W) {
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
-fitPLGlmm <- function(Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
-    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+#' @param offsets vector of offsets to include in the linear predictor
+fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
+    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+}
+
+#' GLMM parameter estimation using pseudo-likelihood
+#'
+#' Iteratively estimate GLMM fixed and random effect parameters, and variance
+#' component parameters using Fisher scoring based on the Pseudo-likelihood
+#' approximation to a Normal loglihood.
+#' @param Z mat - sparse matrix that maps random effect variable levels to
+#' observations
+#' @param X mat - sparse matrix that maps fixed effect variables to
+#' observations
+#' @param muvec vec vector of estimated phenotype means
+#' @param offsets vec vector of model offsets
+#' @param curr_theta vec vector of initial parameter estimates
+#' @param curr_beta vec vector of initial beta estimates
+#' @param curr_u vec of initial u estimates
+#' @param curr_sigma vec of initial sigma estimates
+#' @param curr_G mat c X c matrix of variance components
+#' @param y vec of observed counts
+#' @param u_indices List a List, each element contains the indices of Z relevant
+#' to each RE and all its levels
+#' @param theta_conv double Convergence tolerance for paramter estimates
+#' @param rlevels List containing mapping of RE variables to individual
+#' levels
+#' @param curr_disp double Dispersion parameter estimate
+#' @param REML bool - use REML for variance component estimation
+#' @param maxit int maximum number of iterations if theta_conv is FALSE
+fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
+    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }
 
 #' Compute the inverse of a structured covariance matrix
@@ -52,9 +83,9 @@ invertPseudoVar <- function(A, B, Z) {
 #' For each variance component, we compute the matrix multiplication of the
 #' relevant partial derivative of dV_start/dSigm with the pseudovariance matrix
 #'
-#' @param List partials - list containing matrices of partial derivatives of the pseudovariance
+#' @param list partials - list containing matrices of partial derivatives of the pseudovariance
 #' for each variance component
-#' @param SparseMatrix psvar_in - inverse of the pseudovariance matrix
+#' @param mat psvar_in - inverse of the pseudovariance matrix
 multiP <- function(partials, psvar_in) {
     .Call('_miloR_multiP', PACKAGE = 'miloR', partials, psvar_in)
 }
@@ -64,16 +95,32 @@ multiP <- function(partials, psvar_in) {
 #' Compute the partial derivatives of the pseudovariance as t(Z[, i]) %*% Z[, i]
 #' for the ith variance component
 #'
-#' @param Matrix x - the fully expanded Z matrix that maps observations to
+#' @param matrix x - the fully expanded Z matrix that maps observations to
 #' random effect variables
-#' @param List rlevels - a list that maps the random effect variable to the
+#' @param list rlevels - a list that maps the random effect variable to the
 #' individual levels
-#' @param List dimnames - a list of the matrix `x` dimension names.
+#' @param vec cnames - a StringVector of column names from fully expanded Z matrix
 pseudovarPartial <- function(x, rlevels, cnames) {
     .Call('_miloR_pseudovarPartial', PACKAGE = 'miloR', x, rlevels, cnames)
 }
 
 pseudovarPartial_C <- function(Z, u_indices) {
     .Call('_miloR_pseudovarPartial_C', PACKAGE = 'miloR', Z, u_indices)
+}
+
+check_na_arma_numeric <- function(X) {
+    .Call('_miloR_check_na_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_inf_arma_numeric <- function(X) {
+    .Call('_miloR_check_inf_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_zero_arma_numeric <- function(X) {
+    .Call('_miloR_check_zero_arma_numeric', PACKAGE = 'miloR', X)
+}
+
+check_zero_arma_complex <- function(X) {
+    .Call('_miloR_check_zero_arma_complex', PACKAGE = 'miloR', X)
 }
 

@@ -6,7 +6,7 @@
 // using namespace Rcpp;
 
 // All functions used for inference
-
+// [[Rcpp::export]]
 arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     // compute the fixed effect standard errors from the MME coefficient matrix
     arma::mat ul(m, m);
@@ -16,13 +16,30 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     arma::mat lr(coeff_mat.submat(m, m, m+c-1, m+c-1)); // c X c
 
     arma::mat _se(ul - ur * lr.i() * ll); // m X m - (m X c X m) <- this should commute
-    arma::mat _seInv(_se.i());
-    arma::vec se(arma::sqrt(_seInv.diag()));
+    // will need a check here for singular hessians...
+    try{
+        double _rcond = arma::rcond(_se);
+        bool is_singular;
+        is_singular = _rcond < 1e-12;
 
-    return se;
+        // check for singular condition
+        if(is_singular){
+            Rcpp::stop("Standard Error coefficient matrix is computationally singular");
+        }
+
+        arma::mat _seInv(_se.i());
+        arma::vec se(arma::sqrt(_seInv.diag()));
+        return se;
+    } catch(std::exception &ex){
+        forward_exception_to_r(ex);
+    } catch(...){
+        Rf_error("c++ exception (unknown reason)");
+    }
+
+
 }
 
-
+// [[Rcpp::export]]
 arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
 
     const int& m = curr_beta.size();
@@ -45,7 +62,7 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
     return tscore;
 }
 
-
+// [[Rcpp::export]]
 arma::mat varCovar(const Rcpp::List& psvari, const int& c){
 
     arma::mat Va(c, c);

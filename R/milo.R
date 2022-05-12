@@ -100,8 +100,9 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
     out
 }
 
+
 #' @importFrom Matrix Matrix
-#' @importFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame SimpleList
 #' @importFrom SingleCellExperiment colData rowData altExps reducedDims colPairs rowPairs
 .emptyMilo <- function(...){
     # return an empty Milo object
@@ -112,11 +113,12 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE),
-               .k=NULL)
+               .k=NULL,
+               int_elementMetadata=DataFrame(),
+               int_colData=DataFrame())
 
-    reducedDims(out) <- SimpleList()
     altExps(out) <- SimpleList()
-    colData(out) <- DataFrame()
+    reducedDims(out) <- SimpleList()
 
     if (objectVersion(out) >= "1.11.3"){
         colPairs(out) <- SimpleList()

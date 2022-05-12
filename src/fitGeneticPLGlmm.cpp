@@ -1,13 +1,13 @@
 #include<RcppArmadillo.h>
-#include<Rcpp.h>
+#include<RcppEigen.h>
 // [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::depends(RcppEigen)]]
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "invertPseudoVar.h"
 #include "pseudovarPartial.h"
 #include "multiP.h"
 #include "inference.h"
-#include "utils.h"
 using namespace Rcpp;
 
 //' GLMM parameter estimation using pseudo-likelihood
@@ -15,12 +15,12 @@ using namespace Rcpp;
 //' Iteratively estimate GLMM fixed and random effect parameters, and variance
 //' component parameters using Fisher scoring based on the Pseudo-likelihood
 //' approximation to a Normal loglihood.
-//' @param Z mat - sparse matrix that maps random effect variable levels to
+//' @param Z mat - n X (q + g) sparse matrix that maps random effect variable levels to
+//' observations - augmented by the n X g genotype matrix
+//' @param X mat - n X m sparse matrix that maps fixed effect variables to
 //' observations
-//' @param X mat - sparse matrix that maps fixed effect variables to
-//' observations
+//' @param K mat - n X n matrix containing genetic relationships between observations
 //' @param muvec vec vector of estimated phenotype means
-//' @param offsets vec vector of model offsets
 //' @param curr_theta vec vector of initial parameter estimates
 //' @param curr_beta vec vector of initial beta estimates
 //' @param curr_u vec of initial u estimates
@@ -35,13 +35,14 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
+//' @param offsets vector of offsets to include in the linear predictor
 // [[Rcpp::export]]
-List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
-               arma::vec offsets, arma::vec curr_beta,
-               arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
-               arma::mat curr_G, const arma::vec& y, List u_indices,
-               double theta_conv,
-               const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
+List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K,
+                      arma::vec muvec, arma::vec offsets, arma::vec curr_beta,
+                      arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
+                      arma::mat curr_G, const arma::vec& y, List u_indices,
+                      double theta_conv,
+                      const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
     List outlist(10);
@@ -61,35 +62,26 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::vec y_star(n);
 
     arma::mat Vmu(n, n);
-    Vmu.zeros();
     arma::mat W(n, n);
-    W.zeros();
     arma::mat Winv(n, n);
-    Winv.zeros();
 
     arma::mat V_star(n, n);
-    V_star.zeros();
     arma::mat V_star_inv(n, n);
-    V_star_inv.zeros();
     arma::mat P(n, n);
-    P.zeros();
 
     arma::mat coeff_mat(m+c, m+c);
-    coeff_mat.zeros();
     List V_partial(c);
-    V_partial = pseudovarPartial_C(Z, u_indices);
+    V_partial = pseudovarPartial_G(Z, K, u_indices);
     // compute outside the loop
     List VP_partial(c);
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
-    information_sigma.zeros();
     arma::vec sigma_update(c);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
     arma::mat G_inv(stot, stot);
-    G_inv.zeros();
 
     arma::vec theta_update(m+stot);
     arma::vec theta_diff(theta_update.size());
@@ -110,23 +102,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     bool converged = false;
     while(!meet_cond){
         D.diag() = muvec;
-
-        // check for all zero eigen values
-        arma::cx_vec d_eigenval = arma::eig_gen(D); // this needs to handle complex values
-        LogicalVector _check_zero = check_zero_arma_complex(d_eigenval);
-        bool _all_zero = any(_check_zero).is_true();
-
-        if(_all_zero){
-            stop("Zero eigenvalues in D - do you have collinear variables?");
-        }
-
         Dinv = D.i();
-
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(Dinv, Vmu);
         Winv = W.i();
-        V_star = computeVStar(Z, curr_G, W);
+        V_star = computeVStar(Z, curr_G, W); // this also needs to include K
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
 
         if(REML){
@@ -156,28 +137,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
-        // inference
         curr_theta = theta_update;
         curr_beta = curr_theta.elem(beta_ix);
         curr_u = curr_theta.elem(u_ix);
 
-        // need to check for infinite and NA values here...
-        // muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
-        muvec = exp((X * curr_beta) + (Z * curr_u));
-        LogicalVector _check_mu = check_na_arma_numeric(muvec);
-        bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
-
-        LogicalVector _check_inf = check_inf_arma_numeric(muvec);
-        bool _any_inf = any(_check_inf).is_true();
-
-        if(_any_na){
-            warning("NA estimates in linear predictor - consider an alternative model");
-        }
-
-        if(_any_inf){
-            stop("Infinite parameter estimates - consider an alternative model");
-        }
-
+        muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
         iters++;
 
         bool _thconv = false;
@@ -193,6 +157,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         converged = _thconv && _siconv;
     }
 
+    // inference
     arma::vec se(computeSE(m, c, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
@@ -205,6 +170,5 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     return outlist;
 }
-
 
 
