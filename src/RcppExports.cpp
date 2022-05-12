@@ -78,6 +78,43 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// computeSE
+arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat);
+RcppExport SEXP _miloR_computeSE(SEXP mSEXP, SEXP cSEXP, SEXP coeff_matSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const int& >::type m(mSEXP);
+    Rcpp::traits::input_parameter< const int& >::type c(cSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type coeff_mat(coeff_matSEXP);
+    rcpp_result_gen = Rcpp::wrap(computeSE(m, c, coeff_mat));
+    return rcpp_result_gen;
+END_RCPP
+}
+// computeTScore
+arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE);
+RcppExport SEXP _miloR_computeTScore(SEXP curr_betaSEXP, SEXP SESEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::vec& >::type curr_beta(curr_betaSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type SE(SESEXP);
+    rcpp_result_gen = Rcpp::wrap(computeTScore(curr_beta, SE));
+    return rcpp_result_gen;
+END_RCPP
+}
+// varCovar
+arma::mat varCovar(const Rcpp::List& psvari, const int& c);
+RcppExport SEXP _miloR_varCovar(SEXP psvariSEXP, SEXP cSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type psvari(psvariSEXP);
+    Rcpp::traits::input_parameter< const int& >::type c(cSEXP);
+    rcpp_result_gen = Rcpp::wrap(varCovar(psvari, c));
+    return rcpp_result_gen;
+END_RCPP
+}
 // invertPseudoVar
 arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z);
 RcppExport SEXP _miloR_invertPseudoVar(SEXP ASEXP, SEXP BSEXP, SEXP ZSEXP) {
@@ -177,6 +214,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_miloR_computeVStar", (DL_FUNC) &_miloR_computeVStar, 3},
     {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 17},
     {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 16},
+    {"_miloR_computeSE", (DL_FUNC) &_miloR_computeSE, 3},
+    {"_miloR_computeTScore", (DL_FUNC) &_miloR_computeTScore, 2},
+    {"_miloR_varCovar", (DL_FUNC) &_miloR_varCovar, 2},
     {"_miloR_invertPseudoVar", (DL_FUNC) &_miloR_invertPseudoVar, 3},
     {"_miloR_multiP", (DL_FUNC) &_miloR_multiP, 2},
     {"_miloR_pseudovarPartial", (DL_FUNC) &_miloR_pseudovarPartial, 3},

@@ -64,6 +64,18 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
     .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
 }
 
+computeSE <- function(m, c, coeff_mat) {
+    .Call('_miloR_computeSE', PACKAGE = 'miloR', m, c, coeff_mat)
+}
+
+computeTScore <- function(curr_beta, SE) {
+    .Call('_miloR_computeTScore', PACKAGE = 'miloR', curr_beta, SE)
+}
+
+varCovar <- function(psvari, c) {
+    .Call('_miloR_varCovar', PACKAGE = 'miloR', psvari, c)
+}
+
 #' Compute the inverse of a structured covariance matrix
 #'
 #' Using Henderson's adjusted Woodbury formula for a singular B matrix,
