@@ -272,80 +272,63 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
-        if(isFALSE(geno.only)){
-            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
-            names(rand.levels) <- colnames(z.model)
-        } else{
-            rand.levels <- list("Genetic"=colnames(z.model))
+        rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
+        names(rand.levels) <- colnames(z.model)
+        
+        glmmWrapper <- function(y, dispersion, i){
+            print(i)
+            data.df <- cbind.data.frame(y, x.model, z.model)
+            nb.glm <- glmmTMB(y ~ 1 + SexMale + (1|Status_on_day_collection_summary), data = data.df, family=nbinom2(link="log"), REML=TRUE, se=TRUE)
+            model.list <- fitGLMM(X=x.model, Z=z.model, y=y, random.levels=rand.levels, REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
+            # out.list <- append(model.list, list("diff.coeff"= round(coef(summary(nb.glm))$cond[,1] - model.list$FE, 3),
+            #                                        "diff.sigma" = round((unlist(VarCorr(nb.glm)$cond) - model.list$Sigma), 3)))
+            output <- append(model.list, list("TMB.coeff"= coef(summary(nb.glm))$cond[,1], "TMB.sigma" = unlist(VarCorr(nb.glm)$cond), "TMB.r" = summary(nb.glm)[["sigma"]]))
         }
+        fit <-lapply(1:nrow(dge$counts), function(i) glmmWrapper(y = dge$counts[i,], dispersion = 1/dispersion[i], i))
 
-        # extract trended dispersion for glmm
-        dispersion <- dge$trended.dispersion
-        offsets <- dge$samples$norm.factors
-        glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
-
-        if(!is.null(genotypes)){
-            if(isTRUE(geno.only)){
-                message("Running genetic model with ", nrow(genotypes), " genetic variants")
-            } else{
-                message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
-            }
-
-            Kin <- genotypes %*% genotypes
-
-            if(geno.only){
-                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
-                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
-                                          REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters),
-                                          geno.only=geno.only)
-                }
-            } else{
-                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, genotypes, rand.levels, REML, glmm.control){
-                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, genotypes=genotypes, random.levels=rand.levels,
-                                          REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
-                }
-            }
-
-
-        } else{
-            ## this needs tidying up
-            glmmWrapper <- function(y, dispersion, i, x.model, z.model, offsets, rand.levels, REML, glmm.control){
-                model.list <- fitGLMM(X=x.model, Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                      dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
-            }
-
-            fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
-                                                                      i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
-
-            res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, "FE")), "Std. Error"= unlist(lapply(fit, `[[`, "SE")),
-                          "t value" = unlist(lapply(fit, `[[`, "t")), "P(>|t|)" = unlist(lapply(fit, `[[`, "PVALS")),
-                          "RE Variance"=rep(unlist(lapply(fit, `[[`, "Sigma")), each = length(lapply(fit, `[[`, 1)[[1]])),
-                          "Converged"=rep(unlist(lapply(fit, `[[`, "converged")), each = length(lapply(fit, `[[`, 1)[[1]])))
-            vars <- colnames(x.model)
-            rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
-            # print(res1)
-
-            # give warning if >10% neighborhoods didn't converge
-            if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
-                warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
-            }
-            # or if >50% of variances are negative
-            for (re in 1:length(rand.levels)) {
-                if (sum(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re)) < 0)/length(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) > 0.5 |
-                    mean(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) < 0.007) {
-                    warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
-                }
-            }
-
-            # real res has to reflect output from glmQLFit
-            res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)),
-                          "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)),
-                          "PValue" = unlist(lapply(lapply(fit, `[[`, 12), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
-                          "Converged"=unlist(lapply(fit, `[[`, 6)))
-            rownames(res) <- 1:length(fit)
-            colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
-        }
-
+        res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 8)),
+                      "t value" = unlist(lapply(fit, `[[`, 9)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+                      "P(>|t|)" = unlist(lapply(fit, `[[`, 18)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])), "r" = rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                      "Converged"=rep(unlist(lapply(fit, `[[`, 4)), each = length(lapply(fit, `[[`, 1)[[1]])), "TMB.coeff" = unlist(lapply(fit, `[[`, 19)), "TMB.sigma" = rep(unlist(lapply(fit, `[[`, 20)), each = length(lapply(fit, `[[`, 1)[[1]])),
+                      "TMB.r" = rep(unlist(lapply(fit, `[[`, 21)), each = length(lapply(fit, `[[`, 1)[[1]])))
+        
+        # res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, 1)), "Std. Error"= unlist(lapply(fit, `[[`, 9)),
+        #                     "t value" = unlist(lapply(fit, `[[`, 10)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+        #                     "P(>|t|)" = unlist(lapply(fit, `[[`, 15)), "RE Variance"=rep(unlist(lapply(fit, `[[`, 3)), each = length(lapply(fit, `[[`, 1)[[1]])),
+        #                     "Converged"=rep(unlist(lapply(fit, `[[`, 6)), each = length(lapply(fit, `[[`, 1)[[1]])))
+                            # "TMB est"= unlist(lapply(fit, `[[`, 16)), "TMB var"=rep(unlist(lapply(fit, `[[`, 17)), each = length(lapply(fit, `[[`, 1)[[1]])))
+        vars <- c("(intercept)", "(slope)")
+        rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
+        print(res1)
+        
+        # give warning if >10% neighborhoods didn't converge
+        # if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
+        #     warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
+        # } 
+        # or if >50% of variances are negative
+        # for (re in 1:length(rand.levels)) {
+        #     if (sum(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re)) < 0)/length(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) > 0.5 | 
+        #         mean(unlist(lapply(lapply(fit, `[[`, 3), `[[`, re))) < 0.007) {
+        #         warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
+        #     } 
+        # }
+        
+        #real res has to reflect output from glmQLFit
+        res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)),
+                      "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+                      "PValue" = unlist(lapply(lapply(fit, `[[`, 15), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
+                      "Converged"=unlist(lapply(fit, `[[`, 6)))
+        
+        # res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 8), `[[`, 2)),
+        #                         "t value" = unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)),
+        #                         "PValue" = unlist(lapply(lapply(fit, `[[`, 18), `[[`, 2)), matrix(unlist(lapply(fit, `[[`, 3)), ncol=length(rand.levels), byrow=T),
+        #                         "Converged"=unlist(lapply(fit, `[[`, 4)))
+        # 
+        rownames(res) <- 1:length(fit)
+        colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        res <- na.omit(res) 
+        res <- res[-which(res$Converged == FALSE),]
+        
     } else {
 
         fit <- glmQLFit(dge, x.model, robust=robust)
