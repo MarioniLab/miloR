@@ -279,8 +279,8 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             rand.levels <- list("Genetic"=colnames(z.model))
         }
         
-        # extract trended dispersion for glmm
-        dispersion <- dge$trended.dispersion
+        # extract tagwise dispersion for glmm
+        dispersion <- dge$tagwise.dispersion
         offsets <- dge$samples$norm.factors
         glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
         
