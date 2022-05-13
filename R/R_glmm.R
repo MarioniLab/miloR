@@ -116,7 +116,7 @@ runGLMM <- function(X, Z, y, random.levels=NULL, REML=TRUE,
   
   SE <- calculateSE(X=X, full.Z=full.Z, W_inv=W_inv, G_inv=G_inv)
   Zscore <- calculateZscore(curr_beta=curr_beta, SE=SE)
-  df <- Satterthwaite_df(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
+  df <- Satterthwaite_df.R(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv)
   Pvalue <- computePvalue(Zscore=Zscore, df=df)
   
   converged <- ((all(theta_diff < theta.conv)) & (all(abs(sigma_diff) < theta.conv)))
@@ -341,7 +341,7 @@ computePvalue <- function(Zscore=Zscore, df=df) {
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
 #' @export
-Satterthwaite_df <- function(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
+Satterthwaite_df.R <- function(X=X, PV=PV, SE=SE, REML=REML, W_inv=W_inv, full.Z=full.Z, curr_sigma=curr_sigma, curr_beta=curr_beta, random.levels=random.levels, V_partial=V_partial, V_star_inv=V_star_inv, G_inv=G_inv) {
   
   ###---- first calculate g = derivative of C with respect to sigma ----
   function_jac <- function(x, X.fun=as.matrix(X), W_inv.fun=as.matrix(W_inv), full.Z.fun=as.matrix(full.Z)) {
