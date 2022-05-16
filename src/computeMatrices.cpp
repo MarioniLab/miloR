@@ -31,7 +31,7 @@ arma::mat computeW(arma::mat Dinv, arma::mat V){
     return W;
 }
 
-// [[Rcpp::export]]
+
 arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W){
     int n = Z.n_rows;
     arma::mat vstar(n, n);

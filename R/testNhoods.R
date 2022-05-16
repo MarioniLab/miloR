@@ -120,7 +120,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         find_re <- any(grepl(parse, pattern="1*\\|"))
         if(find_re | !is.null(genotypes)){
             message("Random effects found")
-            
+
             is.lmm <- TRUE
             if(find_re | is.null(genotypes)){
                 # make model matrices for fixed and random effects
@@ -130,10 +130,10 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                 if(!all(rownames(genotypes) == rownames(design.df))){
                     stop("Genotype rownames do not match design.df rownames")
                 }
-                
+
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
-                
+
                 # rescale genotypes by 1/sqrt(m), where m = number of SNPs
                 genotypes <- (genotypes - 1)/(sqrt(ncol(genotypes)))
             } else if(!find_re | !is.null(genotypes)){
@@ -143,15 +143,15 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                 rownames(z.model) <- rownames(design.df)
                 geno.only <- TRUE
             }
-            
+
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
             max.iters <- max.iters
-            
+
             if(all(rownames(x.model) != rownames(z.model))){
                 stop("Discordant sample names for mixed model design matrices")
             }
-            
+
         } else{
             x.model <- model.matrix(design, data=design.df)
             rownames(x.model) <- rownames(design.df)
@@ -161,7 +161,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         if(nrow(x.model) != nrow(design.df)){
             stop("Design matrix and model matrix are not the same dimensionality")
         }
-        
+
         if(any(rownames(x.model) != rownames(design.df))){
             warning("Design matrix and model matrix dimnames are not the same")
             # check if rownames are a subset of the design.df
@@ -173,21 +173,21 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             }
         }
     }
-    
+
     if(!is(x, "Milo")){
         stop("Unrecognised input type - must be of class Milo")
     } else if(.check_empty(x, "nhoodCounts")){
         stop("Neighbourhood counts missing - please run countCells first")
     }
-    
+
     if(!any(norm.method %in% c("TMM", "logMS", "RLE"))){
         stop("Normalisation method ", norm.method, " not recognised. Must be either TMM, RLE or logMS")
     }
-    
+
     if(!reduced.dim %in% reducedDimNames(x)){
         stop(reduced.dim, " is not found in reducedDimNames. Avaiable options are ", paste(reducedDimNames(x), collapse=","))
     }
-    
+
     subset.counts <- FALSE
     if(ncol(nhoodCounts(x)) != nrow(x.model)){
         # need to allow for design.df with a subset of samples only
@@ -198,7 +198,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             stop("Design matrix (", nrow(x.model), ") and nhood counts (", ncol(nhoodCounts(x)), ") are not the same dimension")
         }
     }
-    
+
     if(is.lmm){
         if(ncol(nhoodCounts(x)) != nrow(z.model)){
             # need to allow for design.df with a subset of samples only
@@ -211,7 +211,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             }
         }
     }
-    
+
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
@@ -228,13 +228,13 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             keep.nh <- rep(TRUE, nrow(nhoodCounts(x)))
         }
     }
-    
+
     if(isTRUE(subset.counts)){
         keep.samps <- intersect(rownames(x.model), colnames(nhoodCounts(x)[keep.nh, ]))
     } else{
         keep.samps <- colnames(nhoodCounts(x)[keep.nh, ])
     }
-    
+
     if(any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) != rownames(x.model)) & !any(colnames(nhoodCounts(x)[keep.nh, keep.samps]) %in% rownames(x.model))){
         stop("Sample names in design matrix and nhood counts are not matched.
              Set appropriate rownames in design matrix.")
@@ -245,7 +245,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             z.model <- z.model[colnames(nhoodCounts(x)[keep.nh, keep.samps]), , drop = FALSE]
         }
     }
-    
+
     if(length(norm.method) > 1){
         message("Using TMM normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
@@ -266,10 +266,10 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
     }
-    
+
     # estimate disperions _before_ all models
     dge <- estimateDisp(dge, x.model)
-    
+
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
         if(isFALSE(geno.only)){
@@ -278,21 +278,21 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         } else{
             rand.levels <- list("Genetic"=colnames(z.model))
         }
-        
+
         # extract tagwise dispersion for glmm
         dispersion <- dge$tagwise.dispersion
         offsets <- dge$samples$norm.factors
         glmm.cont <- list(theta.tol=1e-6, max.iter=max.iters)
-        
+
         if(!is.null(genotypes)){
             if(isTRUE(geno.only)){
                 message("Running genetic model with ", nrow(genotypes), " genetic variants")
             } else{
                 message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
             }
-            
+
             Kin <- genotypes %*% genotypes
-            
+
             if(geno.only){
                 glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
                     model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
@@ -300,23 +300,21 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                                           geno.only=geno.only)
                 }
             } else{
-                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, genotypes, rand.levels, REML, glmm.control){
-                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, genotypes=genotypes, random.levels=rand.levels,
+                glmmWrapper <- function(y, dispersion, i, x.model, z.model, kin.matrix, offsets, rand.levels, REML, glmm.control){
+                    model.list <- fitGLMM(X=x.model, Z=z.model, y=y, Kin=kin.matrix, offsets=offsets, random.levels=rand.levels,
                                           REML = TRUE, dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
                 }
             }
-            
-            
         } else{
             ## this needs tidying up
             glmmWrapper <- function(y, dispersion, i, x.model, z.model, offsets, rand.levels, REML, glmm.control){
                 model.list <- fitGLMM(X=x.model, Z=z.model, y=y, offsets=offsets, random.levels=rand.levels, REML = TRUE,
                                       dispersion=dispersion, glmm.control=list(theta.tol=1e-6, max.iter=max.iters))
             }
-            
+
             fit <- lapply(1:nrow(dge$counts), function(i) glmmWrapper(y=dge$counts[i,], dispersion = 1/dispersion[i],
                                                                       i, x.model, z.model, offsets, rand.levels, REML, glmm.control))
-            
+
             res1 <- cbind("Estimate" = unlist(lapply(fit, `[[`, "FE")), "Std. Error"= unlist(lapply(fit, `[[`, "SE")),
                           "t value" = unlist(lapply(fit, `[[`, "t")), "P(>|t|)" = unlist(lapply(fit, `[[`, "PVALS")),
                           "RE Variance"=rep(unlist(lapply(fit, `[[`, "Sigma")), each = length(lapply(fit, `[[`, 1)[[1]])),
@@ -324,7 +322,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             vars <- colnames(x.model)
             rownames(res1) <- paste("N", rep(1:length(fit), each = length(lapply(fit, `[[`, 1)[[1]])), rep(vars, nrow(res1)/2))
             # print(res1)
-            
+
             # give warning if >10% neighborhoods didn't converge
             if (sum(!unlist(lapply(fit, `[[`, 6)))/length(unlist(lapply(fit, `[[`, 6))) > 0){
                 warning(paste(sum(!unlist(lapply(fit, `[[`, 6))), "neighborhood did not converge; increase number of iterations?"))
@@ -336,7 +334,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                     warning(paste(names(rand.levels)[re], "variance is close to 0 - consider rerunning GLMM without", names(rand.levels)[re]))
                 }
             }
-            
+
             # real res has to reflect output from glmQLFit
             res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, 1), `[[`, 2)), "Std. Error"= unlist(lapply(lapply(fit, `[[`, 9), `[[`, 2)),
                                     "t value" = unlist(lapply(lapply(fit, `[[`, 10), `[[`, 2)), #"Df" = unlist(lapply(fit, `[[`, 11)),
@@ -345,9 +343,9 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             rownames(res) <- 1:length(fit)
             colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
         }
-        
+
     } else {
-        
+
         fit <- glmQLFit(dge, x.model, robust=robust)
         if(!is.null(model.contrasts)){
             mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)
@@ -358,7 +356,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
         }
     }
-    
+
     res$Nhood <- as.numeric(rownames(res))
     message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
@@ -369,7 +367,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                                       indices=nhoodIndex(x),
                                       distances=nhoodDistances(x),
                                       reduced.dimensions=reducedDim(x, reduced.dim))
-    
+
     res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
     res
 }

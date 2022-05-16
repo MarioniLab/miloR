@@ -26,65 +26,65 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100),
                     dispersion = 0.5, geno.only=FALSE){
-    
+
     # model components
     # X - fixed effects model matrix
     # Z - random effects model matrix
     # y - observed phenotype
-    
+
     # check all dimensions conform
     if(nrow(X) != nrow(Z) | nrow(X) != length(y)){
         stop("Dimensions of y, X and Z are discordant. y: ", length(y), "x1, X:",
              nrow(X), "x", ncol(X), ", Z:", nrow(Z), "x", ncol(Z))
     }
-    
+
     theta.conv <- glmm.control[["theta.tol"]] # convergence for the parameters
     max.hit <- glmm.control[["max.iter"]]
-    
+
     # OLS for the betas is usually a good starting point for NR
     curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
     rownames(curr_beta) <- colnames(X)
-    
+
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
         if(nrow(Kin) != ncol(Kin)){
             stop("Input covariance matrix is not square: ", nrow(Kin), "x", ncol(Kin))
         }
-        
+
         if(nrow(Kin) != nrow(Z)){
             stop("Input covariance matrix and Z design matrix are discordant: ",
                  nrow(Z), "x", ncol(Z), ", ", nrow(Kin), "x", ncol(Kin))
         }
-        
+
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-        
+
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
-        
+
         # compute sample variances of the us
         curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         rownames(curr_sigma) <- colnames(Z)
-        
+
         ## add the genetic components
         ## augment Z with I
         geno.I <- diag(nrow(full.Z))
-        colnames(geno.I) <- paste0("Genetic", seq_len(ncol(geno.I)))
+        colnames(geno.I) <- seq_len(ncol(geno.I))
         full.Z <- do.call(cbind, list(full.Z, geno.I))
-        
+
         # add a genetic variance component
         sigma_g <- Matrix(runif(1, 0, 1), ncol=1, nrow=1, sparse=TRUE)
         rownames(sigma_g) <- "Genetic"
         curr_sigma <- do.call(rbind, list(curr_sigma, sigma_g))
-        
+
         # add genetic BLUPs
         g_u <- matrix(runif(nrow(full.Z), 0, 1), ncol=1)
         rownames(g_u) <- colnames(geno.I)
         curr_u <- do.call(rbind, list(curr_u, g_u))
-        
+
         random.levels <- c(random.levels, list("Genetic"=colnames(geno.I)))
-        
+
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
     } else if(isTRUE(geno.only) & !is.null(Kin)){
@@ -92,53 +92,53 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         if(nrow(Kin) != ncol(Kin)){
             stop("Input covariance matrix is not square: ", nrow(Kin), "x", ncol(Kin))
         }
-        
+
         # this means Z is an identity matrix - need to check this
         if(ncol(Z) != nrow(Z)){
             stop("Z matrix is not square: ", nrow(Z), "x", ncol(Z))
         }
-        
+
         full.Z <- Z
         colnames(full.Z) <- paste0("Genetic", seq_len(ncol(full.Z)))
-        
+
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
-        
+
         # compute sample variances of the us
         curr_sigma <- Matrix(runif(1, 0, 1), ncol=1, sparse = TRUE)
         rownames(curr_sigma) <- "Genetic"
-        
+
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
     } else if(is.null(Kin)){
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-        
+
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         rownames(curr_u) <- colnames(full.Z)
-        
+
         # compute sample variances of the us
         curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         rownames(curr_sigma) <- colnames(Z)
-        
+
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma)
     }
-    
+
     # create a single variable for the thetas
     curr_theta <- do.call(rbind, list(curr_beta, curr_u))
     if(nrow(curr_theta) != sum(c(ncol(X), ncol(full.Z)))){
         stop("Number of parameters does not match columns of X and Z")
     }
-    
+
     #compute mu.vec using inverse link function
     mu.vec <- exp(offsets + (X %*% curr_beta) + (full.Z %*% curr_u))
     if(any(is.infinite(mu.vec))){
         stop("Infinite values in initial estimates - reconsider model")
     }
-    
+
     if(isTRUE(any(is.na(mu.vec[, 1])))){
         if(isTRUE(any(is.na(offsets)))){
             stop("NA values in offsets - remove these samples before re-running model")
@@ -146,25 +146,25 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             stop("NAs values in initial estimates - remove these samples before re-running model")
         }
     }
-    
+
     # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
     u_indices <- sapply(seq_along(names(random.levels)),
                         FUN=function(RX) {
                             which(colnames(full.Z) %in% paste0(names(random.levels)[RX], random.levels[[RX]]))
                         }, simplify=FALSE)
-    
+
     if(sum(unlist(lapply(u_indices, length))) != ncol(full.Z)){
         stop("Non-unique column names in Z - please ensure these are unique")
     }
-    
+
     # flatten column matrices to vectors
     mu.vec <- mu.vec[, 1]
     curr_beta <- curr_beta[, 1]
-    
+
     curr_sigma <- curr_sigma[, 1]
     curr_u <- curr_u[, 1]
     curr_theta <- curr_theta[, 1]
-    
+
     if(is.null(Kin)){
         final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
@@ -177,38 +177,38 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                        curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                        curr_disp=dispersion, REML=TRUE, maxit=max.hit)
     }
-    
+
     if(isFALSE(final.list$converged)){
         warning("Model has not converged after ", final.list$Iters,
                 " iterations. Consider increasing max.iter or drop a random effect")
     }
-    
+
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
     cint <- length(curr_u)
     dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
                             final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]], random.levels)
     pvals <- computePvalue(final.list[["t"]], dfs)
-    
+
     if(any(is.infinite(pvals))){
         warning("Setting infinite p-values to NA")
         pvals[is.infinite(pvals)] <- NA
     }
-    
+
     final.list[["DF"]] <- dfs
     final.list[["PVALS"]] <- pvals
-    
+
     # final checks
     na.params <- is.na(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
     if(sum(na.params) > 0){
         warning("NA parameter estimates - reconsider model")
     }
-    
+
     inf.params <- is.infinite(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
     if(sum(inf.params) > 0){
         warning("Infinite parameter estimates - reconsider model or increase sample size")
     }
-    
+
     return(final.list)
 }
 
@@ -225,7 +225,7 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
     G <- sparseMatrix(i=sum.levels, j=sum.levels, repr="C", x=0L)
     dimnames(G) <- list(unlist(cluster_levels), unlist(cluster_levels))
     i <- j <- 1
-    
+
     for(x in seq_len(nrow(sigmas))){
         x.q <- length(cluster_levels[[rownames(sigmas)[x]]])
         if(!is.null(Kin)){
@@ -237,7 +237,7 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
                 diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
             }
         }
-        
+
         i <- j <- i+x.q
     }
     return(as.matrix(G))
@@ -249,23 +249,23 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 #' @export
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # construct the full Z with all random effect levels
-    
+
     # check that all of the levels are present in random.levels AND the
     # entries of Z
     all.present <- unlist(sapply(seq_along(cluster_levels), FUN=function(PX){
         all(cluster_levels[[PX]] %in% unique(Z[, PX]))
     }, simplify=FALSE))
-    
+
     if(!all(all.present)){
         stop("Columns of Z are discordant with input random effect levels")
     }
-    
+
     n.cols <- ncol(Z)
     z.names <- colnames(Z)
     if(is.null(z.names)){
         stop("Columns of Z must have valid names")
     }
-    
+
     col.classes <- apply(Z, 2, class)
     i.z.list <- list()
     for(i in seq_len(n.cols)){
@@ -291,9 +291,9 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.levels <- as.factor(paste(sort(as.integer(i.levels))))
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
-        
+
         colnames(i.z) <- paste0(colnames(Z)[i], cluster_levels[[colnames(Z)[i]]])
-        
+
         # to standardise or not?
         if(isTRUE(stand.cols)){
             q <- ncol(i.z)
@@ -301,7 +301,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.star <- i.z - ((i.ident %*% i.z)/q)
             i.z <- i.star
         }
-        
+
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
     full.Z <- do.call(cbind, i.z.list)
@@ -319,17 +319,6 @@ matrix.trace <- function(x){
         stop("matrix is not square")
     } else{
         return(sum(diag(x)))
-    }
-}
-
-
-#' @importFrom MASS ginv
-#' @export
-inv <- function(x){
-    if (det(x) > 8.313969e-20) {
-        solve(x)
-    } else {
-        stop("det is 0")
     }
 }
 
@@ -357,7 +346,7 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     UpperRight <- coeff.mat[c(1:mint), c((mint+1):(mint+cint))]
     LowerLeft <- coeff.mat[c((mint+1):(mint+cint)), c(1:mint)]
     LowerRight <- coeff.mat[c((mint+1):(mint+cint)), c((mint+1):(mint+cint))] - G_inv
-    
+
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
     C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
@@ -369,17 +358,17 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' @importFrom numDeriv jacobian
 #' @export
 Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
-    
+
     if(any(class(curr_sigma) %in% c("Matrix", "matrix", "dgeMatrix", "dgCMatrix"))){
         curr_sigma <- as.vector(curr_sigma)
     } else{
         stop("Class of curr_sigma not recognised")
     }
-    
+
     jac <- jacobian(func=function_jac, x=curr_sigma, coeff.mat=coeff.mat, mint=mint, cint=cint, G_inv=G_inv, random.levels=random.levels)
     jac_list <- lapply(1:ncol(jac), function(i)
         array(jac[, i], dim=rep(length(curr_beta), 2))) #when extending to random slopes, this would have to be reformatted into list, where each element belongs to one random effect
-    
+
     # V_a is provided externally
     df <- rep(NA, length(curr_beta))
     for (i in 1:length(curr_beta)) {

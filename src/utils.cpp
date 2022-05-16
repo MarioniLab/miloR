@@ -4,7 +4,6 @@
 #include "utils.h"
 
 // utility functions
-// [[Rcpp::export]]
 Rcpp::LogicalVector check_na_arma_numeric(arma::vec X){
     // don't being function names with '_'
     // input is an arma::vec
@@ -22,7 +21,6 @@ Rcpp::LogicalVector check_na_arma_numeric(arma::vec X){
 }
 
 
-// [[Rcpp::export]]
 Rcpp::LogicalVector check_inf_arma_numeric(arma::vec X){
     // don't being function names with '_'
     // input is an arma::vec
@@ -40,7 +38,6 @@ Rcpp::LogicalVector check_inf_arma_numeric(arma::vec X){
 }
 
 
-// [[Rcpp::export]]
 Rcpp::LogicalVector check_zero_arma_numeric(arma::vec X){
     // don't being function names with '_'
     // input is an arma::vec
@@ -58,8 +55,6 @@ Rcpp::LogicalVector check_zero_arma_numeric(arma::vec X){
 }
 
 
-
-// [[Rcpp::export]]
 Rcpp::LogicalVector check_zero_arma_complex(arma::cx_vec X){
     // don't being function names with '_'
     // input is an arma::vec
