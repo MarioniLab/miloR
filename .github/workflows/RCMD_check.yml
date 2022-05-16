@@ -6,7 +6,7 @@ on:
       - main
       - master
       - devel
-      - alice_fast
+      - genetic_case
       - alice
   pull_request:
     branches:
