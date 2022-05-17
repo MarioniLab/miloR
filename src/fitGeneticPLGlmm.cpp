@@ -158,7 +158,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     }
 
     // inference
-    arma::vec se(computeSE(m, c, coeff_mat));
+    arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
 

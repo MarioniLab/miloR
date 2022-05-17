@@ -14,6 +14,9 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     const int& scol = m + c;
     const int& srow = m + c;
     if(l != scol){
+        Rcpp::Rcout << scol << std::endl;
+        Rcpp::Rcout << l << std::endl;
+        Rcpp::Rcout << p << std::endl;
         Rcpp::stop("N cols and input dimensions m + c are not equal");
     }
 

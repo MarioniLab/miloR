@@ -70,12 +70,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         ## add the genetic components
         ## augment Z with I
         geno.I <- diag(nrow(full.Z))
-        colnames(geno.I) <- seq_len(ncol(geno.I))
+        colnames(geno.I) <- paste0("CovarMat", seq_len(ncol(geno.I)))
         full.Z <- do.call(cbind, list(full.Z, geno.I))
 
         # add a genetic variance component
         sigma_g <- Matrix(runif(1, 0, 1), ncol=1, nrow=1, sparse=TRUE)
-        rownames(sigma_g) <- "Genetic"
+        rownames(sigma_g) <- "CovarMat"
         curr_sigma <- do.call(rbind, list(curr_sigma, sigma_g))
 
         # add genetic BLUPs
@@ -83,7 +83,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         rownames(g_u) <- colnames(geno.I)
         curr_u <- do.call(rbind, list(curr_u, g_u))
 
-        random.levels <- c(random.levels, list("Genetic"=colnames(geno.I)))
+        random.levels <- c(random.levels, list("CovarMat"=colnames(geno.I)))
 
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
@@ -150,7 +150,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
     u_indices <- sapply(seq_along(names(random.levels)),
                         FUN=function(RX) {
-                            which(colnames(full.Z) %in% paste0(names(random.levels)[RX], random.levels[[RX]]))
+                            which(colnames(full.Z) %in% random.levels[[RX]])
                         }, simplify=FALSE)
 
     if(sum(unlist(lapply(u_indices, length))) != ncol(full.Z)){
@@ -253,7 +253,11 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # check that all of the levels are present in random.levels AND the
     # entries of Z
     all.present <- unlist(sapply(seq_along(cluster_levels), FUN=function(PX){
-        all(cluster_levels[[PX]] %in% unique(Z[, PX]))
+        if(is.numeric(unique(Z[, PX]))){
+            all(cluster_levels[[PX]] %in% paste0(names(cluster_levels)[PX], unique(Z[, PX])))
+        } else{
+            all(cluster_levels[[PX]] %in% unique(Z[, PX]))
+        }
     }, simplify=FALSE))
 
     if(!all(all.present)){
@@ -292,7 +296,7 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
             i.z <- sapply(i.levels, FUN=function(X) (Z[, i] == X) + 0, simplify=TRUE)
         }
 
-        colnames(i.z) <- paste0(colnames(Z)[i], cluster_levels[[colnames(Z)[i]]])
+        colnames(i.z) <- cluster_levels[[colnames(Z)[i]]]
 
         # to standardise or not?
         if(isTRUE(stand.cols)){

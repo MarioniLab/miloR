@@ -76,6 +76,3 @@ negative binomial GLM (for details see \code{\link[edgeR]{edgeR-package}}). When
 the latter it is recommended to set \code{gene.offset=TRUE} as this behaviour adjusts
 the model offsets by the number of detected genes in each cell.
 }
-\examples{
-
-}

@@ -69,7 +69,7 @@ Suggests:
     curl,
     scuttle,
     graphics
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
 Collate: 
