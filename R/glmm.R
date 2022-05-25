@@ -178,10 +178,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                        curr_disp=dispersion, REML=TRUE, maxit=max.hit)
     }
     
-    if(isFALSE(final.list$converged)){
-        warning("Model has not converged after ", final.list$Iters,
-                " iterations. Consider increasing max.iter or drop a random effect")
-    }
+    # if(isFALSE(final.list$converged)){
+    #     warning("Model has not converged after ", final.list$Iters,
+    #             " iterations. Consider increasing max.iter or drop a random effect")
+    # }
     
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
@@ -191,7 +191,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     pvals <- computePvalue(final.list[["t"]], dfs)
     
     if(any(is.infinite(pvals))){
-        warning("Setting infinite p-values to NA")
+        stop("Setting infinite p-values to NA")
         pvals[is.infinite(pvals)] <- NA
     }
     
@@ -201,12 +201,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     # final checks
     na.params <- is.na(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
     if(sum(na.params) > 0){
-        warning("NA parameter estimates - reconsider model")
+        stop("NA parameter estimates - reconsider model")
     }
     
     inf.params <- is.infinite(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
     if(sum(inf.params) > 0){
-        warning("Infinite parameter estimates - reconsider model or increase sample size")
+        stop("Infinite parameter estimates - reconsider model or increase sample size")
     }
     
     return(final.list)
