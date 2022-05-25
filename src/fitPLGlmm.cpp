@@ -51,9 +51,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
-    Rcout << c;
-    Rcout << m;
-        
+
     // setup matrices
     arma::mat D(n, n);
     D.zeros();
@@ -155,7 +153,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
-        Rcout << coeff_mat;
         theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
         
@@ -174,7 +171,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         bool _any_inf = any(_check_inf).is_true();
         
         if(_any_na){
-            warning("NA estimates in linear predictor - consider an alternative model");
+            stop("NA estimates in linear predictor - consider an alternative model");
         }
         
         if(_any_inf){
