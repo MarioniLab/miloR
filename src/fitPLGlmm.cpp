@@ -171,7 +171,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         bool _any_inf = any(_check_inf).is_true();
 
         if(_any_na){
-            warning("NA estimates in linear predictor - consider an alternative model");
+            stop("NA estimates in linear predictor - consider an alternative model");
         }
 
         if(_any_inf){
