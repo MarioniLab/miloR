@@ -99,7 +99,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         }
 
         full.Z <- Z
-        colnames(full.Z) <- paste0("Genetic", seq_len(ncol(full.Z)))
+        colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
 
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
@@ -107,7 +107,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # compute sample variances of the us
         curr_sigma <- Matrix(runif(1, 0, 1), ncol=1, sparse = TRUE)
-        rownames(curr_sigma) <- "Genetic"
+        rownames(curr_sigma) <- names(random.levels)
 
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
