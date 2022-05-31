@@ -177,21 +177,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                        curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                        curr_disp=dispersion, REML=TRUE, maxit=max.hit)
     }
-<<<<<<< HEAD
 
-    if(isFALSE(final.list$converged)){
-        warning("Model has not converged after ", final.list$Iters,
-                " iterations. Consider increasing max.iter or drop a random effect")
-    }
-
-=======
-    
     # if(isFALSE(final.list$converged)){
     #     warning("Model has not converged after ", final.list$Iters,
     #             " iterations. Consider increasing max.iter or drop a random effect")
     # }
     
->>>>>>> 9f5431d (resolving conflicts)
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
     cint <- length(curr_u)

@@ -8,6 +8,7 @@
 // All functions used for inference
 arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     // compute the fixed effect standard errors from the MME coefficient matrix
+
     const int& l = coeff_mat.n_cols; // this should be m + c
     const int& p = coeff_mat.n_rows; // this should be m + c
 
@@ -28,6 +29,7 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     arma::mat ur(coeff_mat.submat(0, m, m-1, m+c-1)); // m X l
     arma::mat ll(coeff_mat.submat(m, 0, m+c-1, m-1)); // p X m
     arma::mat lr(coeff_mat.submat(m, m, m+c-1, m+c-1)); // p X l
+
 
     arma::mat _se(ul - ur * lr.i() * ll); // m X m - (m X c X m) <- this should commute
     // will need a check here for singular hessians...
