@@ -45,7 +45,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                       const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
-    List outlist(10);
+    List outlist(11);
     int iters=0;
     int stot = Z.n_cols;
     const int& c = curr_sigma.size();
@@ -87,6 +87,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     arma::vec theta_diff(theta_update.size());
     theta_diff.zeros();
 
+    List conv_list(maxit+1);
+
     // setup vectors to index the theta updates
     // assume always in order of beta then u
     arma::uvec beta_ix(m);
@@ -99,13 +101,28 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         u_ix[px] = m + px;
     }
 
+    // we only need to invert the Kinship once
+    unsigned long _kn = K.n_cols;
+    arma::mat Kinv(_kn, _kn);
+    // check this isn't singular first (why would it be??)
+    double _rcond = arma::rcond(K);
+    bool is_singular;
+    is_singular = _rcond < 1e-9;
+
+    // check for singular condition
+    if(is_singular){
+        Rcpp::stop("Kinship matrix is singular");
+    }
+
+    Kinv = arma::inv(K);
+
     bool converged = false;
     while(!meet_cond){
         D.diag() = muvec;
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
         Vmu = computeVmu(muvec, curr_disp);
-        W = computeW(Dinv, Vmu);
+        W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
         V_star = computeVStar(Z, curr_G, W); // this also needs to include K
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
@@ -128,8 +145,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;
-        curr_G = initialiseG(u_indices, curr_sigma);
-        G_inv = invGmat(u_indices, curr_sigma);
+        curr_G = initialiseG_G(u_indices, curr_sigma, K);
+        G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
+        // G_inv = arma::inv(curr_G);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
@@ -155,6 +173,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
+        List this_conv(5);
+        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma);
+        conv_list(iters-1) = this_conv;
     }
 
     // inference
@@ -166,7 +188,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
-                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov);
+                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
 
     return outlist;
 }

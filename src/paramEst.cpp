@@ -10,12 +10,11 @@
 arma::vec sigmaScoreREML_arma (Rcpp::List pvstar_i, const arma::vec& ystar, const arma::mat& P){
     // Armadillo implementation
     const int& c = pvstar_i.size();
-    const int& n = P.n_cols;
     arma::vec reml_score(c);
     // arma::sp_mat _P(P);
 
     for(int i=0; i < c; i++){
-        const arma::mat& P_pvi = pvstar_i[i]; // this is P * partial derivative
+        const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
 
         double lhs = -0.5 * arma::trace(P_pvi);
         arma::mat mid1(1, 1);
@@ -180,10 +179,13 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 
         // check for singular condition
         if(is_singular){
+            coeffmat.print("Hessian\n");
             Rcpp::stop("Coefficients Hessian is computationally singular");
         }
 
-        theta_up = arma::inv(coeffmat) * rhs;
+        // can we just use solve here instead?
+        // if the coefficient matrix is singular then do we resort to pinv?
+        theta_up = arma::solve(coeffmat, rhs);
 
         return theta_up;
     } catch(std::exception &ex){

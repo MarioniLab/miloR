@@ -124,7 +124,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
         Vmu = computeVmu(muvec, curr_disp);
-        W = computeW(Dinv, Vmu);
+        W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
         V_star = computeVStar(Z, curr_G, W);
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
