@@ -179,7 +179,47 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 
         // check for singular condition
         if(is_singular){
-            coeffmat.print("Hessian\n");
+            Rcpp::stop("Coefficients Hessian is computationally singular");
+        }
+
+        // can we just use solve here instead?
+        // if the coefficient matrix is singular then do we resort to pinv?
+        theta_up = arma::solve(coeffmat, rhs);
+
+        return theta_up;
+    } catch(std::exception &ex){
+        forward_exception_to_r(ex);
+    } catch(...){
+        Rf_error("c++ exception (unknown reason)");
+    }
+
+}
+
+
+
+arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
+                          arma::mat coeffmat, arma::vec beta, arma::vec u, const arma::vec& ystar){
+    // solve the mixed model equations with a preconditioned conjugate gradient
+    arma::vec rhs_beta(m);
+    arma::vec rhs_u(c);
+    arma::mat rhs(m+c, 1);
+
+    arma::vec theta_up(m+c);
+
+    rhs_beta.col(0) = Xt * Winv * ystar;
+    rhs_u.col(0) = Zt * Winv * ystar;
+
+    rhs = arma::join_cols(rhs_beta, rhs_u);
+
+    // use the diagonal elements of the coefficient matrix as the preconditioner
+    // need a check for singular hessian here
+    try{
+        double _rcond = arma::rcond(coeffmat);
+        bool is_singular;
+        is_singular = _rcond < 1e-9;
+
+        // check for singular condition
+        if(is_singular){
             Rcpp::stop("Coefficients Hessian is computationally singular");
         }
 

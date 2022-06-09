@@ -41,6 +41,7 @@ arma::mat computeW(double disp, arma::mat Dinv, arma::mat V){
 arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W){
     int n = Z.n_rows;
     arma::mat vstar(n, n);
+    // Z.brief_print("Z\n");
     vstar = (Z * G * Z.t()) + W;
 
     return vstar;
@@ -120,13 +121,13 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
     // for the arbitrary covariance case multiply by Kin
     // is the "genetic" sigma always last?
     int c = u_indices.size();
-    int stot = 0;
-
-    // sum total number of levels
-    for(int i=0; i < c; i++){
-        StringVector _ir = u_indices(i);
-        stot += _ir.size();
-    }
+    // int stot = 0;
+    //
+    // // sum total number of levels
+    // for(int i=0; i < c; i++){
+    //     StringVector _ir = u_indices(i);
+    //     stot += _ir.size();
+    // }
 
     // I need to construct the full G from all of the sub-matrices
     // there will be c submatrices to create block-diagonal matrix
@@ -178,7 +179,7 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
     //         }
     //     }
     // return G;
-    arma::uvec _Gindex(c); // G is always square
+    // arma::uvec _Gindex(c); // G is always square
     Rcpp::List Glist(1); // to store the first G
 
     for(int x = 0; x < c; x++){
@@ -195,6 +196,7 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
                 stop("RE indices and dimensions of covariance do not match");
             } else{
                 sG = subMatG(_s, Kin);
+                // sG.brief_print("sG\n");
             }
         } else{
             // create the rxr identity matrix

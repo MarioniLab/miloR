@@ -93,13 +93,13 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             stop("Input covariance matrix is not square: ", nrow(Kin), "x", ncol(Kin))
         }
 
-        # this means Z is an identity matrix - need to check this
-        if(ncol(Z) != nrow(Z)){
-            stop("Z matrix is not square: ", nrow(Z), "x", ncol(Z))
-        }
+        # # this means Z is an identity matrix - need to check this
+        # if(ncol(Z) != nrow(Z)){
+        #     stop("Z matrix is not square: ", nrow(Z), "x", ncol(Z))
+        # }
 
-        full.Z <- Z
-        colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
+        full.Z <- initializeFullZ(Z, cluster_levels=random.levels)
+        # colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
 
         # random value initiation from runif
         curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
@@ -182,7 +182,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     #     warning("Model has not converged after ", final.list$Iters,
     #             " iterations. Consider increasing max.iter or drop a random effect")
     # }
-    
+
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
     cint <- length(curr_u)

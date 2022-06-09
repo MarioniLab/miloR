@@ -59,9 +59,11 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
     unsigned int items = V_partial.size();
     List outlist(items);
 
+    // P.brief_print("P\n");
     for(unsigned int i = 0; i < items; i++){
         // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
         arma::mat _omat = V_partial(i);
+        // _omat.brief_print("V_partial\n");
         arma::mat omat(P * _omat);
         outlist[i] = omat;
     }
@@ -78,10 +80,11 @@ List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
 
     for(unsigned int i = 0; i < items; i++){
         if(i == items - 1){
-            outlist(i) = K; // K is equivalent to ZZ^T
+            arma::uvec icols = u_indices[i];
+            arma::mat _omat(Z.cols(icols - 1) * K * Z.cols(icols - 1).t());
+            outlist[i] = _omat; // K is equivalent to ZZ^T
         } else{
             arma::uvec icols = u_indices[i];
-
             // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
             arma::mat _omat(Z.cols(icols - 1) * Z.cols(icols - 1).t());
             outlist[i] = _omat;

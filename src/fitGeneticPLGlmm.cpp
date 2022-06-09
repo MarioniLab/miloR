@@ -114,17 +114,17 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Rcpp::stop("Kinship matrix is singular");
     }
 
-    Kinv = arma::inv(K);
+    Kinv = arma::inv(K); // this could be very slow
 
     bool converged = false;
     while(!meet_cond){
-        D.diag() = muvec;
+        D.diag() = muvec; // data space
         Dinv = D.i();
-        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
+        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y); // data space
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
-        V_star = computeVStar(Z, curr_G, W); // this also needs to include K
+        V_star = computeVStar(Z, curr_G, W); // K is implicitly included in curr_G
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
 
         if(REML){
@@ -140,6 +140,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
 
+        // information_sigma.brief_print("Fisher\n");
+        // double _fishcond = arma::rcond(information_sigma);
+        // Rcout << _fishcond << std::endl;
+
         sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
@@ -147,19 +151,23 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_sigma = sigma_update;
         curr_G = initialiseG_G(u_indices, curr_sigma, K);
         G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
-        // G_inv = arma::inv(curr_G);
 
-        // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
+        // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
-        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
+        coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
+        // coeff_mat.brief_print("Hessian\n");
+        // double _rcond = arma::rcond(coeff_mat);
+        // Rcout << _rcond << std::endl;
+
+        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
         theta_diff = abs(theta_update - curr_theta);
 
-        curr_theta = theta_update;
-        curr_beta = curr_theta.elem(beta_ix);
-        curr_u = curr_theta.elem(u_ix);
+        curr_theta = theta_update; //model space
+        curr_beta = curr_theta.elem(beta_ix); //model space
+        curr_u = curr_theta.elem(u_ix); //model space
+        // curr_u.brief_print("u\n");
 
-        muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+        muvec = exp(offsets + (X * curr_beta) + (Z * curr_u)); // data space
         iters++;
 
         bool _thconv = false;
