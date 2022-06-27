@@ -95,6 +95,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::vec theta_diff(theta_update.size());
     theta_diff.zeros();
 
+    List conv_list(maxit+1);
     // setup vectors to index the theta updates
     // assume always in order of beta then u
     arma::uvec beta_ix(m);
@@ -191,6 +192,10 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
+        List this_conv(5);
+        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma);
+        conv_list(iters-1) = this_conv;
     }
 
     arma::vec se(computeSE(m, stot, coeff_mat));
@@ -201,7 +206,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
-                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov);
+                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
 
     return outlist;
 }
