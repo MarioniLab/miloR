@@ -13,7 +13,8 @@ fitGLMM(
   Kin = NULL,
   random.levels = NULL,
   REML = FALSE,
-  glmm.control = list(theta.tol = 1e-06, max.iter = 100),
+  glmm.control = list(theta.tol = 1e-06, max.iter = 100, init.sigma = NULL, init.beta =
+    NULL, init.u = NULL),
   dispersion = 0.5,
   geno.only = FALSE
 )
@@ -35,7 +36,8 @@ fitGLMM(
 
 \item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
 
-\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.}
+\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
+and initial parameter values for the fixed (init.beta) and random effects (init.u)}
 
 \item{dispersion}{A scalar value for the dispersion of the negative binomial.}
 

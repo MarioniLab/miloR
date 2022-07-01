@@ -10,7 +10,8 @@
 #' @param Kin A n x n covariance matrix to explicitly model variation between observations
 #' @param REML A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.
 #' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
-#' @param glmm.control A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.
+#' @param glmm.control A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
+#' and initial parameter values for the fixed (init.beta) and random effects (init.u)
 #' @param dispersion A scalar value for the dispersion of the negative binomial.
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #'
@@ -24,7 +25,9 @@
 #' @export
 fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
-                    glmm.control=list(theta.tol=1e-6, max.iter=100),
+                    glmm.control=list(theta.tol=1e-6, max.iter=100,
+                                      init.sigma=NULL, init.beta=NULL,
+                                      init.u=NULL),
                     dispersion = 0.5, geno.only=FALSE){
 
     # model components
@@ -42,7 +45,11 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     max.hit <- glmm.control[["max.iter"]]
 
     # OLS for the betas is usually a good starting point for NR
-    curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
+    if(is.null(glmm.control[["init.beta"]])){
+        curr_beta <- solve((t(X) %*% X)) %*% t(X) %*% log(y + 1)
+    } else{
+        curr_beta = matrix(glmm.control[["init.beta"]], ncol=1)
+    }
     rownames(curr_beta) <- colnames(X)
 
     if(isFALSE(geno.only) & !is.null(Kin)){
@@ -60,11 +67,19 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
         # random value initiation from runif
-        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        if(is.null(glmm.control[["init.u"]])){
+            curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        } else{
+            curr_u <- matrix(glmm.control[["init.u"]], ncol=1)
+        }
         rownames(curr_u) <- colnames(full.Z)
 
         # compute sample variances of the us
-        curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        if(is.null(glmm.control[["init.sigma"]])){
+            curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        } else{
+            curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
+        }
         rownames(curr_sigma) <- colnames(Z)
 
         ## add the genetic components
@@ -98,29 +113,41 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
 
         # random value initiation from runif
-        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        if(is.null(glmm.control[["init.u"]])){
+            curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        } else{
+            curr_u <- matrix(glmm.control[["init.u"]], ncol=1)
+        }
         rownames(curr_u) <- colnames(full.Z)
 
         # compute sample variances of the us
-        curr_sigma <- Matrix(runif(1, 0, 1), ncol=1, sparse = TRUE)
+        if(is.null(glmm.control[["init.sigma"]])){
+            curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        } else{
+            curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
+        }
         rownames(curr_sigma) <- names(random.levels)
 
         #compute variance-covariance matrix G
         curr_G <- initialiseG(cluster_levels=random.levels, sigmas=curr_sigma, Kin=Kin)
     } else if(is.null(Kin)){
         # create full Z with expanded random effect levels
-
-
-
-
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
 
         # random value initiation from runif
-        curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        if(is.null(glmm.control[["init.u"]])){
+            curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
+        } else{
+            curr_u <- matrix(glmm.control[["init.u"]], ncol=1)
+        }
         rownames(curr_u) <- colnames(full.Z)
 
         # compute sample variances of the us
-        curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        if(is.null(glmm.control[["init.sigma"]])){
+            curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+        } else{
+            curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
+        }
         rownames(curr_sigma) <- colnames(Z)
 
         #compute variance-covariance matrix G
