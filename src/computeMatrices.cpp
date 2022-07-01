@@ -1,14 +1,16 @@
 #include "computeMatrices.h"
 #include<RcppArmadillo.h>
+#include "utils.h"
 // [[Rcpp::depends(RcppArmadillo)]]
 using namespace Rcpp;
 
-arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat Dinv, arma::vec curr_u, arma::vec y){
+arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat Dinv, arma::vec curr_u, arma::vec y,
+                       arma::vec offsets){
     // compute pseudovariable
     int n = X.n_rows;
     arma::vec ystar(n);
 
-    ystar = ((X * curr_beta) + (Z * curr_u)) + Dinv * (y - exp((X * curr_beta) + (Z * curr_u)));
+    ystar = (offsets + (X * curr_beta) + (Z * curr_u)) + Dinv * (y - exp(offsets + (X * curr_beta) + (Z * curr_u)));
     return ystar;
 }
 
@@ -121,65 +123,6 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
     // for the arbitrary covariance case multiply by Kin
     // is the "genetic" sigma always last?
     int c = u_indices.size();
-    // int stot = 0;
-    //
-    // // sum total number of levels
-    // for(int i=0; i < c; i++){
-    //     StringVector _ir = u_indices(i);
-    //     stot += _ir.size();
-    // }
-
-    // I need to construct the full G from all of the sub-matrices
-    // there will be c submatrices to create block-diagonal matrix
-    // with zeros on the off-diagonals
-
-    // construct the big matrix for each pair
-    // start with the first matrix - then grow a new one at each iteration
-    // arma::mat G(stot, stot);
-    // G = G.zeros();
-
-    // // this only fills the diagonal elements of G
-    // unsigned long i = 0;
-    // unsigned long j = 0;
-    //
-    // for(unsigned long k=0; k < stot; k++){
-    //     i = k;
-    //     j = k;
-    //     for(int x = 0; x < c; x++){
-    //         arma::uvec _r = u_indices(x); // the vector of indices of Z that map to the RE
-    //         unsigned long q = _r.size(); // the number of levels for the RE
-    //         double _s = sigmas(x); // the sigma of the RE
-    //
-    //         // flow control, if the last effect then it must be the kin ship matrix
-    //         if(x == c - 1){
-    //             unsigned long n = Kin.n_cols;
-    //
-    //             if(q != n){
-    //                 stop("RE indices and dimensions of covariance do not match");
-    //             } else{
-    //                 double _sg = sigmas(x);
-    //
-    //                 for(int l=0; l < n; l++){
-    //                     unsigned long _lu = _r(l);
-    //
-    //
-    //                     if(k == _lu - 1){
-    //                         G(i, j) = _sg;
-    //                     }
-    //                 }
-    //             }
-    //         } else{
-    //             for(int l=0; l < q; l++){
-    //                 unsigned long _lu = _r(l);
-    //                 if(k == _lu - 1){
-    //                     G(i, j) = _s;
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    // return G;
-    // arma::uvec _Gindex(c); // G is always square
     Rcpp::List Glist(1); // to store the first G
 
     for(int x = 0; x < c; x++){
@@ -250,9 +193,6 @@ arma::mat invGmat_G (List u_indices, arma::vec sigmas, arma::mat Kin){
         stot += _ir.size();
     }
 
-    // arma::mat invG(stot, stot);
-    // invG = G.zeros();
-
     arma::uvec _Gindex(c); // G is always square
     Rcpp::List Glist(1); // to store the first G
 
@@ -308,28 +248,6 @@ arma::mat invGmat_G (List u_indices, arma::vec sigmas, arma::mat Kin){
     }
 
     arma::mat G = Glist(0);
-
-    // // this only fills the diagonal elements of G
-    // unsigned long i = 0;
-    // unsigned long j = 0;
-    //
-    // for(unsigned long k=0; k < stot; k++){
-    //     i = k;
-    //     j = k;
-    //     for(int x = 0; x < c; x++){
-    //         arma::uvec _r = u_indices(x);
-    //         unsigned long q = _r.size();
-    //         double _s = lsigma(x);
-    //
-    //         for(int l=0; l < q; l++){
-    //             unsigned long _lu = _r(l);
-    //
-    //             if(k == _lu - 1){
-    //                 G(i, j) = _s;
-    //             }
-    //         }
-    //     }
-    // }
     return G;
 }
 
@@ -381,5 +299,73 @@ arma::mat invGmat (List u_indices, arma::vec sigmas){
 }
 
 
+arma::mat makePCGFill(const List& u_indices, const arma::mat& Kinv){
+    // this makes a matrix of the same dimension as Ginv but without
+    // the variance components
 
+    // first construct the correct sized G, i.e. c x c, then brodcast this to all RE levels
+    // make little G inverse
+    int c = u_indices.size();
+    int stot = 0;
+
+    // sum total number of levels
+    for(int i=0; i < c; i++){
+        StringVector _ir = u_indices(i);
+        stot += _ir.size();
+    }
+
+    arma::uvec _Gindex(c); // G is always square
+    Rcpp::List Glist(1); // to store the first G
+
+    for(int x = 0; x < c; x++){
+        // create the broadcast matrix
+        arma::uvec _r = u_indices(x); // the vector of indices of Z that map to the RE
+        unsigned long q = _r.size(); // the number of levels for the RE
+
+        arma::mat sG(q, q);
+
+        if(x == c - 1){
+            unsigned long n = Kinv.n_cols;
+            if(q != n){
+                stop("RE indices and dimensions of covariance do not match");
+            } else{
+                sG = Kinv; // sub in 1.0 for 1/sigma
+            }
+        } else{
+            // create the rxr identity matrix
+            arma::mat sG(q, q, arma::fill::eye);
+        }
+
+        // grow G at each iteration here
+        if(x == 0){
+            unsigned long ig_cols = sG.n_cols;
+            unsigned long ig_rows = sG.n_rows;
+            Glist(0) = sG;
+        } else{
+            unsigned long sg_cols = sG.n_cols;
+            unsigned long sg_rows = sG.n_rows;
+
+            arma::mat G = Glist(0);
+
+            unsigned long g_cols = G.n_cols;
+            unsigned long g_rows = G.n_rows;
+
+            arma::mat gright(g_rows, sg_cols);
+            arma::mat gleft(sg_rows, g_cols);
+
+            arma::mat top(g_rows, g_cols + sg_cols);
+            arma::mat bottom(sg_rows, sg_cols + g_cols);
+
+            top = arma::join_rows(G, gright);
+            bottom = arma::join_rows(gleft, sG);
+
+            arma::mat _G(sg_rows + g_rows, sg_cols + g_cols);
+            _G = arma::join_cols(top, bottom);
+            Glist(0) = _G;
+        }
+    }
+
+    arma::mat G = Glist(0);
+    return G;
+}
 

@@ -8,6 +8,7 @@
 #include "pseudovarPartial.h"
 #include "multiP.h"
 #include "inference.h"
+#include "utils.h"
 using namespace Rcpp;
 
 //' GLMM parameter estimation using pseudo-likelihood
@@ -45,7 +46,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                       const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
 
     // declare all variables
-    List outlist(11);
+    List outlist(12);
     int iters=0;
     int stot = Z.n_cols;
     const int& c = curr_sigma.size();
@@ -82,6 +83,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     sigma_diff.zeros();
 
     arma::mat G_inv(stot, stot);
+    arma::mat Zstar(n, stot);
+    arma::mat Gfill(stot, stot);
 
     arma::vec theta_update(m+stot);
     arma::vec theta_diff(theta_update.size());
@@ -114,13 +117,31 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Rcpp::stop("Kinship matrix is singular");
     }
 
+    double pcg_tol = 1e-6;
     Kinv = arma::inv(K); // this could be very slow
 
     bool converged = false;
     while(!meet_cond){
         D.diag() = muvec; // data space
         Dinv = D.i();
-        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y); // data space
+        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
+
+        // debugging NaN values in ystar <- comes from large values of u that when
+        // exponentiated give Inf values
+        // This is probably because the algorithm is diverging
+        LogicalVector _check_ystar = check_na_arma_numeric(y_star);
+        bool _any_na = any(_check_ystar).is_true(); // .is_true required for proper type casting to bool
+
+        if(_any_na){
+            List this_conv(8);
+            this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
+                                     _["Fisher"]=information_sigma);
+            conv_list(iters-1) = this_conv;
+            warning("NaN in theta update");
+            break;
+        }
+
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
@@ -140,10 +161,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
 
-        // information_sigma.brief_print("Fisher\n");
-        // double _fishcond = arma::rcond(information_sigma);
-        // Rcout << _fishcond << std::endl;
-
         sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
@@ -154,18 +171,34 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
-        // coeff_mat.brief_print("Hessian\n");
-        // double _rcond = arma::rcond(coeff_mat);
-        // Rcout << _rcond << std::endl;
 
-        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
+        // using the Cholesky of G as the preconditioner with PCG
+        Zstar = computeZstar(Z, curr_sigma, u_indices);
+        Gfill = makePCGFill(u_indices, Kinv);
+
+        // coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
+        coeff_mat = coeffMatrix(X, Winv, Zstar, Gfill);
+        theta_update = solveEquationsPCG(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_theta, y_star, pcg_tol);
+        // theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
+
+        LogicalVector _check_theta = check_na_arma_numeric(theta_update);
+        bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool
+
+        if(_any_ystar_na){
+            List this_conv(8);
+            this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
+                                     _["Fisher"]=information_sigma);
+            conv_list(iters-1) = this_conv;
+            warning("NaN in theta update");
+            break;
+        }
+
         theta_diff = abs(theta_update - curr_theta);
 
         curr_theta = theta_update; //model space
         curr_beta = curr_theta.elem(beta_ix); //model space
         curr_u = curr_theta.elem(u_ix); //model space
-        // curr_u.brief_print("u\n");
 
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u)); // data space
         iters++;
@@ -181,9 +214,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
-        List this_conv(5);
+        List this_conv(8);
         this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                 _["u"]=curr_u, _["sigma"]=curr_sigma);
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
+                                 _["Fisher"]=information_sigma);
         conv_list(iters-1) = this_conv;
     }
 
@@ -195,6 +229,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
+                           _["Z"]=Z,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
                            _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
 

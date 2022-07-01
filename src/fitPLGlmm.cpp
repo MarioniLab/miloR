@@ -122,8 +122,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         }
 
         Dinv = D.i();
-
-        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y);
+        y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets);
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
@@ -164,7 +163,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // need to check for infinite and NA values here...
         // muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
-        muvec = exp((X * curr_beta) + (Z * curr_u));
+        muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
         LogicalVector _check_mu = check_na_arma_numeric(muvec);
         bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
 
