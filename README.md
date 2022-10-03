@@ -27,6 +27,7 @@ devtools::install_github("MarioniLab/miloR", ref="devel")
 1. [Basic Milo example on simulated dataset](https://rawcdn.githack.com/MarioniLab/miloR/3646391023f600bae00efd9d940b888503d7a536/docs/articles/milo_demo.html)
 2. [Milo example on mouse gastrulation dataset](https://rawcdn.githack.com/MarioniLab/miloR/7c7f906b94a73e62e36e095ddb3e3567b414144e/vignettes/milo_gastrulation.html#5_Finding_markers_of_DA_populations): this includes a demo for downstream analysis functions.
 3. [Integrating miloR in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb) (see also [`milopy`](https://github.com/emdann/milopy) for a full workflow in python)
+4. [Specifying contrasts of interest for differential abundance testing with Milo](https://bioconductor.org/packages/release/bioc/vignettes/miloR/inst/doc/milo_contrasts.html)
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
