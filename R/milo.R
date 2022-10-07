@@ -74,6 +74,8 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
         milo <- .emptyMilo()
     } else if(is(unlist(...), "SingleCellExperiment")){
         milo <- .fromSCE(unlist(...))
+    } else {
+        stop('Unexpected input. The constructor takes as input either a SingleCellExperiment or a matrix of features X cells')
     }
 
     milo
