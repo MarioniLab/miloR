@@ -1,5 +1,6 @@
 #include<RcppArmadillo.h>
 #include<RcppEigen.h>
+#include<string>
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::depends(RcppEigen)]]
 #include "paramEst.h"
@@ -37,13 +38,15 @@ using namespace Rcpp;
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
 //' @param offsets vector of offsets to include in the linear predictor
+//' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
 // [[Rcpp::export]]
 List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K,
                       arma::vec muvec, arma::vec offsets, arma::vec curr_beta,
                       arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
                       arma::mat curr_G, const arma::vec& y, List u_indices,
                       double theta_conv,
-                      const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
+                      const List& rlevels, double curr_disp, const bool& REML, const int& maxit,
+                      std::string solver){
 
     // declare all variables
     List outlist(12);
@@ -53,6 +56,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
+    double _intercept = 1e-8; // intercept for HE regression
 
     // setup matrices
     arma::mat D(n, n);
@@ -92,6 +96,12 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
     List conv_list(maxit+1);
 
+    // create a uvec of sigma indices
+    arma::uvec _sigma_index(c);
+    for(int i=0; i < c; i++){
+        _sigma_index[i] = i+1;
+    }
+
     // setup vectors to index the theta updates
     // assume always in order of beta then u
     arma::uvec beta_ix(m);
@@ -107,6 +117,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // we only need to invert the Kinship once
     unsigned long _kn = K.n_cols;
     arma::mat Kinv(_kn, _kn);
+
     // check this isn't singular first (why would it be??)
     double _rcond = arma::rcond(K);
     bool is_singular;
@@ -117,8 +128,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Rcpp::stop("Kinship matrix is singular");
     }
 
-    double pcg_tol = 1e-6;
     Kinv = arma::inv(K); // this could be very slow
+    double pcg_tol = 1e-6;
 
     bool converged = false;
     while(!meet_cond){
@@ -126,25 +137,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
 
-        // debugging NaN values in ystar <- comes from large values of u that when
-        // exponentiated give Inf values
-        // This is probably because the algorithm is diverging
-        LogicalVector _check_ystar = check_na_arma_numeric(y_star);
-        bool _any_na = any(_check_ystar).is_true(); // .is_true required for proper type casting to bool
-
-        if(_any_na){
-            List this_conv(8);
-            this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
-                                     _["Fisher"]=information_sigma);
-            conv_list(iters-1) = this_conv;
-            warning("NaN in theta update");
-            break;
-        }
-
         Vmu = computeVmu(muvec, curr_disp);
         W = computeW(curr_disp, Dinv, Vmu);
         Winv = W.i();
+
         V_star = computeVStar(Z, curr_G, W); // K is implicitly included in curr_G
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);
 
@@ -161,7 +157,45 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
 
-        sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+        // choose between HE regression and Fisher scoring for variance components
+        // sigma_update is always 1 element longer than the others with HE, but we need to keep track of this
+        if(solver == "HE"){
+            // try Haseman-Elston regression instead of Fisher scoring
+            sigma_update = estHasemanElstonGenetic(Z, P, u_indices, y_star, K);
+        } else if (solver == "HE-NNLS"){
+            // for the first iteration use the current non-zero estimate
+            arma::dvec _curr_sigma(c+1);
+            _curr_sigma.fill(1e-10);
+
+            if(iters > 0){
+                _curr_sigma[0] = _intercept;
+                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            }
+
+            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
+            _intercept = sigma_update[0];
+            sigma_update = sigma_update.tail(c);
+
+        }else if(solver == "Fisher"){
+            sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+        }
+
+        // if we have negative sigmas then we need to switch solver
+        if(any(sigma_update < 0.0)){
+            warning("Negative variance components - re-running with NNLS");
+            solver = "HE-NNLS";
+            // for the first iteration use the current non-zero estimate
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma.fill(1e-10);
+
+            // if these are all zero then it can only be that they are initial estimates
+            if(iters > 0){
+                _curr_sigma[0] = _intercept;
+                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            }
+            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
+        }
+
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
 
         // update sigma, G, and G_inv
@@ -173,13 +207,14 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         // compute the coefficient matrix
 
         // using the Cholesky of G as the preconditioner with PCG
-        Zstar = computeZstar(Z, curr_sigma, u_indices);
-        Gfill = makePCGFill(u_indices, Kinv);
+        // Zstar = computeZstar(Z, curr_sigma, u_indices);
+        // Gfill = makePCGFill(u_indices, Kinv);
 
-        // coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
-        coeff_mat = coeffMatrix(X, Winv, Zstar, Gfill);
-        theta_update = solveEquationsPCG(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_theta, y_star, pcg_tol);
-        // theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
+        // If using PCG then also use Cholesky factorisation of G
+        coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
+        // coeff_mat = coeffMatrix(X, Winv, Zstar, Gfill);
+        // theta_update = solveEquationsPCG(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_theta, y_star, pcg_tol);
+        theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
 
         LogicalVector _check_theta = check_na_arma_numeric(theta_update);
         bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool
@@ -201,6 +236,20 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_u = curr_theta.elem(u_ix); //model space
 
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u)); // data space
+
+        LogicalVector _check_mu_inf = check_inf_arma_numeric(muvec);
+        bool _any_mu_inf = any(_check_mu_inf).is_true();
+
+        if(_any_mu_inf){
+            List this_conv(8);
+            this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
+                                     _["Fisher"]=information_sigma);
+            conv_list(iters-1) = this_conv;
+            warning("Inf values in muvec - algorithm is diverging");
+            break;
+        }
+
         iters++;
 
         bool _thconv = false;

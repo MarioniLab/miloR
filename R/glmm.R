@@ -14,6 +14,8 @@
 #' and initial parameter values for the fixed (init.beta) and random effects (init.u)
 #' @param dispersion A scalar value for the dispersion of the negative binomial.
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
+#' @param solver a character value that determines which optmisation algorithm is used for the variance components. Must be either
+#' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
@@ -28,7 +30,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     glmm.control=list(theta.tol=1e-6, max.iter=100,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL),
-                    dispersion = 0.5, geno.only=FALSE){
+                    dispersion = 0.5, geno.only=FALSE,
+                    solver=NULL){
+
+    if(!solver %in% c("HE", "Fisher", "HE-NNLS")){
+        stop(solver, " not recognised - must be HE, HE-NNLS or Fisher")
+    }
 
     # model components
     # X - fixed effects model matrix
@@ -196,13 +203,13 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                 curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                curr_disp=dispersion, REML=TRUE, maxit=max.hit)
+                                curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=solver)
     } else{
         final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
                                        muvec=mu.vec, curr_beta=curr_beta,
                                        curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                        curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                       curr_disp=dispersion, REML=TRUE, maxit=max.hit)
+                                       curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=solver)
     }
 
     # if(isFALSE(final.list$converged)){

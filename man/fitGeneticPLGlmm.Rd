@@ -21,7 +21,8 @@ fitGeneticPLGlmm(
   rlevels,
   curr_disp,
   REML,
-  maxit
+  maxit,
+  solver
 )
 }
 \arguments{
@@ -62,6 +63,8 @@ levels}
 \item{REML}{bool - use REML for variance component estimation}
 
 \item{maxit}{int maximum number of iterations if theta_conv is FALSE}
+
+\item{solver}{string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring}
 }
 \description{
 Iteratively estimate GLMM fixed and random effect parameters, and variance

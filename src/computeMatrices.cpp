@@ -35,7 +35,7 @@ arma::mat computeW(double disp, arma::mat Dinv, arma::mat V){
     arma::fmat idisp = arma::eye<arma::fmat>(n, n);
     idisp = (1/disp) * idisp;
     W = idisp + Dinv;
-    // W = Dinv * V * Dinv; // this is a bottle neck - can we speed up these big multiplications?
+    W = Dinv * V * Dinv; // this is a bottle neck - can we speed up these big multiplications?
     return W;
 }
 
@@ -149,8 +149,6 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
 
         // grow G at each iteration here
         if(x == 0){
-            unsigned long ig_cols = sG.n_cols;
-            unsigned long ig_rows = sG.n_rows;
             Glist(0) = sG;
         } else{
             unsigned long sg_cols = sG.n_cols;
@@ -193,7 +191,7 @@ arma::mat invGmat_G (List u_indices, arma::vec sigmas, arma::mat Kin){
         stot += _ir.size();
     }
 
-    arma::uvec _Gindex(c); // G is always square
+    // arma::uvec _Gindex(c); // G is always square
     Rcpp::List Glist(1); // to store the first G
 
     for(int x = 0; x < c; x++){
@@ -220,8 +218,6 @@ arma::mat invGmat_G (List u_indices, arma::vec sigmas, arma::mat Kin){
 
         // grow G at each iteration here
         if(x == 0){
-            unsigned long ig_cols = sG.n_cols;
-            unsigned long ig_rows = sG.n_rows;
             Glist(0) = sG;
         } else{
             unsigned long sg_cols = sG.n_cols;
@@ -314,7 +310,7 @@ arma::mat makePCGFill(const List& u_indices, const arma::mat& Kinv){
         stot += _ir.size();
     }
 
-    arma::uvec _Gindex(c); // G is always square
+    // arma::uvec _Gindex(c); // G is always square
     Rcpp::List Glist(1); // to store the first G
 
     for(int x = 0; x < c; x++){

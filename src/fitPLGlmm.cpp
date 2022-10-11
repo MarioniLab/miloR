@@ -35,13 +35,15 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
+//' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
 // [[Rcpp::export]]
 List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                arma::vec offsets, arma::vec curr_beta,
                arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma,
                arma::mat curr_G, const arma::vec& y, List u_indices,
                double theta_conv,
-               const List& rlevels, double curr_disp, const bool& REML, const int& maxit){
+               const List& rlevels, double curr_disp, const bool& REML, const int& maxit,
+               std::string solver){
 
     // declare all variables
     List outlist(10);
@@ -51,6 +53,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
+    double _intercept = 1e-8; // intercept for HE regression
 
     // setup matrices
     arma::mat D(n, n);
@@ -96,6 +99,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     theta_diff.zeros();
 
     List conv_list(maxit+1);
+
+    // create a uvec of sigma indices
+    arma::uvec _sigma_index(c);
+    for(int i=0; i < c; i++){
+        _sigma_index[i] = i+1;
+    }
+
     // setup vectors to index the theta updates
     // assume always in order of beta then u
     arma::uvec beta_ix(m);
@@ -142,8 +152,42 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
 
-        sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
-        sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
+        // choose between HE regression and Fisher scoring for variance components
+        // would a hybrid approach work here? If any HE estimates are zero switch
+        // to NNLS using these as the initial estimates?
+        if(solver == "HE"){
+            // try Haseman-Elston regression instead of Fisher scoring
+            sigma_update = estHasemanElston(Z, P, u_indices, y_star);
+        } else if(solver == "HE-NNLS"){
+            // for the first iteration use the current non-zero estimate
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma.fill(1e-10);
+
+            // if these are all zero then it can only be that they are initial estimates
+            if(iters > 0){
+                _curr_sigma[0] = _intercept;
+                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            }
+            sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+        }else if(solver == "Fisher"){
+            sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+        }
+
+        // if we have negative sigmas then we need to switch solver
+        if(any(sigma_update < 0.0)){
+            warning("Negative variance components - re-running with NNLS");
+            solver = "HE-NNLS";
+            // for the first iteration use the current non-zero estimate
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma.fill(1e-10);
+
+            // if these are all zero then it can only be that they are initial estimates
+            if(iters > 0){
+                _curr_sigma[0] = _intercept;
+                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            }
+            sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+        }
 
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;

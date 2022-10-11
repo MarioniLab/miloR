@@ -27,8 +27,9 @@
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
 #' @param offsets vector of offsets to include in the linear predictor
-fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
-    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+#' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver) {
+    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver)
 }
 
 #' GLMM parameter estimation using pseudo-likelihood
@@ -56,8 +57,9 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' @param curr_disp double Dispersion parameter estimate
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
-fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit) {
-    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit)
+#' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver) {
+    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver)
 }
 
 #' Compute the inverse of a structured covariance matrix

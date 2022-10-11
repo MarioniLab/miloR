@@ -11,3 +11,4 @@ docs
 .Rproj.user
 *yml
 *.o
+*~

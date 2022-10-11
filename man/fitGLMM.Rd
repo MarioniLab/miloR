@@ -16,7 +16,8 @@ fitGLMM(
   glmm.control = list(theta.tol = 1e-06, max.iter = 100, init.sigma = NULL, init.beta =
     NULL, init.u = NULL),
   dispersion = 0.5,
-  geno.only = FALSE
+  geno.only = FALSE,
+  solver = NULL
 )
 }
 \arguments{
@@ -42,6 +43,9 @@ and initial parameter values for the fixed (init.beta) and random effects (init.
 \item{dispersion}{A scalar value for the dispersion of the negative binomial.}
 
 \item{geno.only}{A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.}
+
+\item{solver}{a character value that determines which optmisation algorithm is used for the variance components. Must be either
+HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
 }
 \description{
 This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model

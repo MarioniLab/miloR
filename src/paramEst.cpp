@@ -3,6 +3,7 @@
 #include "utils.h"
 #include<RcppArmadillo.h>
 #include<RcppEigen.h>
+#include<cmath>
 // [[Rcpp::depends(RcppArmadillo)]]
 // [[Rcpp::depends(RcppEigen)]]
 // using namespace Rcpp;
@@ -217,7 +218,6 @@ arma::mat computeZstar(const arma::mat& Z, arma::vec curr_sigma, Rcpp::List u_in
     try{
         cholG = arma::chol(G, "lower");
     } catch(std::exception &ex){
-        curr_sigma.brief_print("Sigma\n");
         Rcpp::stop("G is not positive (semi) definite - Cholesky failed");
         // forward_exception_to_r(ex);
     } catch(...){
@@ -335,6 +335,407 @@ arma::vec conjugateGradient(arma::mat A, arma::vec x, arma::vec b, double conv_t
         k++;
     }
 
-    Rprintf("CG completed in %u iterations", k);
+    Rprintf("CG completed in %u iterations\n", k);
     return xk_update;
 }
+
+
+arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices, arma::vec ystar, arma::mat Kin){
+    // use HasemanElston regression to estimate variance components
+    // vectorize everything
+    // we will also estimate a "residual" variance parameter
+    unsigned int n = ystar.size();
+    unsigned int c = u_indices.size(); // number of variance components
+    unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+
+    arma::mat Ycovar(n, n);
+    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
+    arma::vec Ybig = Ycovar(upper_indices);
+
+    // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
+    // for the "residual" variance
+    arma::mat vecZ(nsq, c+1);
+    vecZ = vectoriseZGenetic(Z, u_indices, PREML, Kin); // projection already applied
+
+    // solve by linear least squares
+    arma::vec _he_update(c+1);
+    arma::vec he_update(c);
+
+    // use OSL here for starters
+    _he_update = arma::solve(vecZ, Ybig);
+    he_update = _he_update.tail(c);
+
+    return he_update;
+}
+
+
+arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices, arma::vec ystar){
+    // use HasemanElston regression to estimate variance components
+    // vectorize everything
+    // we will also estimate a "residual" variance parameter
+    unsigned int n = ystar.size();
+    unsigned int c = u_indices.size(); // number of variance components
+    unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+
+    arma::mat Ycovar(n, n);
+    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
+    arma::vec Ybig = Ycovar(upper_indices);
+
+    // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
+    // for the "residual" variance
+    arma::mat vecZ(nsq, c+1);
+    vecZ = vectoriseZ(Z, u_indices, PREML); // projection already applied
+
+    // solve by linear least squares
+    arma::vec _he_update(c+1);
+    arma::vec he_update(c);
+
+    // use OSL here for starters
+    _he_update = arma::solve(vecZ, Ybig);
+    he_update = _he_update.tail(c);
+
+    return he_update;
+}
+
+
+arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices,
+                                      arma::vec ystar, arma::vec he_update, const int& Iters){
+    // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
+    // vectorize everything
+    // we will also estimate a "residual" variance parameter
+    // however, there is no reason this "residual" paramer has to be constrained...
+    unsigned int n = ystar.size();
+    unsigned int c = u_indices.size(); // number of variance components
+    unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+
+    arma::mat Ycovar(n, n);
+    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
+    arma::vec Ybig = Ycovar(upper_indices);
+
+    // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
+    // for the "residual" variance
+    arma::mat vecZ(nsq, c+1);
+    vecZ = vectoriseZ(Z, u_indices, PREML); // projection already applied
+
+    // solve by linear least squares
+    arma::vec _he_update(c+1);
+
+    // first check if we can get a non-negative OLS estimate
+    arma::dvec _ols = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
+    if(any(_ols < 1e-8)){
+        // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
+        // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
+        bool _ispd;
+        _ispd = check_pd_matrix(vecZ);
+
+        if(_ispd){
+            // use the FAST NNLS solver
+            _he_update = fastNnlsSolve(vecZ, Ybig);
+        } else{
+            // have to use slower implementation from Lawson and Hanson
+            _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
+        }
+        he_update = _he_update.tail(c);
+    } else{
+        he_update = _ols.tail(c);
+    }
+
+    return he_update;
+}
+
+
+arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices,
+                                             arma::vec ystar, arma::mat Kin, arma::vec he_update, const int& Iters){
+    // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
+    // vectorize everything
+    // we will also estimate a "residual" variance parameter
+    unsigned int n = ystar.size();
+    unsigned int c = u_indices.size(); // number of variance components
+    unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+
+    arma::mat Ycovar(n, n);
+    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
+    arma::vec Ybig = Ycovar(upper_indices);
+
+    // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
+    // for the "residual" variance
+    arma::mat vecZ(nsq, c+1);
+    vecZ = vectoriseZGenetic(Z, u_indices, PREML, Kin); // projection already applied
+
+    arma::vec _he_update(c+1);
+
+    // first check if we can get a non-negative OLS estimate
+    arma::dvec _ols = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
+    if(any(_ols < 1e-8)){
+        // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
+        // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
+        bool _ispd;
+        _ispd = check_pd_matrix(vecZ);
+
+        if(_ispd){
+            // use the FAST NNLS solver
+            _he_update = fastNnlsSolve(vecZ, Ybig);
+        } else{
+            // have to use slower implementation from Lawson and Hanson
+            _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
+        }
+        he_update = _he_update.tail(c);
+    } else{
+        he_update = _ols.tail(c);
+    }
+
+    return he_update;
+}
+
+
+arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, const int& Iters){
+    // Lawson and Hanson algorithm for constrained NNLS
+    // initial params
+    // P is the passive set - i.e. the indices of the non-negative estimates
+    // R is the active set - the indices of the constrained estimates, i.e. those held at zero
+    // d = 0 is a solution vector
+    // w is a vector of the Langrangian multipliers
+    double EPS = 1e-10;
+    unsigned int m = vecZ.n_cols;
+    arma::ivec P(m, arma::fill::ones); // the indices have to be set to negative values to be empty
+
+    for(int i=0; i < m; i++){
+        if(nnls_update[i] <= 1e-10){
+            P[i] = -1;
+        }
+    }
+
+    // all indices need to be active if all are zero - i.e. the first iteration
+    // what happens if all estimates get regularized to exactly zero?
+    arma::ivec R(m, arma::fill::ones); // these are the indices of the active set
+
+    for(int i=0; i < m; i++){
+        if(nnls_update[i] > 1e-10){
+            R[i] = -1;
+        }
+    }
+
+    arma::dvec w(m);
+    w = vecZ.t() * (Y - vecZ*nnls_update); //Lagrangian multipliers
+
+    // arma::mat _hessian = arma::inv(vecZ.t() * vecZ);
+    // _hessian.print("(X^TX)^-1");
+    bool check_R;
+    bool check_wR;
+    bool check_wP;
+    bool check_conditions;
+    check_R = all(R < 0);
+    check_wR = all(w.elem(find(R > 0)) <= 1e-10); // these should be 0 or negative
+    check_wP = all(abs(w.elem(find(P > 0)) - 1e-10) < EPS); // these should be ~0
+    check_conditions = check_R || (check_wR && check_wP);
+
+    double max_w = 0.0;
+    while(!check_conditions){ // set a tolerance here to check for positive Langrangian
+        max_w = max(w.elem(find(R > 0))); // what if several are identical?
+        unsigned int max_j = 0;
+
+        // get the index of the maximal Langrangian multiplier
+        // need to find the maximum value in w^R, but the index needs to be from w
+        // turn this into a function?
+        for(int i=0; i < m; i++){
+            if(abs(w[i] - max_w) <= EPS){
+                max_j = i;
+            }
+        }
+
+        P[max_j] = -1 * P[max_j]; // this should reverse the sign
+        R[max_j] = -1 * R[max_j];
+
+        // find the elements >= 0
+        arma::uvec select_P = find(P > 0);
+        arma::vec s_all(m);
+        s_all.fill(1e-10);
+        s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y); // is this faster?
+
+        double min_sp = s_all.elem(select_P).min();
+        double alpha; // the step size
+
+        while(min_sp <= 0){
+            // recompute selection of P element restricted to negative estimates in S
+            arma::uvec select_sP = find(P > 0 && s_all < 0);
+            arma::vec diffVec(select_sP.size());
+
+            // zero divisions create problems here
+            // need a check for inf, -inf and nan
+            diffVec = nnls_update.elem(select_sP)/(nnls_update.elem(select_sP) - s_all.elem(select_sP));
+            alpha = diffVec.min();
+
+            // update estimates
+            nnls_update = nnls_update + (alpha * (s_all - nnls_update));
+
+            // switch any zeros to P and negatives to R
+            arma::uvec _isswitch(m, arma::fill::ones);
+
+            for(int i=0; i < m; i++){
+                if(nnls_update[i] <= 1e-10){
+                    _isswitch[i] = 0;
+                }
+            }
+
+            arma::uvec switch_j = find(_isswitch == 0);
+
+            P.elem(switch_j) = -1 * P.elem(switch_j);
+            R.elem(switch_j) = -1 * R.elem(switch_j);
+            select_P = find(P > 0);
+
+            // update the elements of S
+            s_all.fill(1e-10);
+            s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y);
+            min_sp = s_all.elem(select_P).min();
+        }
+
+        nnls_update = s_all;
+        w = vecZ.t() * (Y - vecZ * nnls_update);
+        check_R = all(R < 0);
+        check_wR = all(w.elem(find(R > 0)) <= 1e-10); // these should be 0 or negative
+        check_wP = all(abs(abs(w.elem(find(P > 0))) - 1e-10) < EPS); // these should be ~0
+        check_conditions = check_R || (check_wR && check_wP);
+    }
+
+    // at convergence w^R < 0 and w^P = 0
+    return nnls_update;
+}
+
+
+arma::vec fastNnlsSolve(const arma::mat& vecZ, arma::vec Y){
+    // This uses the Fast Approximate Solution Trajectory NNLS
+    // from https://stackoverflow.com/questions/58006606/rcpp-implementation-of-fast-nonnegative-least-squares
+
+    // assumes the problem is not ill-conditioned - how realistic is this?
+    // vecZ is almost _never_ square
+    int m = vecZ.n_rows;
+    arma::mat A(m, m);
+    A = vecZ * vecZ.t(); // is this right? I don't think that it is!
+    arma::vec nnls_update = arma::solve(A, Y,
+                                        arma::solve_opts::likely_sympd + arma::solve_opts::fast);
+
+    while(any(nnls_update < 0)){
+        // define the feasible set P as all estimates > 0
+        arma::uvec nonzero = find(nnls_update > 0);
+
+        // reset estimates
+        nnls_update.zeros();
+
+        // now solve the OLS problem for params in the feasible set
+        nnls_update(nonzero) = arma::solve(vecZ.submat(nonzero, nonzero), Y.elem(nonzero),
+                    arma::solve_opts::likely_sympd + arma::solve_opts::fast);
+    }
+    return nnls_update;
+}
+
+
+arma::mat vectoriseZ(arma::mat Z, Rcpp::List u_indices, arma::mat P){
+    // sequentially vectorise the columns ZZ^T that map to each random effect
+    // pre- and post- multiply by the REML projection matrix
+    int c = u_indices.size();
+    int n = Z.n_rows;
+    unsigned long nsq = n * (n + 1)/2;
+
+    Rcpp::List _Zelements(1);
+    arma::mat bigI(n, n, arma::fill::eye); // this should be the identity which we vectorise
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = arma::trimatu_ind(arma::size(bigI));
+    arma::mat _vI = bigI(upper_indices);
+    _Zelements(0) = _vI;
+
+    for(int i=0; i < c; i++){
+        // extract the elements of u_indices
+        arma::uvec u_idx = u_indices(i);
+        unsigned int q = u_idx.n_rows;
+        arma::mat _subZ(n, q);
+        unsigned int qmin = arma::min(u_idx);
+        unsigned int qmax = arma::max(u_idx);
+        _subZ = Z.cols(qmin-1, qmax-1);
+
+        arma::mat _ZZT(n, n);
+        _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection
+
+        // vectorise
+        arma::vec _vecZ = _ZZT(upper_indices);
+        arma::mat _vecZZT = _Zelements(0);
+        unsigned long _zc = _vecZZT.n_cols;
+
+        arma::mat _vZ(nsq, _zc+1);
+        _vZ = arma::join_rows(_vecZZT, _vecZ);
+        _Zelements(0) = _vZ;
+    }
+
+    arma::mat vecMat = _Zelements(0);
+    return vecMat;
+}
+
+
+arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma::mat Kin){
+    // sequentially vectorise the columns ZZ^T that map to each random effect
+    // pre- and post- multiply by the REML projection matrix
+    int c = u_indices.size();
+    int n = Z.n_rows;
+    // unsigned long nsq = pow(static_cast<float>(n), 2);
+    unsigned long nsq = n * (n + 1)/2;
+
+    Rcpp::List _Zelements(1);
+    arma::mat bigI(n, n, arma::fill::ones); // should this be column of 1s
+
+    // select the upper triangular elements, including the diagonal
+    arma::uvec upper_indices = arma::trimatu_ind(arma::size(bigI));
+    arma::mat _vI = bigI(upper_indices);
+    _Zelements(0) = _vI;
+
+    for(int i=0; i < c; i++){
+        // extract the elements of u_indices
+        arma::uvec u_idx = u_indices(i);
+        unsigned int q = u_idx.n_rows;
+        arma::mat _subZ(n, q);
+        unsigned int qmin = arma::min(u_idx);
+        unsigned int qmax = arma::max(u_idx);
+        _subZ = Z.cols(qmin-1, qmax-1);
+
+        // always set the last component to the genetic variance if there is a kinship matrix
+        if(i == c-1){
+            // arma::mat P_Kin = P * Kin * P;
+            arma::vec _vecZ = Kin(upper_indices);
+            arma::mat _vecZZT = _Zelements(0);
+            unsigned long _zc = _vecZZT.n_cols;
+
+            arma::mat _vZ(nsq, _zc+1);
+            _vZ = arma::join_rows(_vecZZT, _vecZ);
+            _Zelements(0) = _vZ;
+        } else{
+            // compute Z_i Z_i^T
+            arma::mat _ZZT(n, n);
+            _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection
+            // _ZZT = _subZ * _subZ.t();
+
+            // vectorise
+            arma::vec _vecZ = _ZZT(upper_indices);
+            arma::mat _vecZZT = _Zelements(0);
+            unsigned long _zc = _vecZZT.n_cols;
+
+            arma::mat _vZ(nsq, _zc+1);
+            _vZ = arma::join_rows(_vecZZT, _vecZ);
+            _Zelements(0) = _vZ;
+        }
+    }
+
+    arma::mat vecMat = _Zelements(0);
+    return vecMat;
+}
+
