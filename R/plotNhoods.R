@@ -741,3 +741,100 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 
   return(ma.p)
 }
+
+
+#' Plot the number of neighboring cells per neighborhood and condition
+#'
+#' @param milo A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
+#' slot.
+#' @param neighborhood A vector which specifies the neighborhoods that you are interested in.
+#' @param design The design matrix that you also used for the \code{testNhoods} function. Generally,
+#' the design matrix should match samples to a condition of interest.
+#' @param condition String specifying the condition of interest Has to be a column in the \code{design}.
+#' @param n_col Number of columns in the \code{ggplot-class}.
+#'
+#' @return A \code{ggplot-class} object
+#'
+#' @author
+#' Nick Hirschmüller
+#'
+#' @examples
+#'
+#'
+#'
+#' require(SingleCellExperiment)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=300)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=300)
+#' ux <- rbind(ux.1, ux.2)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
+#'
+#' cond <- sample(c("A","B","C"),300,replace=T)
+#'
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100), rep("R3", 100)))
+#' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
+#' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
+#'
+#' design_mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
+#'                          "Replicate"=rep(c("R1", "R2", "R3"), 3))
+#' design_mtx$SampID <- paste(design_mtx$Condition, design_mtx$Replicate, sep="_")
+#' rownames(design_mtx) <- design_mtx$SampID
+#'
+#' plotNhoodCounts(neighborhood = c(1,2),
+#'                        milo = milo,
+#'                        design = design_mtx,
+#'                        condition = "Condition")
+#' @export
+#' @rdname plotNhoodCounts
+#' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap
+#' @importFrom tidyr pivot_longer
+#' @importFrom tibble rownames_to_column
+#' @importFrom dplyr left_join mutate
+plotNhoodCounts <- function(milo, neighborhood, design, condition, n_col=3){
+  if (!is(milo, "Milo")) {
+    stop("Unrecognised input type - must be of class Milo")
+  }
+  if (ncol(nhoodCounts(milo)) == 1 & nrow(nhoodCounts(milo)) == 1) {
+    stop("Neighbourhood counts missing - please run countCells() first")
+  }
+  if (ncol(nhoods(milo)) == 1 & nrow(nhoods(milo)) == 1) {
+    stop("No neighbourhoods found. Please run makeNhoods() first.")
+  }
+  if (any(neighborhood > nrow(nhoodCounts(milo)))) {
+    stop(paste("Specified neighborhood does not exist. Has to be an integer between 1 and",
+               nrow(nhoodCounts(milo))))
+  }
+  if (!condition %in% colnames(design)){
+    stop("Condition of interest has to be a column in the design matrix")
+  }
+
+  nhood_counts_df <- data.frame(nhoodCounts(milo))[neighborhood, ]
+  nhood_counts_df <- rownames_to_column(nhood_counts_df, "neighborhood_id")
+  nhood_counts_df_long <- pivot_longer(nhood_counts_df, cols=2:ncol(nhood_counts_df),
+                                       names_to = "experiment",
+                                       values_to = "# neighboring cells")
+
+  tmp_design <- rownames_to_column(data.frame(design), "experiment")[,c("experiment",condition)]
+  nhood_counts_df_long <- left_join(nhood_counts_df_long,
+                                    tmp_design,
+                                    by="experiment")
+  nhood_counts_df_long$neighborhood_id <- paste("Nhood:", nhood_counts_df_long$neighborhood_id)
+
+
+
+  p <- ggplot(nhood_counts_df_long, aes_string(x=condition, y="`# neighboring cells`"))+
+    geom_point()+
+    stat_summary(fun="mean", geom="crossbar",
+                 mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
+                 position=position_dodge(),show.legend = FALSE, color="red")+
+    facet_wrap(~neighborhood_id, ncol = n_col)
+
+  return(p)
+}
