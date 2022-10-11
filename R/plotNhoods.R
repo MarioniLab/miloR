@@ -751,7 +751,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' @param design The design matrix that you also used for the \code{testNhoods} function. Generally,
 #' the design matrix should match samples to a condition of interest.
 #' @param condition String specifying the condition of interest Has to be a column in the \code{design}.
-#' @param n_col Number of columns in the \code{ggplot-class}.
+#' @param n_col Number of columns in the output \code{ggplot}.
 #'
 #' @return A \code{ggplot-class} object
 #'
@@ -759,8 +759,6 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' Nick Hirschmüller
 #'
 #' @examples
-#'
-#'
 #'
 #' require(SingleCellExperiment)
 #' ux.1 <- matrix(rpois(12000, 5), ncol=300)
@@ -815,7 +813,7 @@ plotNhoodCounts <- function(milo, neighborhood, design, condition, n_col=3){
     stop("Condition of interest has to be a column in the design matrix")
   }
 
-  nhood_counts_df <- data.frame(nhoodCounts(milo))[neighborhood, ]
+  nhood_counts_df <- data.frame(as.matrix(nhoodCounts(milo)))[neighborhood, ]
   nhood_counts_df <- rownames_to_column(nhood_counts_df, "neighborhood_id")
   nhood_counts_df_long <- pivot_longer(nhood_counts_df, cols=2:ncol(nhood_counts_df),
                                        names_to = "experiment",
