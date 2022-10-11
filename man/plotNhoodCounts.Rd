@@ -17,7 +17,7 @@ the design matrix should match samples to a condition of interest.}
 
 \item{condition}{String specifying the condition of interest Has to be a column in the \code{design}.}
 
-\item{n_col}{Number of columns in the \code{ggplot-class}.}
+\item{n_col}{Number of columns in the output \code{ggplot}.}
 }
 \value{
 A \code{ggplot-class} object
@@ -26,8 +26,6 @@ A \code{ggplot-class} object
 Plot the number of neighboring cells per neighborhood and condition
 }
 \examples{
-
-
 
 require(SingleCellExperiment)
 ux.1 <- matrix(rpois(12000, 5), ncol=300)
