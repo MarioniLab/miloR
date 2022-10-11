@@ -37,6 +37,13 @@
 #' @param REML A logical scalar that controls the variance component behaviour to use either restricted maximum
 #' likelihood (REML) or maximum likelihood (ML). The former is recommened to account for the bias in the ML
 #' variance estimates.
+#' @param glmm.solver A character scalar that determines which GLMM solver is applied. Must be one of: Fisher, HE
+#' or HE-NNLS. HE or HE-NNLS are recommended when supplying a user-defined covariance matrix.
+#' @param max.iters A scalar that determines the maximum number of iterations to run the GLMM solver if it does
+#' not reach the convergence tolerance threshold.
+#' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
+#' this number small to provide some confidence that the parameter estimates are at least in a feasible region
+#' and close to a \emphasis{local} optimum
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -111,7 +118,7 @@ NULL
 testNhoods <- function(x, design, design.df, genotypes=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
-                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5){
+                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -147,7 +154,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
             max.iters <- max.iters
-           
+
             if(all(rownames(x.model) != rownames(z.model))){
                 stop("Discordant sample names for mixed model design matrices")
             }
@@ -272,7 +279,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
-        
+
         if(isFALSE(geno.only)){
             rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
             names(rand.levels) <- colnames(z.model)
@@ -283,22 +290,21 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         # extract tagwise dispersion for glmm
         dispersion <- dge$tagwise.dispersion
         offsets <- dge$samples$norm.factors
-        glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters)
-        
+        glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
+
         #wrapper function is the same for all analyses
         glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
             model.list <- NULL
             for (i in 1:nrow(y)) {
                 model.list[[i]] <- tryCatch({fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                  dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)},
-                         error = function(err){
-                             #message(paste("Neighborhood", i, "failed:", err))
-                             return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
-                                         "converged"=NA, "Iters"=NA, "Dispersion"=NA,
-                                         "Hessian"=NA, "SE"=NA, "t"=NA,
-                                         "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
-                                         "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA))
-                         })
+                                                     dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)},
+                                            error = function(err){
+                                                return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
+                                                            "converged"=NA, "Iters"=NA, "Dispersion"=NA,
+                                                            "Hessian"=NA, "SE"=NA, "t"=NA,
+                                                            "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
+                                                            "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA))
+                                                })
             }
             return(model.list)
         }
@@ -313,21 +319,24 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             Kin <- genotypes %*% genotypes
 
             if(geno.only){
-                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, Kin=kin.matrix)    
+                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, Kin=kin.matrix)
             } else{
-                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control = glmm.cont, genotypes=genotypes, Kin=kin.matrix)    
+                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, genotypes=genotypes, Kin=kin.matrix)
             }
-   
+
         } else{
-            
-            fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control = glmm.cont)    
+
+            fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
+                               offsets, rand.levels, REML, glmm.control = glmm.cont)
 
             # give warning about how many neighborhoods didn't converge
             if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
                 warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),"neighborhoods did not converge; increase number of iterations?"))
 
             }
-            
+
             # res has to reflect output from glmQLFit
             res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) tail(x,1))), "Std. Error"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) tail(x,1))),
                                     "t value" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) tail(x,1))), #"Df" = unlist(lapply(fit, `[[`, 11)),
@@ -352,12 +361,12 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
     res$Nhood <- as.numeric(rownames(res))
     message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
-    res1 <- na.omit(res)
+    # res1 <- na.omit(res)
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
                                       k=x@.k,
-                                      pvalues=res1[order(res1$Nhood), ]$PValue,
+                                      pvalues=res[order(res$Nhood), ]$PValue,
                                       indices=nhoodIndex(x),
                                       distances=nhoodDistances(x),
                                       reduced.dimensions=reducedDim(x, reduced.dim))
