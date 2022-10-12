@@ -796,23 +796,23 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' @rdname plotNhoodCounts
 #' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap ylab
 #' @importFrom tidyr pivot_longer
-#' @importFrom tibble rownames_to_column
+#' @importFrom tibble rownames_to_column has_rownames
 #' @importFrom dplyr left_join
 plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   if (!is(x, "Milo")) {
     stop("Unrecognised input type - must be of class Milo")
   }
-  if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
-    stop("Neighbourhood counts missing - please run countCells() first")
-  }
   if (ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1) {
     stop("No neighbourhoods found. Please run makeNhoods() first.")
+  }
+  if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
+    stop("Neighbourhood counts missing - please run countCells() first")
   }
   if (!all(nhoods %in% rownames(nhoodCounts(x)))) {
     stop("Specified neighbourhoods do not exist - these should correspond to row names in nhoodCounts(x)")
   }
-  if (!is(design.df,"data.frame")){
-    stop("The design.df has to be of type data.frame")
+  if (!is(design.df,"data.frame") | !has_rownames(design.df)){
+    stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
   }
   if (!condition %in% colnames(design.df)){
     stop("Condition of interest has to be a column in the design matrix")
