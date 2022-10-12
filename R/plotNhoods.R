@@ -747,8 +747,8 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #'
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 #' slot.
-#' @param nhoods A string vector specifying the IDs of the neighbourhoods to plot.
-#' These should correspond to row names in \code{nhoodCounts(milo)}
+#' @param nhoods A logical, integer or character vector indicating the rows of \code{x} to use for
+#' plotting.
 #' @param design.df A \code{data.frame} which matches samples to a condition of interest.
 #' The row names should correspond to the samples. You can use the same \code{design.df}
 #' that you already used in the \code{testNhoods} function.
@@ -776,7 +776,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 #' milo <- calcNhoodDistance(milo, d=10)
 #'
-#' cond <- sample(c("A","B","C"),300,replace=T)
+#' cond <- sample(c("A","B","C"),300,replace=TRUE)
 #'
 #' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100), rep("R3", 100)))
 #' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
@@ -808,8 +808,13 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
     stop("Neighbourhood counts missing - please run countCells() first")
   }
+  if (all(nhoods %in% c(TRUE, FALSE))){
+      nhoods <- which(nhoods)
+  }
   if (!all(nhoods %in% rownames(nhoodCounts(x)))) {
-    stop("Specified neighbourhoods do not exist - these should correspond to row names in nhoodCounts(x)")
+    stop(paste0("Specified neighbourhoods do not exist - ",
+    "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
+    "or a logical vector."))
   }
   if (!is(design.df,"data.frame") | !has_rownames(design.df)){
     stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
@@ -819,9 +824,10 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   }
 
 
-  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[nhoods, , drop=F]))
+  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[nhoods, , drop=FALSE]))
   nhood.counts.df <- rownames_to_column(nhood.counts.df, "nhoods.id")
-  nhood.counts.df.long <- pivot_longer(nhood.counts.df, cols=2:ncol(nhood.counts.df),
+  nhood.counts.df.long <- pivot_longer(nhood.counts.df,
+                                       cols=-1, # pivot all columns into longer format, except the first one.
                                        names_to = "experiment",
                                        values_to = "values")
 
@@ -830,8 +836,6 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
                                     tmp.desgin,
                                     by="experiment")
   nhood.counts.df.long$nhoods.id <- paste("Nhood:", nhood.counts.df.long$nhoods.id)
-
-
 
   p <- ggplot(nhood.counts.df.long, aes_string(x=condition, y="values"))+
     geom_point()+
