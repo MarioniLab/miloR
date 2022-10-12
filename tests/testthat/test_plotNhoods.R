@@ -151,6 +151,58 @@ test_that("The order of features is maintained if cluster_features=FALSE", {
   })
 
 
+test_that("Incorrect input produce expected error in plotNhoodCounts", {
+  expect_error(plotNhoodCounts(x=sim1.sce,
+                               nhoods=c("1", "2"),
+                               design.df=sim1.meta,
+                               condition="Condition"),
+               "Unrecognised input type - must be of class Milo",
+               fixed=TRUE)
+
+  tmp.milo = Milo(sim1.sce)
+  expect_error(plotNhoodCounts(x=tmp.milo,
+                               nhoods=c("1", "2"),
+                               design.df=sim1.meta,
+                               condition="Condition"),
+               "No neighbourhoods found. Please run makeNhoods() first.",
+               fixed=TRUE)
+
+  tmp.milo = buildGraph(tmp.milo, k = 30, d = 3)
+  tmp.milo = makeNhoods(tmp.milo)
+  expect_error(plotNhoodCounts(x=tmp.milo,
+                               nhoods=c("1", "2"),
+                               design.df=sim1.meta,
+                               condition="Condition"),
+               "Neighbourhood counts missing - please run countCells() first",
+               fixed=TRUE)
+
+  tmp.mdata <- sim1.meta
+  rownames(tmp.mdata)<-NULL
+  expect_error(plotNhoodCounts(x=sim1.mylo,
+                               nhoods=c("1", "2"),
+                               design.df=tmp.mdata,
+                               condition="Condition"),
+               "The design.df has to be of type data.frame with rownames that correspond to the samples.",
+               fixed=TRUE)
+
+  expect_error(plotNhoodCounts(x=sim1.mylo,
+                               nhoods=c("1", "2"),
+                               design.df=sim1.meta,
+                               condition="Batch"),
+               "Condition of interest has to be a column in the design matrix",
+               fixed=TRUE)
+})
 
 
+test_that("Data is correctly reshaped and plotted in plotNhoodCounts",{
+  nhoods_of_interest = c("1", "2")
+
+  p <- plotNhoodCounts(x=sim1.mylo,
+                  nhoods=nhoods_of_interest,
+                  design.df=sim1.meta,
+                  condition="Condition")
+
+  # check if we have the expected number of rows in our ggplot
+  expect_equal(nrow(p$data), length(nhoods_of_interest)*length(unique(sim1.meta$Sample)))
+})
 
