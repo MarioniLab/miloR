@@ -4,13 +4,13 @@
 \alias{plotNhoodCounts}
 \title{Plot the number of cells in a neighbourhood per sample and condition}
 \usage{
-plotNhoodCounts(milo, neighbourhood, design.df, condition, n_col = 3)
+plotNhoodCounts(x, nhoods, design.df, condition, n_col = 3)
 }
 \arguments{
-\item{milo}{A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
+\item{x}{A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 slot.}
 
-\item{neighbourhood}{A string vector specifying the IDs of the neighbourhoods to plot.
+\item{nhoods}{A string vector specifying the IDs of the neighbourhoods to plot.
 These should correspond to row names in \code{nhoodCounts(milo)}}
 
 \item{design.df}{A \code{data.frame} which matches samples to a condition of interest.
@@ -49,14 +49,14 @@ meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100)
 meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
 milo <- countCells(milo, meta.data=meta.df, samples="SampID")
 
-design_mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
+design.mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
                          "Replicate"=rep(c("R1", "R2", "R3"), 3))
-design_mtx$SampID <- paste(design_mtx$Condition, design_mtx$Replicate, sep="_")
-rownames(design_mtx) <- design_mtx$SampID
+design.mtx$SampID <- paste(design.mtx$Condition, design.mtx$Replicate, sep="_")
+rownames(design.mtx) <- design.mtx$SampID
 
-plotNhoodCounts(milo = milo,
-                neighbourhood = c(1,2),
-                design.df = design_mtx,
+plotNhoodCounts(x = milo,
+                nhoods = c(1,2),
+                design.df = design.mtx,
                 condition = "Condition")
 
 }
