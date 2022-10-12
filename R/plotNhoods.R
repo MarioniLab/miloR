@@ -743,13 +743,15 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 }
 
 
-#' Plot the number of neighboring cells per neighborhood and condition
+#' Plot the number of cells in a neighbourhood per sample and condition
 #'
 #' @param milo A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 #' slot.
-#' @param neighborhood A vector which specifies the neighborhoods that you are interested in.
-#' @param design The design matrix that you also used for the \code{testNhoods} function. Generally,
-#' the design matrix should match samples to a condition of interest.
+#' @param neighbourhood A string vector specifying the IDs of the neighbourhoods to plot.
+#' These should correspond to row names in \code{nhoodCounts(milo)}
+#' @param design.df A \code{data.frame} which matches samples to a condition of interest.
+#' The row names should correspond to the samples. You can use the same \code{design.df}
+#' that you already used in the \code{testNhoods} function.
 #' @param condition String specifying the condition of interest Has to be a column in the \code{design}.
 #' @param n_col Number of columns in the output \code{ggplot}.
 #'
@@ -785,17 +787,18 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' design_mtx$SampID <- paste(design_mtx$Condition, design_mtx$Replicate, sep="_")
 #' rownames(design_mtx) <- design_mtx$SampID
 #'
-#' plotNhoodCounts(neighborhood = c(1,2),
-#'                        milo = milo,
-#'                        design = design_mtx,
-#'                        condition = "Condition")
+#' plotNhoodCounts(milo = milo,
+#'                 neighbourhood = c(1,2),
+#'                 design.df = design_mtx,
+#'                 condition = "Condition")
+#'
 #' @export
 #' @rdname plotNhoodCounts
-#' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap
+#' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap xlab
 #' @importFrom tidyr pivot_longer
 #' @importFrom tibble rownames_to_column
 #' @importFrom dplyr left_join mutate
-plotNhoodCounts <- function(milo, neighborhood, design, condition, n_col=3){
+plotNhoodCounts <- function(milo, neighbourhood, design.df, condition, n_col=3){
   if (!is(milo, "Milo")) {
     stop("Unrecognised input type - must be of class Milo")
   }
@@ -805,34 +808,34 @@ plotNhoodCounts <- function(milo, neighborhood, design, condition, n_col=3){
   if (ncol(nhoods(milo)) == 1 & nrow(nhoods(milo)) == 1) {
     stop("No neighbourhoods found. Please run makeNhoods() first.")
   }
-  if (any(neighborhood > nrow(nhoodCounts(milo)))) {
-    stop(paste("Specified neighborhood does not exist. Has to be an integer between 1 and",
-               nrow(nhoodCounts(milo))))
+  if (!all(neighbourhood %in% rownames(nhoodCounts(milo)))) {
+    stop("Specified neighbourhoods do not exist - these should correspond to row names in nhoodCounts(milo)")
   }
-  if (!condition %in% colnames(design)){
+  if (!condition %in% colnames(design.df)){
     stop("Condition of interest has to be a column in the design matrix")
   }
 
-  nhood_counts_df <- data.frame(as.matrix(nhoodCounts(milo)))[neighborhood, ]
-  nhood_counts_df <- rownames_to_column(nhood_counts_df, "neighborhood_id")
+  nhood_counts_df <- data.frame(as.matrix(nhoodCounts(milo)))[neighbourhood, ]
+  nhood_counts_df <- rownames_to_column(nhood_counts_df, "neighbourhood_id")
   nhood_counts_df_long <- pivot_longer(nhood_counts_df, cols=2:ncol(nhood_counts_df),
                                        names_to = "experiment",
-                                       values_to = "# neighboring cells")
+                                       values_to = "values")
 
-  tmp_design <- rownames_to_column(data.frame(design), "experiment")[,c("experiment",condition)]
+  tmp_design <- rownames_to_column(data.frame(design.df), "experiment")[,c("experiment",condition)]
   nhood_counts_df_long <- left_join(nhood_counts_df_long,
                                     tmp_design,
                                     by="experiment")
-  nhood_counts_df_long$neighborhood_id <- paste("Nhood:", nhood_counts_df_long$neighborhood_id)
+  nhood_counts_df_long$neighbourhood_id <- paste("Nhood:", nhood_counts_df_long$neighbourhood_id)
 
 
 
-  p <- ggplot(nhood_counts_df_long, aes_string(x=condition, y="`# neighboring cells`"))+
+  p <- ggplot(nhood_counts_df_long, aes_string(x=condition, y="values"))+
     geom_point()+
     stat_summary(fun="mean", geom="crossbar",
                  mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
                  position=position_dodge(),show.legend = FALSE, color="red")+
-    facet_wrap(~neighborhood_id, ncol = n_col)
+    facet_wrap(~neighbourhood_id, ncol = n_col)+
+    ylab("# cells in neighbourhood")
 
   return(p)
 }
