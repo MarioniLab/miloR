@@ -2,18 +2,20 @@
 % Please edit documentation in R/plotNhoods.R
 \name{plotNhoodCounts}
 \alias{plotNhoodCounts}
-\title{Plot the number of neighboring cells per neighborhood and condition}
+\title{Plot the number of cells in a neighbourhood per sample and condition}
 \usage{
-plotNhoodCounts(milo, neighborhood, design, condition, n_col = 3)
+plotNhoodCounts(milo, neighbourhood, design.df, condition, n_col = 3)
 }
 \arguments{
 \item{milo}{A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 slot.}
 
-\item{neighborhood}{A vector which specifies the neighborhoods that you are interested in.}
+\item{neighbourhood}{A string vector specifying the IDs of the neighbourhoods to plot.
+These should correspond to row names in \code{nhoodCounts(milo)}}
 
-\item{design}{The design matrix that you also used for the \code{testNhoods} function. Generally,
-the design matrix should match samples to a condition of interest.}
+\item{design.df}{A \code{data.frame} which matches samples to a condition of interest.
+The row names should correspond to the samples. You can use the same \code{design.df}
+that you already used in the \code{testNhoods} function.}
 
 \item{condition}{String specifying the condition of interest Has to be a column in the \code{design}.}
 
@@ -23,7 +25,7 @@ the design matrix should match samples to a condition of interest.}
 A \code{ggplot-class} object
 }
 \description{
-Plot the number of neighboring cells per neighborhood and condition
+Plot the number of cells in a neighbourhood per sample and condition
 }
 \examples{
 
@@ -52,10 +54,11 @@ design_mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
 design_mtx$SampID <- paste(design_mtx$Condition, design_mtx$Replicate, sep="_")
 rownames(design_mtx) <- design_mtx$SampID
 
-plotNhoodCounts(neighborhood = c(1,2),
-                       milo = milo,
-                       design = design_mtx,
-                       condition = "Condition")
+plotNhoodCounts(milo = milo,
+                neighbourhood = c(1,2),
+                design.df = design_mtx,
+                condition = "Condition")
+
 }
 \author{
 Nick Hirschmüller
