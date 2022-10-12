@@ -10,8 +10,8 @@ plotNhoodCounts(x, nhoods, design.df, condition, n_col = 3)
 \item{x}{A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 slot.}
 
-\item{nhoods}{A string vector specifying the IDs of the neighbourhoods to plot.
-These should correspond to row names in \code{nhoodCounts(milo)}}
+\item{nhoods}{A logical, integer or character vector indicating the rows of \code{x} to use for
+plotting.}
 
 \item{design.df}{A \code{data.frame} which matches samples to a condition of interest.
 The row names should correspond to the samples. You can use the same \code{design.df}
@@ -43,7 +43,7 @@ milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
 milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
 milo <- calcNhoodDistance(milo, d=10)
 
-cond <- sample(c("A","B","C"),300,replace=T)
+cond <- sample(c("A","B","C"),300,replace=TRUE)
 
 meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100), rep("R3", 100)))
 meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")

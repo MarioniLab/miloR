@@ -191,8 +191,18 @@ test_that("Incorrect input produce expected error in plotNhoodCounts", {
                                condition="Batch"),
                "Condition of interest has to be a column in the design matrix",
                fixed=TRUE)
-})
 
+  expect_error(plotNhoodCounts(x=sim1.mylo,
+                               nhoods=c("1","2","a34"),
+                               design.df=sim1.meta,
+                               condition="Condition"),
+               paste0("Specified neighbourhoods do not exist - ",
+                      "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
+                      "or a logical vector."),
+               fixed=TRUE)
+
+
+})
 
 test_that("Data is correctly reshaped and plotted in plotNhoodCounts",{
   nhoods_of_interest = c("1", "2")
@@ -205,4 +215,32 @@ test_that("Data is correctly reshaped and plotted in plotNhoodCounts",{
   # check if we have the expected number of rows in our ggplot
   expect_equal(nrow(p$data), length(nhoods_of_interest)*length(unique(sim1.meta$Sample)))
 })
+
+test_that("Same result regardless of the type of nhood vector in plotNhoodCounts",{
+  nhoods_chr_vector = c("1", "2")
+  p_chr <- plotNhoodCounts(x=sim1.mylo,
+                       nhoods=nhoods_chr_vector,
+                       design.df=sim1.meta,
+                       condition="Condition")
+
+  nhoods_num_vector <- c(1,2)
+  p_num <- plotNhoodCounts(x=sim1.mylo,
+                           nhoods=nhoods_num_vector,
+                           design.df=sim1.meta,
+                           condition="Condition")
+
+  nhoods_logi_vector <- c(T, T)
+  p_logi <- plotNhoodCounts(x=sim1.mylo,
+                           nhoods=nhoods_logi_vector,
+                           design.df=sim1.meta,
+                           condition="Condition")
+
+  # all ggplot objects should contain the exact same data regardless of vector type.
+  expect_identical(p_chr$data, p_num$data)
+  expect_identical(p_num$data, p_logi$data)
+})
+
+
+
+
 
