@@ -196,9 +196,16 @@ test_that("Incorrect input produce expected error in plotNhoodCounts", {
                                subset.nhoods=c("1","2","a34"),
                                design.df=sim1.meta,
                                condition="Condition"),
-               paste0("Specified neighbourhoods do not exist - ",
+               paste0("Specified subset.nhoods do not exist - ",
                       "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
-                      "or a logical vector."),
+                      "or a logical vector with length nrow(nhoodCounts(x))."),
+               fixed=TRUE)
+
+  expect_error(plotNhoodCounts(x=sim1.mylo,
+                               subset.nhoods=c(TRUE, FALSE, FALSE, TRUE),
+                               design.df=sim1.meta,
+                               condition="Condition"),
+               "Length of the logical vector has to match number of rows in nhoodCounts(x)",
                fixed=TRUE)
 
 
@@ -229,7 +236,8 @@ test_that("Same result regardless of the type of nhood vector in plotNhoodCounts
                            design.df=sim1.meta,
                            condition="Condition")
 
-  nhoods_logi_vector <- c(T, T)
+  nhoods_logi_vector <- c(TRUE, TRUE, rep(FALSE, nrow(nhoodCounts(sim1.mylo))-2))
+
   p_logi <- plotNhoodCounts(x=sim1.mylo,
                            subset.nhoods=nhoods_logi_vector,
                            design.df=sim1.meta,

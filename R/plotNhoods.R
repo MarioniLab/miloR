@@ -748,7 +748,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 #' slot.
 #' @param subset.nhoods A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
-#' plotting.
+#' plotting. If you use a logical vector, make sure the length matches \code{nrow(nhoodCounts(x))}.
 #' @param design.df A \code{data.frame} which matches samples to a condition of interest.
 #' The row names should correspond to the samples. You can use the same \code{design.df}
 #' that you already used in the \code{testNhoods} function.
@@ -808,13 +808,14 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
   if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
     stop("Neighbourhood counts missing - please run countCells() first")
   }
-  if (all(subset.nhoods %in% c(TRUE, FALSE))){
-      subset.nhoods <- which(subset.nhoods)
-  }
-  if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
-    stop(paste0("Specified neighbourhoods do not exist - ",
-    "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
-    "or a logical vector."))
+  if (is(subset.nhoods, "logical")){
+    if (length(subset.nhoods) != nrow(nhoodCounts(x))){
+      stop("Length of the logical vector has to match number of rows in nhoodCounts(x)")
+    }
+  } else if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
+      stop(paste0("Specified subset.nhoods do not exist - ",
+      "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
+      "or a logical vector with length nrow(nhoodCounts(x))."))
   }
   if (!is(design.df,"data.frame") | !has_rownames(design.df)){
     stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
