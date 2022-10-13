@@ -153,7 +153,7 @@ test_that("The order of features is maintained if cluster_features=FALSE", {
 
 test_that("Incorrect input produce expected error in plotNhoodCounts", {
   expect_error(plotNhoodCounts(x=sim1.sce,
-                               nhoods=c("1", "2"),
+                               subset.nhoods=c("1", "2"),
                                design.df=sim1.meta,
                                condition="Condition"),
                "Unrecognised input type - must be of class Milo",
@@ -161,7 +161,7 @@ test_that("Incorrect input produce expected error in plotNhoodCounts", {
 
   tmp.milo = Milo(sim1.sce)
   expect_error(plotNhoodCounts(x=tmp.milo,
-                               nhoods=c("1", "2"),
+                               subset.nhoods=c("1", "2"),
                                design.df=sim1.meta,
                                condition="Condition"),
                "No neighbourhoods found. Please run makeNhoods() first.",
@@ -170,7 +170,7 @@ test_that("Incorrect input produce expected error in plotNhoodCounts", {
   tmp.milo = buildGraph(tmp.milo, k = 30, d = 3)
   tmp.milo = makeNhoods(tmp.milo)
   expect_error(plotNhoodCounts(x=tmp.milo,
-                               nhoods=c("1", "2"),
+                               subset.nhoods=c("1", "2"),
                                design.df=sim1.meta,
                                condition="Condition"),
                "Neighbourhood counts missing - please run countCells() first",
@@ -179,21 +179,21 @@ test_that("Incorrect input produce expected error in plotNhoodCounts", {
   tmp.mdata <- sim1.meta
   rownames(tmp.mdata)<-NULL
   expect_error(plotNhoodCounts(x=sim1.mylo,
-                               nhoods=c("1", "2"),
+                               subset.nhoods=c("1", "2"),
                                design.df=tmp.mdata,
                                condition="Condition"),
                "The design.df has to be of type data.frame with rownames that correspond to the samples.",
                fixed=TRUE)
 
   expect_error(plotNhoodCounts(x=sim1.mylo,
-                               nhoods=c("1", "2"),
+                               subset.nhoods=c("1", "2"),
                                design.df=sim1.meta,
                                condition="Batch"),
                "Condition of interest has to be a column in the design matrix",
                fixed=TRUE)
 
   expect_error(plotNhoodCounts(x=sim1.mylo,
-                               nhoods=c("1","2","a34"),
+                               subset.nhoods=c("1","2","a34"),
                                design.df=sim1.meta,
                                condition="Condition"),
                paste0("Specified neighbourhoods do not exist - ",
@@ -208,7 +208,7 @@ test_that("Data is correctly reshaped and plotted in plotNhoodCounts",{
   nhoods_of_interest = c("1", "2")
 
   p <- plotNhoodCounts(x=sim1.mylo,
-                  nhoods=nhoods_of_interest,
+                  subset.nhoods=nhoods_of_interest,
                   design.df=sim1.meta,
                   condition="Condition")
 
@@ -219,19 +219,19 @@ test_that("Data is correctly reshaped and plotted in plotNhoodCounts",{
 test_that("Same result regardless of the type of nhood vector in plotNhoodCounts",{
   nhoods_chr_vector = c("1", "2")
   p_chr <- plotNhoodCounts(x=sim1.mylo,
-                       nhoods=nhoods_chr_vector,
+                       subset.nhoods=nhoods_chr_vector,
                        design.df=sim1.meta,
                        condition="Condition")
 
   nhoods_num_vector <- c(1,2)
   p_num <- plotNhoodCounts(x=sim1.mylo,
-                           nhoods=nhoods_num_vector,
+                           subset.nhoods=nhoods_num_vector,
                            design.df=sim1.meta,
                            condition="Condition")
 
   nhoods_logi_vector <- c(T, T)
   p_logi <- plotNhoodCounts(x=sim1.mylo,
-                           nhoods=nhoods_logi_vector,
+                           subset.nhoods=nhoods_logi_vector,
                            design.df=sim1.meta,
                            condition="Condition")
 

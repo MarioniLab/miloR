@@ -747,7 +747,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #'
 #' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 #' slot.
-#' @param nhoods A logical, integer or character vector indicating the rows of \code{x} to use for
+#' @param subset.nhoods A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
 #' plotting.
 #' @param design.df A \code{data.frame} which matches samples to a condition of interest.
 #' The row names should correspond to the samples. You can use the same \code{design.df}
@@ -788,7 +788,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' rownames(design.mtx) <- design.mtx$SampID
 #'
 #' plotNhoodCounts(x = milo,
-#'                 nhoods = c(1,2),
+#'                 subset.nhoods = c(1,2),
 #'                 design.df = design.mtx,
 #'                 condition = "Condition")
 #'
@@ -798,7 +798,7 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 #' @importFrom tidyr pivot_longer
 #' @importFrom tibble rownames_to_column has_rownames
 #' @importFrom dplyr left_join
-plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
+plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
   if (!is(x, "Milo")) {
     stop("Unrecognised input type - must be of class Milo")
   }
@@ -808,10 +808,10 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
     stop("Neighbourhood counts missing - please run countCells() first")
   }
-  if (all(nhoods %in% c(TRUE, FALSE))){
-      nhoods <- which(nhoods)
+  if (all(subset.nhoods %in% c(TRUE, FALSE))){
+      subset.nhoods <- which(subset.nhoods)
   }
-  if (!all(nhoods %in% rownames(nhoodCounts(x)))) {
+  if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
     stop(paste0("Specified neighbourhoods do not exist - ",
     "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
     "or a logical vector."))
@@ -824,8 +824,8 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   }
 
 
-  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[nhoods, , drop=FALSE]))
-  nhood.counts.df <- rownames_to_column(nhood.counts.df, "nhoods.id")
+  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[subset.nhoods, , drop=FALSE]))
+  nhood.counts.df <- rownames_to_column(nhood.counts.df, "subset.nhoods.id")
   nhood.counts.df.long <- pivot_longer(nhood.counts.df,
                                        cols=-1, # pivot all columns into longer format, except the first one.
                                        names_to = "experiment",
@@ -835,14 +835,14 @@ plotNhoodCounts <- function(x, nhoods, design.df, condition, n_col=3){
   nhood.counts.df.long <- left_join(nhood.counts.df.long,
                                     tmp.desgin,
                                     by="experiment")
-  nhood.counts.df.long$nhoods.id <- paste("Nhood:", nhood.counts.df.long$nhoods.id)
+  nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
   p <- ggplot(nhood.counts.df.long, aes_string(x=condition, y="values"))+
     geom_point()+
     stat_summary(fun="mean", geom="crossbar",
                  mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
                  position=position_dodge(),show.legend = FALSE, color="red")+
-    facet_wrap(~nhoods.id, ncol = n_col)+
+    facet_wrap(~subset.nhoods.id, ncol = n_col)+
     ylab("# cells in neighbourhood")
 
   return(p)
