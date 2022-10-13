@@ -11,7 +11,7 @@ plotNhoodCounts(x, subset.nhoods, design.df, condition, n_col = 3)
 slot.}
 
 \item{subset.nhoods}{A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
-plotting.}
+plotting. If you use a logical vector, make sure the length matches \code{nrow(nhoodCounts(x))}.}
 
 \item{design.df}{A \code{data.frame} which matches samples to a condition of interest.
 The row names should correspond to the samples. You can use the same \code{design.df}
