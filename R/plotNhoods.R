@@ -813,9 +813,9 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
       stop("Length of the logical vector has to match number of rows in nhoodCounts(x)")
     }
   } else if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
-      stop(paste0("Specified subset.nhoods do not exist - ",
+      stop("Specified subset.nhoods do not exist - ",
       "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
-      "or a logical vector with length nrow(nhoodCounts(x))."))
+      "or a logical vector with length nrow(nhoodCounts(x)).")
   }
   if (!is(design.df,"data.frame") | !has_rownames(design.df)){
     stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
