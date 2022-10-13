@@ -4,13 +4,13 @@
 \alias{plotNhoodCounts}
 \title{Plot the number of cells in a neighbourhood per sample and condition}
 \usage{
-plotNhoodCounts(x, nhoods, design.df, condition, n_col = 3)
+plotNhoodCounts(x, subset.nhoods, design.df, condition, n_col = 3)
 }
 \arguments{
 \item{x}{A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
 slot.}
 
-\item{nhoods}{A logical, integer or character vector indicating the rows of \code{x} to use for
+\item{subset.nhoods}{A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
 plotting.}
 
 \item{design.df}{A \code{data.frame} which matches samples to a condition of interest.
@@ -55,7 +55,7 @@ design.mtx$SampID <- paste(design.mtx$Condition, design.mtx$Replicate, sep="_")
 rownames(design.mtx) <- design.mtx$SampID
 
 plotNhoodCounts(x = milo,
-                nhoods = c(1,2),
+                subset.nhoods = c(1,2),
                 design.df = design.mtx,
                 condition = "Condition")
 
