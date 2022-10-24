@@ -1,3 +1,6 @@
+# 1.5.0 (TBD)
++ Introduce plotting function to visualise neighbourhood count distributions for nhoods interest: `plotNhoodCounts`. Implemented by Nick Hirschmüller
+
 # 1.3.1 (2022-01-07)
 + Fix bug in `findNhoodGroupMarkers` to merge on gene IDs explicitly
 + Fix bug in `makeNhoods` to include index cell in nhoods() matrix
