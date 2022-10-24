@@ -1,5 +1,5 @@
 # miloR
-_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets. For more details, read [our preprint](https://www.biorxiv.org/content/10.1101/2020.11.23.393769v1). 
+_Milo_ is a method for differential abundance analysis on KNN graph from single-cell datasets. For more details, read [our manuscript](https://doi.org/10.1038/s41587-021-01033-z). If you use Milo in your study, please cite _Dann, E., Henderson, N.C., Teichmann, S.A. et al. Differential abundance testing on single-cell data using k-nearest neighbor graphs. Nat Biotechnol (2021)._
 
 <p align="center">
   <img src="docs/milo_schematic.png" width="500">
@@ -26,7 +26,8 @@ devtools::install_github("MarioniLab/miloR", ref="devel")
 
 1. [Basic Milo example on simulated dataset](https://rawcdn.githack.com/MarioniLab/miloR/3646391023f600bae00efd9d940b888503d7a536/docs/articles/milo_demo.html)
 2. [Milo example on mouse gastrulation dataset](https://rawcdn.githack.com/MarioniLab/miloR/7c7f906b94a73e62e36e095ddb3e3567b414144e/vignettes/milo_gastrulation.html#5_Finding_markers_of_DA_populations): this includes a demo for downstream analysis functions.
-3. [Integrating Milo in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb)
+3. [Integrating miloR in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb) (see also [`milopy`](https://github.com/emdann/milopy) for a full workflow in python)
+4. [Specifying contrasts of interest for differential abundance testing with Milo](https://bioconductor.org/packages/release/bioc/vignettes/miloR/inst/doc/milo_contrasts.html)
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
@@ -63,7 +64,9 @@ head(milo.res)
 
 ### Support
 
-For any question, feature request or bug report please create a new issue in this repository.
+For any question, feature request or bug report please create a new issue in this repository. If you have an error or code-based query, please provide 
+the executed code and the preceding code from the point of constructing the `Milo` object, along with the output of your `sessionInfo()` - this will help 
+us immeasurably to diagnose the issue.
 
 ### Contributions
 

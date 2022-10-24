@@ -74,6 +74,10 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
         milo <- .emptyMilo()
     } else if(is(unlist(...), "SingleCellExperiment")){
         milo <- .fromSCE(unlist(...))
+    } else if(is(..., "matrix") | is(..., "Matrix")){
+        milo <- .fromMatrix(unlist(...))
+    } else {
+        stop('Unexpected input. The constructor takes as input either a SingleCellExperiment or a matrix of features X cells')
     }
 
     milo
@@ -83,7 +87,7 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 #' @importFrom S4Vectors SimpleList
 #' @importFrom Matrix Matrix
 #' @import SingleCellExperiment
-.fromSCE <- function(sce, assayName="logcounts"){
+.fromSCE <- function(sce){
     # make the distance and adjacency matrices the correct size
     out <- new("Milo", sce,
                graph=list(),
@@ -101,7 +105,34 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
 }
 
 #' @importFrom Matrix Matrix
-#' @importFrom S4Vectors DataFrame
+#' @importFrom S4Vectors DataFrame SimpleList
+#' @importFrom SingleCellExperiment colData rowData altExps reducedDims colPairs rowPairs
+.fromMatrix <- function(mat){
+    # return an empty Milo object
+    out <- new("Milo",
+               SingleCellExperiment(mat),
+               graph=list(),
+               nhoods=Matrix(0L, sparse=TRUE),
+               nhoodDistances=NULL,
+               nhoodCounts=Matrix(0L, sparse=TRUE),
+               nhoodIndex=list(),
+               nhoodExpression=Matrix(0L, sparse=TRUE),
+               .k=NULL)
+    
+    reducedDims(out) <- reducedDims(sce)
+    altExps(out) <- list()
+    
+    if (objectVersion(out) >= "1.11.3"){
+        colPairs(out) <- SimpleList()
+        rowPairs(out) <- SimpleList()
+    }
+    
+    out
+}
+
+
+#' @importFrom Matrix Matrix
+#' @importFrom S4Vectors DataFrame SimpleList
 #' @importFrom SingleCellExperiment colData rowData altExps reducedDims colPairs rowPairs
 .emptyMilo <- function(...){
     # return an empty Milo object
@@ -112,11 +143,12 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodCounts=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE),
-               .k=NULL)
+               .k=NULL,
+               int_elementMetadata=DataFrame(),
+               int_colData=DataFrame())
 
-    reducedDims(out) <- SimpleList()
     altExps(out) <- SimpleList()
-    colData(out) <- DataFrame()
+    reducedDims(out) <- SimpleList()
 
     if (objectVersion(out) >= "1.11.3"){
         colPairs(out) <- SimpleList()
