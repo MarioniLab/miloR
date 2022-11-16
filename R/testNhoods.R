@@ -370,8 +370,6 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                                       indices=nhoodIndex(x),
                                       distances=nhoodDistances(x),
                                       reduced.dimensions=reducedDim(x, reduced.dim))
-    message(length(res$Estimate[order(res$Nhood)][!is.na(res$Estimate)]))
-    message(length(mod.spatialfdr))
-    res$SpatialFDR[order(res$Nhood)][!is.na(res$Estimate)] <- mod.spatialfdr
+    res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
     res
 }

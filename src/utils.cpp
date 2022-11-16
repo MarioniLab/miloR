@@ -91,8 +91,8 @@ Rcpp::LogicalVector check_tol_arma_numeric(arma::vec X, double tol){
 bool check_pd_matrix(arma::mat A){
     // check that A matrix is positive definite - i.e. all positive eigenvalues
     // A must be square
-    uint m = A.n_cols;
-    uint n = A.n_rows;
+    unsigned int m = A.n_cols;
+    unsigned int n = A.n_rows;
     bool _is_sym;
 
     if(m != n){
