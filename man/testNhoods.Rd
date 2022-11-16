@@ -49,6 +49,16 @@ the spatial FDR. This should be the same as used for graph building.}
 \item{REML}{A logical scalar that controls the variance component behaviour to use either restricted maximum
 likelihood (REML) or maximum likelihood (ML). The former is recommened to account for the bias in the ML
 variance estimates.}
+
+\item{glmm.solver}{A character scalar that determines which GLMM solver is applied. Must be one of: Fisher, HE
+or HE-NNLS. HE or HE-NNLS are recommended when supplying a user-defined covariance matrix.}
+
+\item{max.iters}{A scalar that determines the maximum number of iterations to run the GLMM solver if it does
+not reach the convergence tolerance threshold.}
+
+\item{max.tol}{A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
+this number small to provide some confidence that the parameter estimates are at least in a feasible region
+and close to a \emphasis{local} optimum}
 }
 \value{
 A \code{data.frame} of model results, which contain:

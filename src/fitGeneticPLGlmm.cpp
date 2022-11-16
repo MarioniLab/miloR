@@ -56,7 +56,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
-    double _intercept = 1e-8; // intercept for HE regression
+    double constval = 0.0; // value at which to constrain values
+    double _intercept = constval; // intercept for HE regression
 
     // setup matrices
     arma::mat D(n, n);
@@ -165,7 +166,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         } else if (solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1);
-            _curr_sigma.fill(1e-10);
+            _curr_sigma.fill(constval);
 
             if(iters > 0){
                 _curr_sigma[0] = _intercept;
@@ -186,7 +187,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             solver = "HE-NNLS";
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(1e-10);
+            _curr_sigma.fill(constval);
 
             // if these are all zero then it can only be that they are initial estimates
             if(iters > 0){

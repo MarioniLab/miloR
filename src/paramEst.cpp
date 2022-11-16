@@ -507,12 +507,17 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
     // R is the active set - the indices of the constrained estimates, i.e. those held at zero
     // d = 0 is a solution vector
     // w is a vector of the Langrangian multipliers
-    double EPS = 1e-10;
+
+    // need to implement a check for infinite loop - have a max iters argument?
+    double constval = 0.0; // value at which to constrain values
+    unsigned int inner_count = 0;
+    unsigned int outer_count = 0;
+    double EPS = 1e-6;
     unsigned int m = vecZ.n_cols;
     arma::ivec P(m, arma::fill::ones); // the indices have to be set to negative values to be empty
 
     for(int i=0; i < m; i++){
-        if(nnls_update[i] <= 1e-10){
+        if(nnls_update[i] <= constval){
             P[i] = -1;
         }
     }
@@ -522,7 +527,7 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
     arma::ivec R(m, arma::fill::ones); // these are the indices of the active set
 
     for(int i=0; i < m; i++){
-        if(nnls_update[i] > 1e-10){
+        if(nnls_update[i] > constval){
             R[i] = -1;
         }
     }
@@ -537,11 +542,12 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
     bool check_wP;
     bool check_conditions;
     check_R = all(R < 0);
-    check_wR = all(w.elem(find(R > 0)) <= 1e-10); // these should be 0 or negative
-    check_wP = all(abs(w.elem(find(P > 0)) - 1e-10) < EPS); // these should be ~0
+    check_wR = all(w.elem(find(R > 0)) <= constval); // these should be 0 or negative
+    check_wP = all(abs(w.elem(find(P > 0)) - constval) < EPS); // these should be ~0
     check_conditions = check_R || (check_wR && check_wP);
 
     double max_w = 0.0;
+
     while(!check_conditions){ // set a tolerance here to check for positive Langrangian
         max_w = max(w.elem(find(R > 0))); // what if several are identical?
         unsigned int max_j = 0;
@@ -561,13 +567,15 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
         // find the elements >= 0
         arma::uvec select_P = find(P > 0);
         arma::vec s_all(m);
-        s_all.fill(1e-10);
+        s_all.fill(constval);
         s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y); // is this faster?
 
         double min_sp = s_all.elem(select_P).min();
         double alpha; // the step size
+        // outer_count++;
 
         while(min_sp <= 0){
+            inner_count = 0;
             // recompute selection of P element restricted to negative estimates in S
             arma::uvec select_sP = find(P > 0 && s_all < 0);
             arma::vec diffVec(select_sP.size());
@@ -584,7 +592,7 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
             arma::uvec _isswitch(m, arma::fill::ones);
 
             for(int i=0; i < m; i++){
-                if(nnls_update[i] <= 1e-10){
+                if(nnls_update[i] <= constval){
                     _isswitch[i] = 0;
                 }
             }
@@ -596,16 +604,17 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
             select_P = find(P > 0);
 
             // update the elements of S
-            s_all.fill(1e-10);
+            s_all.fill(constval);
             s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y);
             min_sp = s_all.elem(select_P).min();
+            // inner_count++;
         }
 
         nnls_update = s_all;
         w = vecZ.t() * (Y - vecZ * nnls_update);
         check_R = all(R < 0);
-        check_wR = all(w.elem(find(R > 0)) <= 1e-10); // these should be 0 or negative
-        check_wP = all(abs(abs(w.elem(find(P > 0))) - 1e-10) < EPS); // these should be ~0
+        check_wR = all(w.elem(find(R > 0)) <= constval); // these should be 0 or negative
+        check_wP = all(abs(abs(w.elem(find(P > 0))) - constval) < EPS); // these should be ~0
         check_conditions = check_R || (check_wR && check_wP);
     }
 
