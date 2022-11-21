@@ -1,11 +1,12 @@
-context("Testing testNhoods function")
-library(miloR)
-
+context("Testing fitGLMM function")
 ### Set up a mock data set using simulated data
-library(SingleCellExperiment)
-library(scran)
-library(scater)
-library(irlba)
+suppressWarnings({
+    library(miloR)
+    library(SingleCellExperiment)
+    library(scran)
+    library(scater)
+    library(irlba)
+})
 
 ##### ------- Simulate data ------- #####
 data(sim_family)
@@ -117,19 +118,6 @@ test_that("Infinite and NA values fail as expected", {
 
 })
 
-
-test_that("Forcing a singular Hessian gives errors", {
-    # collinear FE and RE variables
-    random.levels <- list("RE1"=paste0("RE1", unique(as.numeric(as.factor(sim.df$FE1)))))
-    X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim.df)), "FE1"=as.numeric(sim.df$FE1)))
-    Z <- as.matrix(data.frame("RE1"=as.numeric(as.factor(sim.df$FE1))))
-    y <- sim.df$Mean.Count
-
-    set.seed(42)
-    expect_error(fitGLMM(X=X, Z=Z, y=y, offsets=rep(0, nrow(X)), random.levels=random.levels, REML = TRUE,
-                         dispersion=dispersion, glmm.control=mmcontrol), "Hessian is computationally singular")
-
-})
 
 
 

@@ -1,13 +1,15 @@
 context("Testing annotateNhoods function")
-library(miloR)
 
 ### Set up a mock data set using simulated data
-library(SingleCellExperiment)
-library(scran)
-library(scater)
-library(irlba)
-library(MASS)
-library(mvtnorm)
+suppressWarnings({
+    library(miloR)
+    library(SingleCellExperiment)
+    library(scran)
+    library(scater)
+    library(irlba)
+    library(MASS)
+    library(mvtnorm)
+})
 
 set.seed(42)
 r.n <- 1000

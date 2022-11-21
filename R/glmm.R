@@ -325,8 +325,6 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     }, simplify=FALSE))
 
     if(!all(all.present)){
-        print(cluster_levels)
-        print(head(Z))
         stop("Columns of Z are discordant with input random effect levels")
     }
 
