@@ -29,7 +29,7 @@
 #' defined. k-distance uses the distance to the kth nearest neighbour
 #' of the index vertex, neighbour-distance uses the average within-neighbourhood
 #' Euclidean distance in reduced dimensional space, max uses the largest within-neighbourhood distance
-#' from the index vertex, and graph-overlap uses the total number of cells overlapping between 
+#' from the index vertex, and graph-overlap uses the total number of cells overlapping between
 #' neighborhoods (distance-independent measure). The frequency-weighted version of the
 #' BH method is then applied to the p-values, as in \code{cydar}.
 #'
@@ -56,7 +56,6 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
     haspval <- !is.na(pvalues)
 
     if (!all(haspval)) {
-        coords <- coords[haspval, , drop=FALSE]
         pvalues <- pvalues[haspval]
     }
 
@@ -140,7 +139,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
         } else{
             stop("k-distance weighting requires either a distance matrix or reduced dimensions.")
         }
-        
+
     } else if(weighting == "graph-overlap"){
         # no distance matrix is required here
         # compute overlap between neighborhoods
@@ -151,7 +150,7 @@ graphSpatialFDR <- function(x.nhoods, graph, pvalues, k=NULL, weighting='k-dista
         } else{
             stop("No neighborhoods found - please run makeNhoods first")
         }
-        
+
     } else{
         stop("Weighting option not recognised - must be either k-distance, neighbour-distance, max or graph-overlap")
     }
