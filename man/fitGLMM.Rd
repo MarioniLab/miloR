@@ -14,7 +14,7 @@ fitGLMM(
   random.levels = NULL,
   REML = FALSE,
   glmm.control = list(theta.tol = 1e-06, max.iter = 100, init.sigma = NULL, init.beta =
-    NULL, init.u = NULL),
+    NULL, init.u = NULL, solver = NULL),
   dispersion = 0.5,
   geno.only = FALSE,
   solver = NULL
@@ -38,7 +38,7 @@ fitGLMM(
 \item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
 
 \item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
-and initial parameter values for the fixed (init.beta) and random effects (init.u)}
+initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).}
 
 \item{dispersion}{A scalar value for the dispersion of the negative binomial.}
 
@@ -52,5 +52,8 @@ This function will perform DA testing per-nhood using a negative binomial genera
 }
 \details{
 This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
-this function is run to solve the model.
+this function is run to solve the model. The solver defaults to the \emph{Fisher} optimiser, and in the case of negative variance estimates
+it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
+\code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
+or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
 }

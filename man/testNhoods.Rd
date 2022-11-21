@@ -58,7 +58,7 @@ not reach the convergence tolerance threshold.}
 
 \item{max.tol}{A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
 this number small to provide some confidence that the parameter estimates are at least in a feasible region
-and close to a \emphasis{local} optimum}
+and close to a \emph{local} optimum}
 }
 \value{
 A \code{data.frame} of model results, which contain:

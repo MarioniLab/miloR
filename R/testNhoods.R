@@ -43,7 +43,7 @@
 #' not reach the convergence tolerance threshold.
 #' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
 #' this number small to provide some confidence that the parameter estimates are at least in a feasible region
-#' and close to a \emphasis{local} optimum
+#' and close to a \emph{local} optimum
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -281,7 +281,14 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         message("Running GLMM model - this may take a few minutes")
 
         if(isFALSE(geno.only)){
-            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) unique(z.model[, X]))
+            rand.levels <- lapply(seq_along(colnames(z.model)), FUN=function(X) {
+                zx <- unique(z.model[, X])
+                if(is.numeric(zx)){
+                    paste0(colnames(z.model)[X], zx)
+                } else{
+                    zx
+                }
+            })
             names(rand.levels) <- colnames(z.model)
         } else{
             rand.levels <- list("Genetic"=colnames(z.model))
@@ -296,15 +303,8 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
             model.list <- NULL
             for (i in 1:nrow(y)) {
-                model.list[[i]] <- tryCatch({fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                                     dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)},
-                                            error = function(err){
-                                                return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
-                                                            "converged"=NA, "Iters"=NA, "Dispersion"=NA,
-                                                            "Hessian"=NA, "SE"=NA, "t"=NA,
-                                                            "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
-                                                            "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA))
-                                                })
+                model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
+                                                     dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
             }
             return(model.list)
         }

@@ -11,7 +11,7 @@
 #' @param REML A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.
 #' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
 #' @param glmm.control A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
-#' and initial parameter values for the fixed (init.beta) and random effects (init.u)
+#' initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).
 #' @param dispersion A scalar value for the dispersion of the negative binomial.
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #' @param solver a character value that determines which optmisation algorithm is used for the variance components. Must be either
@@ -19,7 +19,10 @@
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
-#' this function is run to solve the model.
+#' this function is run to solve the model. The solver defaults to the \emph{Fisher} optimiser, and in the case of negative variance estimates
+#' it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
+#' \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
+#' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
 #'
 #'
 #' @importMethodsFrom Matrix %*%
@@ -29,12 +32,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
                     glmm.control=list(theta.tol=1e-6, max.iter=100,
                                       init.sigma=NULL, init.beta=NULL,
-                                      init.u=NULL),
+                                      init.u=NULL, solver=NULL),
                     dispersion = 0.5, geno.only=FALSE,
                     solver=NULL){
 
-    if(!solver %in% c("HE", "Fisher", "HE-NNLS")){
-        stop(solver, " not recognised - must be HE, HE-NNLS or Fisher")
+    if(!glmm.control$solver %in% c("HE", "Fisher", "HE-NNLS")){
+        stop(glmm.control$solver, " not recognised - must be HE, HE-NNLS or Fisher")
     }
 
     # model components
@@ -200,22 +203,43 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     curr_theta <- curr_theta[, 1]
 
     if(is.null(Kin)){
-        final.list <- fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
-                                curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                                curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=solver)
+        final.list <- tryCatch(fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
+                                           curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                                           curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                           curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver),
+                               error=function(err){
+                                   message(err)
+                                   return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
+                                               "converged"=NA, "Iters"=NA, "Dispersion"=NA,
+                                               "Hessian"=NA, "SE"=NA, "t"=NA,
+                                               "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
+                                               "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA,
+                                               "ERROR"=err))
+                                   })
     } else{
-        final.list <- fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
+        final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
                                        muvec=mu.vec, curr_beta=curr_beta,
                                        curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                        curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                       curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=solver)
+                                       curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver),
+                               error=function(err){
+                                   message(err)
+                                   return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
+                                               "converged"=NA, "Iters"=NA, "Dispersion"=NA,
+                                               "Hessian"=NA, "SE"=NA, "t"=NA,
+                                               "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
+                                               "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA,
+                                               "ERROR"=err))
+                                   })
     }
 
-    # if(isFALSE(final.list$converged)){
-    #     warning("Model has not converged after ", final.list$Iters,
-    #             " iterations. Consider increasing max.iter or drop a random effect")
-    # }
+    check_na_output <- any(is.na(unlist(lapply(names(final.list)[!grepl(names(final.list), pattern="ERROR")],
+                                               function(CH) final.list[[CH]]))))
+    if(check_na_output){
+        traceback(3)
+        error_cat <- paste(unlist(final.list[["ERROR"]]), sep=", ")
+        stop("No GLMM results returned - see traceback for errors. ", error_cat)
+    }
 
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
@@ -282,7 +306,13 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 #' @importFrom Matrix Matrix diag
 #' @export
 initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
+
     # construct the full Z with all random effect levels
+    n.cols <- ncol(Z)
+    z.names <- colnames(Z)
+    if(is.null(z.names)){
+        stop("Columns of Z must have valid names")
+    }
 
     # check that all of the levels are present in random.levels AND the
     # entries of Z
@@ -295,13 +325,9 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     }, simplify=FALSE))
 
     if(!all(all.present)){
+        print(cluster_levels)
+        print(head(Z))
         stop("Columns of Z are discordant with input random effect levels")
-    }
-
-    n.cols <- ncol(Z)
-    z.names <- colnames(Z)
-    if(is.null(z.names)){
-        stop("Columns of Z must have valid names")
     }
 
     col.classes <- apply(Z, 2, class)

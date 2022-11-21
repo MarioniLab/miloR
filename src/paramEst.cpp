@@ -124,7 +124,7 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
         hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
         theta = theta_hat + (hessinv * score_vec);
         return theta;
-    } catch(std::exception &ex){
+    } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
@@ -175,8 +175,9 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
     rhs = arma::join_cols(rhs_beta, rhs_u);
 
     // need a check for singular hessian here
+    double _rcond = arma::rcond(coeffmat);
     try{
-        double _rcond = arma::rcond(coeffmat);
+        // double _rcond = arma::rcond(coeffmat);
         bool is_singular;
         is_singular = _rcond < 1e-9;
 
@@ -184,17 +185,14 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
         if(is_singular){
             // this happens when G^-1 contains NaN values <- how does this happen
             // and how do we prevent it?
-            Rcpp::Rcout << _rcond << std::endl;
-            // Rcpp::stop("Coefficients Hessian is computationally singular");
-            throw std::range_error("Coefficients Hessian is computationally singular");
+            throw std::runtime_error("Coefficients Hessian is computationally singular");
         }
 
         // can we just use solve here instead?
         // if the coefficient matrix is singular then do we resort to pinv?
-        theta_up = arma::solve(coeffmat, rhs);
-
+        theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx);
         return theta_up;
-    } catch(std::exception &ex){
+    } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");

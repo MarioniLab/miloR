@@ -249,14 +249,8 @@ test_that("Singular Hessians are detectable and fail appropriately", {
 
     # collinear fixed and random effects
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
-                            design.df=sim1.meta)),
+                            design.df=sim1.meta, glmm.solver="Fisher")),
                  "Hessian is computationally singular")
-
-    # more variables than observations
-    set.seed(42)
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
-                                             design.df=sim1.meta)),
-                 "Zero eigenvalues in D")
 })
 
 
