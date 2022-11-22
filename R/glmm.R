@@ -271,7 +271,18 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 }
 
 
-
+#' Construct the initial G matrix
+#'
+#' This functio maps the variance estimates onto the full \code{c x q} levels for each random effect. This
+#' ensures that the matrices commute in the NB-GLMM solver. This function is included for reference, and
+#' should not be used directly
+#'
+#' @param cluster_levels A \code{list} containing the random effect levels for each variable
+#' @param sigmas A numeric vector containing the variance component estimates
+#' @param Kin A \code{matrix} containing a user-supplied covariance matrix
+#'
+#' @details Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix.
+#'
 #' @importFrom Matrix sparseMatrix diag
 #' @export
 initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
@@ -302,6 +313,24 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 }
 
 
+#' Construct the full Z matrix
+#'
+#' Using a simplified version of the \code{n x c} Z matrix, with one column per variable, construct the fully broadcast
+#' \code{n x (c*q)} binary matrix that maps each individual onto the random effect variable levels. It is not intended
+#' for this function to be called by the user directly, but it can be useful to debug mappings between random effect
+#' levels and input variables.
+#'
+#' @param Z A \code{n x c} matrix containing the numeric or character levels
+#' @param cluster_levels A \code{list} that maps the column names of Z onto the individual levels
+#' @param stand.cols A logical scalar that determines if Z* should be computed which is the row-centered and
+#' scaled version of the full Z matrix
+#'
+#' @details
+#' To make sure that matrices commute it is necessary to construct the full \code{n x c*q} matrix. This is a binary
+#' matrix where each level of each random effect occupies a column, and the samples/observations are mapped onto
+#' the correct levels based on the input Z.
+#'
+#'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix diag
 #' @export
@@ -371,7 +400,14 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
 }
 
 
-
+#' Compute the trace of a matrix
+#'
+#' Exactly what it says on the tin - compute the sum of the matrix diagonal
+#'
+#' @param x A \code{matrix}
+#'
+#' @details It computes the matrix trace of a square matrix.
+#'
 #' @importFrom Matrix diag
 #' @export
 matrix.trace <- function(x){
@@ -384,14 +420,39 @@ matrix.trace <- function(x){
     }
 }
 
-
+#' glmm control default values
+#'
+#' This wil give the default values for the GLMM solver
+#'
+#' @param ... see \code{fitGLMM} for details
+#'
+#' @details The default values for the parameter estimation convergence is 1e-6, and the
+#' maximum number of iterations is 100. In practise if the solver converges it generally does
+#' so fairly quickly on moderately well conditioned problems. The default solver is Fisher
+#' scoring, but this will switch (with a warning produced) to the NNLS Haseman-Elston solver
+#' if negative variance estimates are found.
+#'
 #' @export
 glmmControl.defaults <- function(...){
     # return the default glmm control values
-    return(list(theta.tol=1e-6, max.iter=100))
+    return(list(theta.tol=1e-6, max.iter=100, solver='Fisher'))
 }
 
 
+#' Compute the p-value for the fixed effect parameters
+#'
+#' Based on the asymptotic t-distribution, comptue the 2-tailed p-value that estimate != 0. This
+#' function is not intended to be used directly, but is included for reference or if an alternative
+#' estimate of the degrees of freedom is available.
+#'
+#' @param Zscore A numeric vector containing the Z scores for each fixed effect parameter
+#' @param df A numeric vector containing the estimated degrees of freedom for each fixed effect
+#' parameter
+#'
+#' @details Based on sampling from a 2-tailed t-distribution with \code{df} degrees of freedom,
+#' compute the probability that the calculated \code{Zscore} is greater than or equal to what would be
+#' expected from random chance.
+#'
 #' @importFrom stats pt
 #' @export
 computePvalue <- function(Zscore, df) {
@@ -415,6 +476,29 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 }
 
 
+#' Compute degrees of freedom using Satterthwaite method
+#'
+#' This function is not intended to be called by the user, and is included for reference
+#'
+#' @param coeff.mat A \code{matrix} class object containing the coefficient matrix from the mixed model equations
+#' @param mint A numeric scalar of the number of fixed effect variables in the model
+#' @param cint A numeric scalar of the number of random effect variables in the model
+#' @param SE A \code{1 x mint} \code{matrix}, i.e. column vector, containing the standard errors of the fixed effect
+#' parameter estimates
+#' @param curr_sigma A \code{1 x cint matrix}, i.e. column vector, of the variance component parameter estimates
+#' @param curr_beta A \code{1 x mint matrix}, i.e. column vector, of the fixed effect parameter estimates
+#' @param V_partial A \code{list} of the partial derivatives for each fixed and random effect variable in the model
+#' @param V_a A \code{c+m x c+m} variance-covariance matrix of the fixed and random effect variable parameter estimates
+#' @param G_inv A \code{nxc X nxc} inverse matrix containing the variance component estimates
+#' @param random.levels A \code{list} containing the mapping between the random effect variables and each respective set
+#' of levels for said variable.
+#'
+#' @details The Satterthwaite degrees of freedom are computed, which estimates the numbers of degrees of freedom in the
+#' NB-GLMM based on ratio of the squared standard errors and the product of the Jacobians of the variance-covariance matrix
+#' from the fixed effect variable parameter estimation with full variance-covariance matrix. For more details see
+#' Satterthwaite FE, Biometrics Bulletin (1946) Vol 2 No 6, pp110-114.
+#'
+#'
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian

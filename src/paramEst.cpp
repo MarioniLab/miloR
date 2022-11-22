@@ -107,7 +107,7 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
     // theta ~= theta_hat + hess^-1 * score
     // this needs to be in a direction of descent towards a minimum
     int m = theta_hat.size();
-    arma::vec theta(m);
+    arma::vec theta(m, arma::fill::zeros);
     arma::mat hessinv(hess.n_rows, hess.n_cols);
 
     // will need a check here for singular hessians...
@@ -123,12 +123,13 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
 
         hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
         theta = theta_hat + (hessinv * score_vec);
-        return theta;
     } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
+
+    return theta;
 }
 
 
@@ -167,7 +168,7 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
     arma::vec rhs_u(c);
     arma::mat rhs(m+c, 1);
 
-    arma::vec theta_up(m+c);
+    arma::vec theta_up(m+c, arma::fill::zeros);
 
     rhs_beta.col(0) = Xt * Winv * ystar;
     rhs_u.col(0) = Zt * Winv * ystar;
@@ -191,13 +192,12 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
         // can we just use solve here instead?
         // if the coefficient matrix is singular then do we resort to pinv?
         theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx);
-        return theta_up;
     } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
-
+    return theta_up;
 }
 
 
@@ -241,7 +241,7 @@ arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, 
     arma::vec rhs_u(c);
     arma::mat rhs(m+c, 1);
 
-    arma::vec theta_up(m+c);
+    arma::vec theta_up(m+c, arma::fill::zeros);
 
     rhs_beta.col(0) = Xt * Winv * ystar;
     rhs_u.col(0) = Zt * Winv * ystar;
@@ -269,13 +269,13 @@ arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, 
         theta_up = conjugateGradient(coeffmat, curr_theta, rhs, conv_tol);
         // theta_up = arma::solve(coeffmat, rhs);
 
-        return theta_up;
     } catch(std::exception &ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
 
+    return theta_up;
 }
 
 

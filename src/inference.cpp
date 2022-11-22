@@ -32,6 +32,7 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
 
 
     arma::mat _se(ul - ur * lr.i() * ll); // m X m - (m X c X m) <- this should commute
+    arma::vec se(m+c);
     // will need a check here for singular hessians...
     try{
         double _rcond = arma::rcond(_se);
@@ -44,15 +45,15 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
         }
 
         arma::mat _seInv(_se.i());
-        arma::vec se(arma::sqrt(_seInv.diag()));
-        return se;
+        // arma::vec se(arma::sqrt(_seInv.diag()));
+        se = arma::sqrt(_seInv.diag());
     } catch(std::exception &ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
 
-
+    return se;
 }
 
 

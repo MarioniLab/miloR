@@ -15,6 +15,7 @@ using namespace Rcpp;
 //' Iteratively estimate GLMM fixed and random effect parameters, and variance
 //' component parameters using Fisher scoring based on the Pseudo-likelihood
 //' approximation to a Normal loglihood.
+//'
 //' @param Z mat - sparse matrix that maps random effect variable levels to
 //' observations
 //' @param X mat - sparse matrix that maps fixed effect variables to

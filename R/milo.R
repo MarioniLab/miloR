@@ -118,15 +118,15 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
                nhoodIndex=list(),
                nhoodExpression=Matrix(0L, sparse=TRUE),
                .k=NULL)
-    
-    reducedDims(out) <- reducedDims(sce)
+
+    reducedDims(out) <- SimpleList()
     altExps(out) <- list()
-    
+
     if (objectVersion(out) >= "1.11.3"){
         colPairs(out) <- SimpleList()
         rowPairs(out) <- SimpleList()
     }
-    
+
     out
 }
 

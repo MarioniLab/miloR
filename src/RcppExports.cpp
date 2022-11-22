@@ -80,51 +80,11 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// multiP
-List multiP(List partials, arma::mat psvar_in);
-RcppExport SEXP _miloR_multiP(SEXP partialsSEXP, SEXP psvar_inSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< List >::type partials(partialsSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type psvar_in(psvar_inSEXP);
-    rcpp_result_gen = Rcpp::wrap(multiP(partials, psvar_in));
-    return rcpp_result_gen;
-END_RCPP
-}
-// pseudovarPartial
-List pseudovarPartial(arma::mat x, List rlevels, StringVector cnames);
-RcppExport SEXP _miloR_pseudovarPartial(SEXP xSEXP, SEXP rlevelsSEXP, SEXP cnamesSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type x(xSEXP);
-    Rcpp::traits::input_parameter< List >::type rlevels(rlevelsSEXP);
-    Rcpp::traits::input_parameter< StringVector >::type cnames(cnamesSEXP);
-    rcpp_result_gen = Rcpp::wrap(pseudovarPartial(x, rlevels, cnames));
-    return rcpp_result_gen;
-END_RCPP
-}
-// pseudovarPartial_C
-List pseudovarPartial_C(arma::mat Z, List u_indices);
-RcppExport SEXP _miloR_pseudovarPartial_C(SEXP ZSEXP, SEXP u_indicesSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
-    Rcpp::traits::input_parameter< List >::type u_indices(u_indicesSEXP);
-    rcpp_result_gen = Rcpp::wrap(pseudovarPartial_C(Z, u_indices));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 18},
     {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 17},
     {"_miloR_invertPseudoVar", (DL_FUNC) &_miloR_invertPseudoVar, 3},
-    {"_miloR_multiP", (DL_FUNC) &_miloR_multiP, 2},
-    {"_miloR_pseudovarPartial", (DL_FUNC) &_miloR_pseudovarPartial, 3},
-    {"_miloR_pseudovarPartial_C", (DL_FUNC) &_miloR_pseudovarPartial_C, 2},
     {NULL, NULL, 0}
 };
 

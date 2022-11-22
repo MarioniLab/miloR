@@ -37,6 +37,7 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' Iteratively estimate GLMM fixed and random effect parameters, and variance
 #' component parameters using Fisher scoring based on the Pseudo-likelihood
 #' approximation to a Normal loglihood.
+#'
 #' @param Z mat - sparse matrix that maps random effect variable levels to
 #' observations
 #' @param X mat - sparse matrix that maps fixed effect variables to
@@ -73,36 +74,5 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #' @param Z SparseMatrix - a nxc design matrix that maps REs to samples
 invertPseudoVar <- function(A, B, Z) {
     .Call('_miloR_invertPseudoVar', PACKAGE = 'miloR', A, B, Z)
-}
-
-#' Compute product of each pseudovariance partial derivatives with the inverse
-#' pseudovariance matrix
-#'
-#' For each variance component, we compute the matrix multiplication of the
-#' relevant partial derivative of dV_start/dSigm with the pseudovariance matrix
-#'
-#' @param list partials - list containing matrices of partial derivatives of the pseudovariance
-#' for each variance component
-#' @param mat psvar_in - inverse of the pseudovariance matrix
-multiP <- function(partials, psvar_in) {
-    .Call('_miloR_multiP', PACKAGE = 'miloR', partials, psvar_in)
-}
-
-#' Compute pseudovariance partial derivatives
-#'
-#' Compute the partial derivatives of the pseudovariance as t(Z[, i]) %*% Z[, i]
-#' for the ith variance component
-#'
-#' @param matrix x - the fully expanded Z matrix that maps observations to
-#' random effect variables
-#' @param list rlevels - a list that maps the random effect variable to the
-#' individual levels
-#' @param vec cnames - a StringVector of column names from fully expanded Z matrix
-pseudovarPartial <- function(x, rlevels, cnames) {
-    .Call('_miloR_pseudovarPartial', PACKAGE = 'miloR', x, rlevels, cnames)
-}
-
-pseudovarPartial_C <- function(Z, u_indices) {
-    .Call('_miloR_pseudovarPartial_C', PACKAGE = 'miloR', Z, u_indices)
 }
 

@@ -17,7 +17,7 @@ arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
     int c = B.n_cols;
     int n = A.n_cols;
     arma::mat I = arma::eye<arma::mat>(c, c); // create the cxc identity matrix
-    arma::mat omt(n, n);
+    arma::mat omt(n, n, arma::fill::zeros);
     arma::mat mid(c, c);
     arma::mat AZB(A.n_rows, B.n_cols);
     AZB = A * Z * B;
@@ -42,4 +42,6 @@ arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
+
+    return omt;
 }
