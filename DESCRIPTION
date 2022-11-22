@@ -42,7 +42,6 @@ Imports: BiocNeighbors,
          tidyr,
          dplyr,
          ggrepel,
-         MASS,
          ggbeeswarm,
          RColorBrewer,
          grDevices,
@@ -65,6 +64,7 @@ Suggests:
     MouseThymusAgeing,
     magick,
     RCurl,
+    MASS,
     curl,
     graphics
 RoxygenNote: 7.2.1

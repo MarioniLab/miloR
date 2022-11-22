@@ -112,6 +112,7 @@ NULL
 #' @export
 #' @importFrom stats model.matrix
 #' @importFrom Matrix colSums rowMeans
+#' @importFrom utils tail
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
@@ -320,10 +321,10 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
             if(geno.only){
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, Kin=kin.matrix)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, Kin=Kin)
             } else{
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, genotypes=genotypes, Kin=kin.matrix)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, genotypes=genotypes, Kin=Kin)
             }
 
         } else{

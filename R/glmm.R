@@ -27,6 +27,7 @@
 #'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
+#' @importFrom stats runif
 #' @export
 fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
