@@ -33,8 +33,8 @@ X and Z design matrices, can be constructed (see examples). There are 2 random e
 effect variables used to simulate the count trait.
 }
 \examples{
-data(sim_nblgmm)
-head(sim_nblgmm)
+data(sim_nbglmm)
+head(sim_nbglmm)
 
 }
 \keyword{datasets}
