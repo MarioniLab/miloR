@@ -33,6 +33,13 @@ so fairly quickly on moderately well conditioned problems. The default solver is
 scoring, but this will switch (with a warning produced) to the NNLS Haseman-Elston solver
 if negative variance estimates are found.
 }
+\examples{
+mmcontrol <- glmmControl.defaults()
+mmcontrol
+mmcontrol$solver <- "HE-NNLS"
+mmcontrol
+
+}
 \author{
 Mike Morgan
 }

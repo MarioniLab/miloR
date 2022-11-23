@@ -9,7 +9,7 @@ initialiseG(cluster_levels, sigmas, Kin = NULL)
 \arguments{
 \item{cluster_levels}{A \code{list} containing the random effect levels for each variable}
 
-\item{sigmas}{A numeric vector containing the variance component estimates}
+\item{sigmas}{A \code{matrix} of c X 1, i.e. a column vector, containing the variance component estimates}
 
 \item{Kin}{A \code{matrix} containing a user-supplied covariance matrix}
 }
@@ -28,7 +28,7 @@ Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix
 data(sim_nbglmm)
 random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
-rand.sigma <- runif(2)
+rand.sigma <- matrix(runif(2), ncol=1)
 big.G <- initialiseG(random.levels, rand.sigma)
 dim(big.G)
 
