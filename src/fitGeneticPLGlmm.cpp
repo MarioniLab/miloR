@@ -12,17 +12,22 @@
 #include "utils.h"
 using namespace Rcpp;
 
-//' GLMM parameter estimation using pseudo-likelihood
+//' GLMM parameter estimation using pseudo-likelihood with a custom covariance matrix
 //'
 //' Iteratively estimate GLMM fixed and random effect parameters, and variance
 //' component parameters using Fisher scoring based on the Pseudo-likelihood
-//' approximation to a Normal loglihood.
-//' @param Z mat - n X (q + g) sparse matrix that maps random effect variable levels to
-//' observations - augmented by the n X g genotype matrix
-//' @param X mat - n X m sparse matrix that maps fixed effect variables to
+//' approximation to a Normal loglihood. This function incorporates a user-defined
+//' covariance matrix, e.g. a kinship matrix for genetic analyses.
+//'
+//' @param Z mat - sparse matrix that maps random effect variable levels to
 //' observations
-//' @param K mat - n X n matrix containing genetic relationships between observations
+//' @param X mat - sparse matrix that maps fixed effect variables to
+//' observations
+//' @param K mat - sparse matrix that defines the known covariance patterns between
+//' individual observations. For example, a kinship matrix will then adjust for the
+//' known/estimated genetic relationships between observations.
 //' @param muvec vec vector of estimated phenotype means
+//' @param offsets vec vector of model offsets
 //' @param curr_theta vec vector of initial parameter estimates
 //' @param curr_beta vec vector of initial beta estimates
 //' @param curr_u vec of initial u estimates
@@ -37,8 +42,44 @@ using namespace Rcpp;
 //' @param curr_disp double Dispersion parameter estimate
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
-//' @param offsets vector of offsets to include in the linear predictor
 //' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+//'
+//' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
+//' switches between the joint fixed and random effect parameter inference, and the variance component
+//' estimation. A pseudo-likelihood approach is adopted to minimise the log-likelihood of the model
+//' given the parameter estimates. The fixed and random effect parameters are estimated using
+//' Hendersons mixed model equations, and the variance component parameters are then estimated with
+//' the specified solver, i.e. Fisher scoring, Haseman-Elston or constrained Haseman-Elston regression. As
+//' the domain of the variance components is [0, +\u221E], any negative variance component estimates will
+//' trigger the switch to the HE-NNLS solver until the model converges.
+//'
+//' @return A \code{list} containing the following elements (note: return types are dictated by Rcpp, so the R
+//' types are described here):
+//' \describe{
+//' \item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
+//' \item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
+//' linear unbiased predictors (BLUPs) for the levels of the corresponding RE variable.}
+//' \item{\code{Sigma:}}{\code{numeric} vector of variance component estimates, 1 per random effect variable. For this model the
+//' last variance component corresponds to the input \emph{K} matrix.}
+//' \item{\code{converged:}}{\code{logical} scalar of whether the model has reached the convergence tolerance or not.}
+//' \item{\code{Iters:}}{\code{numeric} scalar with the number of iterations that the model ran for. Is strictly <= \code{max.iter}.}
+//' \item{\code{Dispersion:}}{\code{numeric} scalar of the dispersion estimate computed off-line}
+//' \item{\code{Hessian:}}{\code{matrix} of 2nd derivative elements from the fixed and random effect parameter inference.}
+//' \item{\code{SE:}}{\code{matrix} of standard error estimates, derived from the hessian, i.e. the square roots of the diagonal elements.}
+//' \item{\code{t:}}{\code{numeric} vector containing the compute t-score for each fixed effect variable.}
+//' \item{\code{COEFF:}}{\code{matrix} containing the coefficient matrix from the mixed model equations.}
+//' \item{\code{P:}}{\code{matrix} containing the elements of the REML projection matrix.}
+//' \item{\code{Vpartial:}}{\code{list} containing the partial derivatives of the (pseudo)variance matrix with respect to each variance
+//' component.}
+//' \item{\code{Ginv:}}{\code{matrix} of the inverse variance components broadcast to the full Z matrix.}
+//' \item{\code{Vsinv:}}{\code{matrix} of the inverse pseudovariance.}
+//' \item{\code{Winv:}}{\code{matrix} of the inverse elements of W = D^-1 V D^-1}
+//' \item{\code{VCOV:}}{\code{matrix} of the variance-covariance for all model fixed and random effect variable parameter estimates.
+//' This is required to compute the degrees of freedom for the fixed effect parameter inference.}
+//' \item{\code{CONVLIST:}}{\code{list} of \code{list} containing the parameter estimates and differences between current and previous
+//' iteration estimates at each model iteration. These are included for each fixed effect, random effect and variance component parameter.
+//' The list elements for each iteration are: \emph{ThetaDiff}, \emph{SigmaDiff}, \emph{beta}, \emph{u}, \emph{sigma}.}
+//' }
 // [[Rcpp::export]]
 List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K,
                       arma::vec muvec, arma::vec offsets, arma::vec curr_beta,
@@ -206,12 +247,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-
-        // using the Cholesky of G as the preconditioner with PCG
-        // Zstar = computeZstar(Z, curr_sigma, u_indices);
-        // Gfill = makePCGFill(u_indices, Kinv);
-
-        // If using PCG then also use Cholesky factorisation of G
+        // If using PCG then also use Cholesky factorisation of G - this hasn't been implemented yet
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
         // coeff_mat = coeffMatrix(X, Winv, Zstar, Gfill);
         // theta_update = solveEquationsPCG(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_theta, y_star, pcg_tol);
@@ -221,10 +257,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool
 
         if(_any_ystar_na){
-            List this_conv(8);
+            List this_conv(5);
             this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
-                                     _["Fisher"]=information_sigma);
+                                     _["u"]=curr_u, _["sigma"]=curr_sigma);
             conv_list(iters-1) = this_conv;
             warning("NaN in theta update");
             break;
@@ -242,10 +277,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         bool _any_mu_inf = any(_check_mu_inf).is_true();
 
         if(_any_mu_inf){
-            List this_conv(8);
+            List this_conv(5);
             this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                     _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
-                                     _["Fisher"]=information_sigma);
+                                     _["u"]=curr_u, _["sigma"]=curr_sigma);
             conv_list(iters-1) = this_conv;
             warning("Inf values in muvec - algorithm is diverging");
             break;
@@ -264,10 +298,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
-        List this_conv(8);
+        List this_conv(5);
         this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                 _["u"]=curr_u, _["sigma"]=curr_sigma, _["DINV"]=Dinv, _["SigmaScore"]=score_sigma,
-                                 _["Fisher"]=information_sigma);
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma);
         conv_list(iters-1) = this_conv;
     }
 
@@ -279,7 +312,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
-                           _["Z"]=Z,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
                            _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
 

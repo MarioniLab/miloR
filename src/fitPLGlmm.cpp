@@ -37,6 +37,42 @@ using namespace Rcpp;
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
 //' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+//'
+//' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
+//' switches between the joint fixed and random effect parameter inference, and the variance component
+//' estimation. A pseudo-likelihood approach is adopted to minimise the log-likelihood of the model
+//' given the parameter estimates. The fixed and random effect parameters are estimated using
+//' Hendersons mixed model equations, and the variance component parameters are then estimated with
+//' the specified solver, i.e. Fisher scoring, Haseman-Elston or constrained Haseman-Elston regression. As
+//' the domain of the variance components is [0, +\u221E], any negative variance component estimates will
+//' trigger the switch to the HE-NNLS solver until the model converges.
+//'
+//' @return A \code{list} containing the following elements (note: return types are dictated by Rcpp, so the R
+//' types are described here):
+//' \describe{
+//' \item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
+//' \item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
+//' linear unbiased predictors (BLUPs) for the levels of the corresponding RE variable.}
+//' \item{\code{Sigma:}}{\code{numeric} vector of variance component estimates, 1 per random effect variable.}
+//' \item{\code{converged:}}{\code{logical} scalar of whether the model has reached the convergence tolerance or not.}
+//' \item{\code{Iters:}}{\code{numeric} scalar with the number of iterations that the model ran for. Is strictly <= \code{max.iter}.}
+//' \item{\code{Dispersion:}}{\code{numeric} scalar of the dispersion estimate computed off-line}
+//' \item{\code{Hessian:}}{\code{matrix} of 2nd derivative elements from the fixed and random effect parameter inference.}
+//' \item{\code{SE:}}{\code{matrix} of standard error estimates, derived from the hessian, i.e. the square roots of the diagonal elements.}
+//' \item{\code{t:}}{\code{numeric} vector containing the compute t-score for each fixed effect variable.}
+//' \item{\code{COEFF:}}{\code{matrix} containing the coefficient matrix from the mixed model equations.}
+//' \item{\code{P:}}{\code{matrix} containing the elements of the REML projection matrix.}
+//' \item{\code{Vpartial:}}{\code{list} containing the partial derivatives of the (pseudo)variance matrix with respect to each variance
+//' component.}
+//' \item{\code{Ginv:}}{\code{matrix} of the inverse variance components broadcast to the full Z matrix.}
+//' \item{\code{Vsinv:}}{\code{matrix} of the inverse pseudovariance.}
+//' \item{\code{Winv:}}{\code{matrix} of the inverse elements of W = D^-1 V D^-1}
+//' \item{\code{VCOV:}}{\code{matrix} of the variance-covariance for all model fixed and random effect variable parameter estimates.
+//' This is required to compute the degrees of freedom for the fixed effect parameter inference.}
+//' \item{\code{CONVLIST:}}{\code{list} of \code{list} containing the parameter estimates and differences between current and previous
+//' iteration estimates at each model iteration. These are included for each fixed effect, random effect and variance component parameter.
+//' The list elements for each iteration are: \emph{ThetaDiff}, \emph{SigmaDiff}, \emph{beta}, \emph{u}, \emph{sigma}.}
+//' }
 // [[Rcpp::export]]
 List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                arma::vec offsets, arma::vec curr_beta,

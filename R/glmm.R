@@ -1,7 +1,6 @@
 #' Perform differential abundance testing using a NB-generalised linear mixed model
 #'
 #' This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model
-#'
 #' @param X A matrix containing the fixed effects of the model.
 #' @param Z A matrix containing the random effects of the model.
 #' @param y A matrix containing the observed phenotype over each neighborhood.
@@ -24,7 +23,33 @@
 #' \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
 #' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
 #'
-#'
+#' @return  A list containing the NB-GLMM output, including inference results. The list elements are as follows:
+#' \describe{
+#' \item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
+#' \item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
+#' linear unbiased predictors (BLUPs) for the levels of the corresponding RE variable.}
+#' \item{\code{Sigma:}}{\code{numeric} vector of variance component estimates, 1 per random effect variable.}
+#' \item{\code{converged:}}{\code{logical} scalar of whether the model has reached the convergence tolerance or not.}
+#' \item{\code{Iters:}}{\code{numeric} scalar with the number of iterations that the model ran for. Is strictly <= \code{max.iter}.}
+#' \item{\code{Dispersion:}}{\code{numeric} scalar of the dispersion estimate computed off-line}
+#' \item{\code{Hessian:}}{\code{matrix} of 2nd derivative elements from the fixed and random effect parameter inference.}
+#' \item{\code{SE:}}{\code{matrix} of standard error estimates, derived from the hessian, i.e. the square roots of the diagonal elements.}
+#' \item{\code{t:}}{\code{numeric} vector containing the compute t-score for each fixed effect variable.}
+#' \item{\code{COEFF:}}{\code{matrix} containing the coefficient matrix from the mixed model equations.}
+#' \item{\code{P:}}{\code{matrix} containing the elements of the REML projection matrix.}
+#' \item{\code{Vpartial:}}{\code{list} containing the partial derivatives of the (pseudo)variance matrix with respect to each variance
+#' component.}
+#' \item{\code{Ginv:}}{\code{matrix} of the inverse variance components broadcast to the full Z matrix.}
+#' \item{\code{Vsinv:}}{\code{matrix} of the inverse pseudovariance.}
+#' \item{\code{Winv:}}{\code{matrix} of the inverse elements of W = D^-1 V D^-1}
+#' \item{\code{VCOV:}}{\code{matrix} of the variance-covariance for all model fixed and random effect variable parameter estimates.
+#' This is required to compute the degrees of freedom for the fixed effect parameter inference.}
+#' \item{\code{DF:}}{\code{numeric} vector of the number of inferred degrees of freedom. For details see \link{Satterthwaite_df}.}
+#' \item{\code{PVALS:}}{\code{numeric} vector of the compute p-values from a t-distribution with the inferred number of degrees of
+#' freedom.}
+#' \item{\code{ERROR:}}{\code{list} containing Rcpp error messages - used for internal checking.}
+#' }
+#' @author Mike Morgan
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
 #' @importFrom stats runif
@@ -277,12 +302,13 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 #' This functio maps the variance estimates onto the full \code{c x q} levels for each random effect. This
 #' ensures that the matrices commute in the NB-GLMM solver. This function is included for reference, and
 #' should not be used directly
-#'
 #' @param cluster_levels A \code{list} containing the random effect levels for each variable
 #' @param sigmas A numeric vector containing the variance component estimates
 #' @param Kin A \code{matrix} containing a user-supplied covariance matrix
 #'
 #' @details Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix.
+#'
+#' @return \code{matrix} of the full broadcast variance component estimates.
 #'
 #' @importFrom Matrix sparseMatrix diag
 #' @export
@@ -320,7 +346,6 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 #' \code{n x (c*q)} binary matrix that maps each individual onto the random effect variable levels. It is not intended
 #' for this function to be called by the user directly, but it can be useful to debug mappings between random effect
 #' levels and input variables.
-#'
 #' @param Z A \code{n x c} matrix containing the numeric or character levels
 #' @param cluster_levels A \code{list} that maps the column names of Z onto the individual levels
 #' @param stand.cols A logical scalar that determines if Z* should be computed which is the row-centered and
@@ -331,6 +356,8 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 #' matrix where each level of each random effect occupies a column, and the samples/observations are mapped onto
 #' the correct levels based on the input Z.
 #'
+#' @return \code{matrix} Fully broadcast Z matrix with one column per random effect level for all random effect variables
+#' in the model.#'
 #'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix diag
@@ -404,10 +431,11 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
 #' Compute the trace of a matrix
 #'
 #' Exactly what it says on the tin - compute the sum of the matrix diagonal
-#'
 #' @param x A \code{matrix}
 #'
 #' @details It computes the matrix trace of a square matrix.
+#'
+#' @return \code{numeric} scalar of the matrix trace.
 #'
 #' @importFrom Matrix diag
 #' @export
@@ -423,15 +451,27 @@ matrix.trace <- function(x){
 
 #' glmm control default values
 #'
-#' This wil give the default values for the GLMM solver
-#'
+#' This will give the default values for the GLMM solver
 #' @param ... see \code{fitGLMM} for details
-#'
+#
 #' @details The default values for the parameter estimation convergence is 1e-6, and the
 #' maximum number of iterations is 100. In practise if the solver converges it generally does
 #' so fairly quickly on moderately well conditioned problems. The default solver is Fisher
 #' scoring, but this will switch (with a warning produced) to the NNLS Haseman-Elston solver
 #' if negative variance estimates are found.
+#'
+#' @return \code{list} containing the default values GLMM solver. This can be saved in the
+#' user environment and then passed to \link{testNhoods} directly to modify the convergence
+#' criteria of the solver that is used.
+#' \describe{
+#' \item{\code{theta.tol:}}{\code{numeric} scalar that sets the convergence threshold for the
+#' parameter inference - this is applied globally to fixed and random effect parameters, and
+#' to the variance estimates.}
+#' \item{\code{max.iter:}}{\code{numeric} scalar that sets the maximum number of iterations that
+#' the NB-GLMM will run for.}
+#' \item{\code{solver:}}{\code{character} scalar that sets the solver to use. Valid values are
+#' \emph{Fisher}, \emph{HE} or \emph{HE-NNLS}. See \link{fitGLMM} for details.}
+#' }
 #'
 #' @export
 glmmControl.defaults <- function(...){
@@ -445,7 +485,6 @@ glmmControl.defaults <- function(...){
 #' Based on the asymptotic t-distribution, comptue the 2-tailed p-value that estimate != 0. This
 #' function is not intended to be used directly, but is included for reference or if an alternative
 #' estimate of the degrees of freedom is available.
-#'
 #' @param Zscore A numeric vector containing the Z scores for each fixed effect parameter
 #' @param df A numeric vector containing the estimated degrees of freedom for each fixed effect
 #' parameter
@@ -453,6 +492,7 @@ glmmControl.defaults <- function(...){
 #' @details Based on sampling from a 2-tailed t-distribution with \code{df} degrees of freedom,
 #' compute the probability that the calculated \code{Zscore} is greater than or equal to what would be
 #' expected from random chance.
+#' @return Numeric vector of p-values, 1 per fixed effect parameter
 #'
 #' @importFrom stats pt
 #' @export
@@ -480,7 +520,6 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' Compute degrees of freedom using Satterthwaite method
 #'
 #' This function is not intended to be called by the user, and is included for reference
-#'
 #' @param coeff.mat A \code{matrix} class object containing the coefficient matrix from the mixed model equations
 #' @param mint A numeric scalar of the number of fixed effect variables in the model
 #' @param cint A numeric scalar of the number of random effect variables in the model
@@ -498,6 +537,8 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' NB-GLMM based on ratio of the squared standard errors and the product of the Jacobians of the variance-covariance matrix
 #' from the fixed effect variable parameter estimation with full variance-covariance matrix. For more details see
 #' Satterthwaite FE, Biometrics Bulletin (1946) Vol 2 No 6, pp110-114.
+#'
+#' @return \code{matrix} containing the inferred number of degrees of freedom for the specific model.
 #'
 #'
 #' @importMethodsFrom Matrix %*% t

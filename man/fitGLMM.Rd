@@ -47,6 +47,9 @@ initial parameter values for the fixed (init.beta) and random effects (init.u), 
 \item{solver}{a character value that determines which optmisation algorithm is used for the variance components. Must be either
 HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
 }
+\value{
+
+}
 \description{
 This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model
 }
@@ -56,4 +59,7 @@ this function is run to solve the model. The solver defaults to the \emph{Fisher
 it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
 \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
 or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
+}
+\author{
+Mike Morgan
 }

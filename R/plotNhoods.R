@@ -398,7 +398,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ',
+              paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -607,6 +608,8 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
 
 #' Visualize DA results as a beeswarm plot
 #'
+#' This function constructs a beeswarm plot using the ggplot engine to visualise the distribution of
+#' log fold changes across neighbourhood annotations.
 #' @param da.res a data.frame of DA testing results
 #' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
 #' This can be a column added to the DA testing results using the `annotateNhoods` function.
@@ -674,6 +677,9 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
 
 #' Visualize DA results as an MAplot
 #'
+#' Make an MAplot to visualise the relationship between DA log fold changes and neighbourhood abundance. This
+#' is a useful way to diagnose issues with the DA testing, such as large compositional biases and/or issues
+#' relating to large imbalances in numbers of cells between condition labels/levels.
 #' @param da.res A data.frame of DA testing results
 #' @param null.mean A numeric scalar determining the expected value of the log fold change under the null
 #' hypothesis. \code{default=0}.
@@ -823,7 +829,6 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
   if (!condition %in% colnames(design.df)){
     stop("Condition of interest has to be a column in the design matrix")
   }
-
 
   nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[subset.nhoods, , drop=FALSE]))
   nhood.counts.df <- rownames_to_column(nhood.counts.df, "subset.nhoods.id")
