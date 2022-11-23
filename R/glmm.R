@@ -520,7 +520,7 @@ matrix.trace <- function(x){
 #' @examples
 #' mmcontrol <- glmmControl.defaults()
 #' mmcontrol
-#' mmcontrol$solver <- "HE-NNLS
+#' mmcontrol$solver <- "HE-NNLS"
 #' mmcontrol
 #'
 #' @export
