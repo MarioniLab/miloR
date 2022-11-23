@@ -52,3 +52,10 @@ NB-GLMM based on ratio of the squared standard errors and the product of the Jac
 from the fixed effect variable parameter estimation with full variance-covariance matrix. For more details see
 Satterthwaite FE, Biometrics Bulletin (1946) Vol 2 No 6, pp110-114.
 }
+\examples{
+NULL
+
+}
+\author{
+Mike Morgan & Alice Kluzer
+}

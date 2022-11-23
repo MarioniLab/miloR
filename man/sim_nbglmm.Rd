@@ -5,7 +5,7 @@
 \alias{sim_nbglmm}
 \title{sim_nbglmm}
 \format{
-A \code{data.frame} containing the following columns:
+A \code{data.frame} \emph{sim_nbglmm} containing the following columns:
 \describe{
 \item{\code{Mean:}}{\code{numeric} containing the base mean computed as the linear combination of the
 simulated fixed and random effect weights multiplied by their respective weight matrices.}
@@ -33,8 +33,8 @@ X and Z design matrices, can be constructed (see examples). There are 2 random e
 effect variables used to simulate the count trait.
 }
 \examples{
-NULL
+data(sim_nblgmm)
+head(sim_nblgmm)
 
 }
-\keyword{#'}
 \keyword{datasets}

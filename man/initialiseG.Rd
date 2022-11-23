@@ -17,10 +17,22 @@ initialiseG(cluster_levels, sigmas, Kin = NULL)
 \code{matrix} of the full broadcast variance component estimates.
 }
 \description{
-This functio maps the variance estimates onto the full \code{c x q} levels for each random effect. This
+This function maps the variance estimates onto the full \code{c x q} levels for each random effect. This
 ensures that the matrices commute in the NB-GLMM solver. This function is included for reference, and
 should not be used directly
 }
 \details{
 Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix.
+}
+\examples{
+data(sim_nbglmm)
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+                      "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+rand.sigma <- runif(2)
+big.G <- initialiseG(random.levels, rand.sigma)
+dim(big.G)
+
+}
+\author{
+Mike Morgan & Alice Kluzer
 }

@@ -79,7 +79,8 @@
         v.terms <- v.terms[!is.na(v.terms)]
         d.mat <- as.matrix(design.df[, trimws(v.terms)])
         if (is.character(d.mat)) {
-            d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE], function(x) as.integer(factor(x)))), ncol = length(v.terms))
+            d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE],
+                                          function(x) as.integer(factor(x)))), ncol = length(v.terms))
         }
         colnames(d.mat) <- trimws(v.terms)
     } else if(vtype %in% c("fe")){

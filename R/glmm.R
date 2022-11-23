@@ -52,7 +52,21 @@
 #' @author Mike Morgan
 #'
 #' @examples
-#' NULL
+#' data(sim_nbglmm)
+#' random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+#'                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+#' X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim_nbglmm)), "FE2"=as.numeric(sim_nbglmm$FE2)))
+#' Z <- as.matrix(data.frame("RE1"=paste("RE1", as.numeric(sim_nbglmm$RE1), sep="_"),
+#'                           "RE2"=paste("RE2", as.numeric(sim_nbglmm$RE2), sep="_")))
+#' y <- sim_nbglmm$Mean.Count
+#' dispersion <- 0.5
+#'
+#' glmm.control <- glmmControl.defaults()
+#' glmm.control$theta.tol <- 1e-6
+#' glmm.control$max.iter <- 15
+#' model.list <- fitGLMM(X=X, Z=Z, y=y, offsets=rep(0, nrow(X)), random.levels=random.levels,
+#'                       REML = TRUE, glmm.control=glmm.control, dispersion=dispersion, solver="Fisher")
+#' model.list
 #'
 #' @name fitGLMM
 #'
@@ -305,7 +319,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
 #' Construct the initial G matrix
 #'
-#' This functio maps the variance estimates onto the full \code{c x q} levels for each random effect. This
+#' This function maps the variance estimates onto the full \code{c x q} levels for each random effect. This
 #' ensures that the matrices commute in the NB-GLMM solver. This function is included for reference, and
 #' should not be used directly
 #' @param cluster_levels A \code{list} containing the random effect levels for each variable
@@ -315,6 +329,15 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 #' @details Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix.
 #'
 #' @return \code{matrix} of the full broadcast variance component estimates.
+#' @author Mike Morgan & Alice Kluzer
+#'
+#' @examples
+#' data(sim_nbglmm)
+#' random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+#'                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+#' rand.sigma <- runif(2)
+#' big.G <- initialiseG(random.levels, rand.sigma)
+#' dim(big.G)
 #'
 #' @importFrom Matrix sparseMatrix diag
 #' @export
@@ -363,7 +386,18 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
 #' the correct levels based on the input Z.
 #'
 #' @return \code{matrix} Fully broadcast Z matrix with one column per random effect level for all random effect variables
-#' in the model.#'
+#' in the model.
+#' @author Mike Morgan & Alice Kluzer
+#'
+#' @examples
+#' data(sim_nbglmm)
+#' random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+#'                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+#' Z <- as.matrix(data.frame("RE1"=paste("RE1", as.numeric(sim_nbglmm$RE1), sep="_"),
+#'                           "RE2"=paste("RE2", as.numeric(sim_nbglmm$RE2), sep="_")))
+#' fullZ <- initializeFullZ(Z, random.levels)
+#' dim(Z)
+#' dim(fullZ)
 #'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix diag
@@ -442,6 +476,10 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
 #' @details It computes the matrix trace of a square matrix.
 #'
 #' @return \code{numeric} scalar of the matrix trace.
+#' @author Mike Morgan
+#'
+#' @examples
+#' matrix.trace(matrix(runif(9), ncol=3, nrow=3))
 #'
 #' @importFrom Matrix diag
 #' @export
@@ -478,6 +516,12 @@ matrix.trace <- function(x){
 #' \item{\code{solver:}}{\code{character} scalar that sets the solver to use. Valid values are
 #' \emph{Fisher}, \emph{HE} or \emph{HE-NNLS}. See \link{fitGLMM} for details.}
 #' }
+#' @author Mike Morgan
+#' @examples
+#' mmcontrol <- glmmControl.defaults()
+#' mmcontrol
+#' mmcontrol$solver <- "HE-NNLS
+#' mmcontrol
 #'
 #' @export
 glmmControl.defaults <- function(...){
@@ -499,6 +543,9 @@ glmmControl.defaults <- function(...){
 #' compute the probability that the calculated \code{Zscore} is greater than or equal to what would be
 #' expected from random chance.
 #' @return Numeric vector of p-values, 1 per fixed effect parameter
+#' @author Mike Morgan & Alice Kluzer
+#' @examples
+#' NULL
 #'
 #' @importFrom stats pt
 #' @export
@@ -545,6 +592,9 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' Satterthwaite FE, Biometrics Bulletin (1946) Vol 2 No 6, pp110-114.
 #'
 #' @return \code{matrix} containing the inferred number of degrees of freedom for the specific model.
+#' @author Mike Morgan & Alice Kluzer
+#' @examples
+#' NULL
 #'
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag

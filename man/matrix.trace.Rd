@@ -18,3 +18,10 @@ Exactly what it says on the tin - compute the sum of the matrix diagonal
 \details{
 It computes the matrix trace of a square matrix.
 }
+\examples{
+matrix.trace(matrix(runif(9), ncol=3, nrow=3))
+
+}
+\author{
+Mike Morgan
+}

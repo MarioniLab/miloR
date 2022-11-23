@@ -341,7 +341,7 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             # res has to reflect output from glmQLFit
             res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) tail(x,1))), "Std. Error"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) tail(x,1))),
                                     "t value" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) tail(x,1))), #"Df" = unlist(lapply(fit, `[[`, 11)),
-                                    "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) tail(x,1))), matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=T),
+                                    "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) tail(x,1))), matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
                                     "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
             rownames(res) <- 1:length(fit)
             colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")

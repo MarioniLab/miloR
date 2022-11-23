@@ -25,3 +25,10 @@ Based on sampling from a 2-tailed t-distribution with \code{df} degrees of freed
 compute the probability that the calculated \code{Zscore} is greater than or equal to what would be
 expected from random chance.
 }
+\examples{
+NULL
+
+}
+\author{
+Mike Morgan & Alice Kluzer
+}

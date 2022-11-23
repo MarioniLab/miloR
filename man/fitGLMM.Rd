@@ -86,7 +86,21 @@ it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. T
 or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
 }
 \examples{
-NULL
+data(sim_nbglmm)
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+                      "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim_nbglmm)), "FE2"=as.numeric(sim_nbglmm$FE2)))
+Z <- as.matrix(data.frame("RE1"=paste("RE1", as.numeric(sim_nbglmm$RE1), sep="_"),
+                          "RE2"=paste("RE2", as.numeric(sim_nbglmm$RE2), sep="_")))
+y <- sim_nbglmm$Mean.Count
+dispersion <- 0.5
+
+glmm.control <- glmmControl.defaults()
+glmm.control$theta.tol <- 1e-6
+glmm.control$max.iter <- 15
+model.list <- fitGLMM(X=X, Z=Z, y=y, offsets=rep(0, nrow(X)), random.levels=random.levels,
+                      REML = TRUE, glmm.control=glmm.control, dispersion=dispersion, solver="Fisher")
+model.list
 
 }
 \author{

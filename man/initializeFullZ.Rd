@@ -16,7 +16,7 @@ scaled version of the full Z matrix}
 }
 \value{
 \code{matrix} Fully broadcast Z matrix with one column per random effect level for all random effect variables
-in the model.#'
+in the model.
 }
 \description{
 Using a simplified version of the \code{n x c} Z matrix, with one column per variable, construct the fully broadcast
@@ -28,4 +28,18 @@ levels and input variables.
 To make sure that matrices commute it is necessary to construct the full \code{n x c*q} matrix. This is a binary
 matrix where each level of each random effect occupies a column, and the samples/observations are mapped onto
 the correct levels based on the input Z.
+}
+\examples{
+data(sim_nbglmm)
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+                      "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+Z <- as.matrix(data.frame("RE1"=paste("RE1", as.numeric(sim_nbglmm$RE1), sep="_"),
+                          "RE2"=paste("RE2", as.numeric(sim_nbglmm$RE2), sep="_")))
+fullZ <- initializeFullZ(Z, random.levels)
+dim(Z)
+dim(fullZ)
+
+}
+\author{
+Mike Morgan & Alice Kluzer
 }
