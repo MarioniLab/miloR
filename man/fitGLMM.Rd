@@ -48,7 +48,32 @@ initial parameter values for the fixed (init.beta) and random effects (init.u), 
 HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
 }
 \value{
-
+A list containing the NB-GLMM output, including inference results. The list elements are as follows:
+\describe{
+\item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
+\item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
+linear unbiased predictors (BLUPs) for the levels of the corresponding RE variable.}
+\item{\code{Sigma:}}{\code{numeric} vector of variance component estimates, 1 per random effect variable.}
+\item{\code{converged:}}{\code{logical} scalar of whether the model has reached the convergence tolerance or not.}
+\item{\code{Iters:}}{\code{numeric} scalar with the number of iterations that the model ran for. Is strictly <= \code{max.iter}.}
+\item{\code{Dispersion:}}{\code{numeric} scalar of the dispersion estimate computed off-line}
+\item{\code{Hessian:}}{\code{matrix} of 2nd derivative elements from the fixed and random effect parameter inference.}
+\item{\code{SE:}}{\code{matrix} of standard error estimates, derived from the hessian, i.e. the square roots of the diagonal elements.}
+\item{\code{t:}}{\code{numeric} vector containing the compute t-score for each fixed effect variable.}
+\item{\code{COEFF:}}{\code{matrix} containing the coefficient matrix from the mixed model equations.}
+\item{\code{P:}}{\code{matrix} containing the elements of the REML projection matrix.}
+\item{\code{Vpartial:}}{\code{list} containing the partial derivatives of the (pseudo)variance matrix with respect to each variance
+component.}
+\item{\code{Ginv:}}{\code{matrix} of the inverse variance components broadcast to the full Z matrix.}
+\item{\code{Vsinv:}}{\code{matrix} of the inverse pseudovariance.}
+\item{\code{Winv:}}{\code{matrix} of the inverse elements of W = D^-1 V D^-1}
+\item{\code{VCOV:}}{\code{matrix} of the variance-covariance for all model fixed and random effect variable parameter estimates.
+This is required to compute the degrees of freedom for the fixed effect parameter inference.}
+\item{\code{DF:}}{\code{numeric} vector of the number of inferred degrees of freedom. For details see \link{Satterthwaite_df}.}
+\item{\code{PVALS:}}{\code{numeric} vector of the compute p-values from a t-distribution with the inferred number of degrees of
+freedom.}
+\item{\code{ERROR:}}{\code{list} containing Rcpp error messages - used for internal checking.}
+}
 }
 \description{
 This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model
@@ -59,6 +84,10 @@ this function is run to solve the model. The solver defaults to the \emph{Fisher
 it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
 \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
 or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
+}
+\examples{
+NULL
+
 }
 \author{
 Mike Morgan

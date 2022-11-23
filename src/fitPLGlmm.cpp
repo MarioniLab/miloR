@@ -44,7 +44,7 @@ using namespace Rcpp;
 //' given the parameter estimates. The fixed and random effect parameters are estimated using
 //' Hendersons mixed model equations, and the variance component parameters are then estimated with
 //' the specified solver, i.e. Fisher scoring, Haseman-Elston or constrained Haseman-Elston regression. As
-//' the domain of the variance components is [0, +\u221E], any negative variance component estimates will
+//' the domain of the variance components is [0, +\code{Inf}], any negative variance component estimates will
 //' trigger the switch to the HE-NNLS solver until the model converges.
 //'
 //' @return A \code{list} containing the following elements (note: return types are dictated by Rcpp, so the R
@@ -73,6 +73,13 @@ using namespace Rcpp;
 //' iteration estimates at each model iteration. These are included for each fixed effect, random effect and variance component parameter.
 //' The list elements for each iteration are: \emph{ThetaDiff}, \emph{SigmaDiff}, \emph{beta}, \emph{u}, \emph{sigma}.}
 //' }
+//'
+//' @author Mike Morgan
+//'
+//' @examples
+//' NULL
+//'
+//' @name fitPLGlmm
 // [[Rcpp::export]]
 List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                arma::vec offsets, arma::vec curr_beta,

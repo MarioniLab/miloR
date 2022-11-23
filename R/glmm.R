@@ -50,6 +50,12 @@
 #' \item{\code{ERROR:}}{\code{list} containing Rcpp error messages - used for internal checking.}
 #' }
 #' @author Mike Morgan
+#'
+#' @examples
+#' NULL
+#'
+#' @name fitGLMM
+#'
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod
 #' @importFrom stats runif
@@ -539,7 +545,6 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' Satterthwaite FE, Biometrics Bulletin (1946) Vol 2 No 6, pp110-114.
 #'
 #' @return \code{matrix} containing the inferred number of degrees of freedom for the specific model.
-#'
 #'
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag

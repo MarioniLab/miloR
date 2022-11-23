@@ -67,24 +67,10 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// invertPseudoVar
-arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z);
-RcppExport SEXP _miloR_invertPseudoVar(SEXP ASEXP, SEXP BSEXP, SEXP ZSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type A(ASEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type B(BSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type Z(ZSEXP);
-    rcpp_result_gen = Rcpp::wrap(invertPseudoVar(A, B, Z));
-    return rcpp_result_gen;
-END_RCPP
-}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 18},
     {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 17},
-    {"_miloR_invertPseudoVar", (DL_FUNC) &_miloR_invertPseudoVar, 3},
     {NULL, NULL, 0}
 };
 

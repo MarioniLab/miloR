@@ -87,6 +87,7 @@ Collate:
     'plotNhoods.R'
     'sim_discrete.R'
     'sim_family.R'
+    'sim_nbglmm.R'
     'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'
