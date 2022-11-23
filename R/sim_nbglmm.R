@@ -29,8 +29,8 @@
 #' @keywords datasets
 #'
 #' @examples
-#' data(sim_nblgmm)
-#' head(sim_nblgmm)
+#' data(sim_nbglmm)
+#' head(sim_nbglmm)
 #'
 #' @name sim_nbglmm
 #' @aliases sim_nbglmm

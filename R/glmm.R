@@ -336,6 +336,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 #' random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
 #'                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
 #' rand.sigma <- matrix(runif(2), ncol=1)
+#' rownames(rand.sigma) <- names(random.levels)
 #' big.G <- initialiseG(random.levels, rand.sigma)
 #' dim(big.G)
 #'
