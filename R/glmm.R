@@ -323,7 +323,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 #' ensures that the matrices commute in the NB-GLMM solver. This function is included for reference, and
 #' should not be used directly
 #' @param cluster_levels A \code{list} containing the random effect levels for each variable
-#' @param sigmas A numeric vector containing the variance component estimates
+#' @param sigmas A \code{matrix} of c X 1, i.e. a column vector, containing the variance component estimates
 #' @param Kin A \code{matrix} containing a user-supplied covariance matrix
 #'
 #' @details Broadcast the variance component estimates to the full \code{c\*q x c\*q} matrix.
@@ -335,7 +335,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 #' data(sim_nbglmm)
 #' random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
 #'                       "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
-#' rand.sigma <- runif(2)
+#' rand.sigma <- matrix(runif(2), ncol=1)
 #' big.G <- initialiseG(random.levels, rand.sigma)
 #' dim(big.G)
 #'
