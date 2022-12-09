@@ -843,8 +843,8 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
                                     by="experiment")
   nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
-  p <- ggplot(nhood.counts.df.long, aes_string(x=condition, y="values"))+
-    geom_point()+
+  p <- ggplot(nhood.counts.df.long, aes(x=condition, y="values")) +
+      geom_point()+
     stat_summary(fun="mean", geom="crossbar",
                  mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
                  position=position_dodge(),show.legend = FALSE, color="red")+
