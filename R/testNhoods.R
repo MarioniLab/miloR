@@ -123,9 +123,17 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
-        # parse to find random and fixed effects
-        parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= " + "))
-        find_re <- any(grepl(parse, pattern="1*\\|"))
+        # parse to find random and fixed effects - need to double check the formula is valid
+        parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= "+", fixed=TRUE))
+        if(length(parse) < 1){
+            stop("Forumla ", design, " not a proper formula - variables should be separated by '+'")
+        }
+
+        find_re <- any(grepl(parse, pattern="1\\W?\\|"))
+        if(!find_re & any(grepl(parse, pattern="[0-9]?\\W?\\|\\W?"))){
+            stop(design, " is an invalid formula for random effects. Use (1 | VARIABLE) format.")
+        }
+
         if(find_re | !is.null(genotypes)){
             message("Random effects found")
 
@@ -180,6 +188,8 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
                 stop("Design matrix and model matrix rownames are not a subset")
             }
         }
+    } else{
+        stop("design must be either a formula or model matrix")
     }
 
     if(!is(x, "Milo")){

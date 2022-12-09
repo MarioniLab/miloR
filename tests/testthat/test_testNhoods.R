@@ -253,5 +253,10 @@ test_that("Singular Hessians are detectable and fail appropriately", {
                  "Hessian is computationally singular")
 })
 
+test_that("Invalid formulae give expected errors", {
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (50|Condition),
+                                             design.df=sim1.meta, glmm.solver="Fisher")),
+                 "is an invalid formula for random effects")
+})
 
 
