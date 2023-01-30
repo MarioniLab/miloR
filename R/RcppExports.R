@@ -32,6 +32,7 @@
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
 #' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+#' @param vardist string which variance form to use NB = negative binomial, P=Poisson
 #'
 #' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 #' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -77,8 +78,8 @@
 #'
 #' @name fitGeneticPLGlmm
 #'
-fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver) {
-    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver)
+fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist) {
+    .Call('_miloR_fitGeneticPLGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist)
 }
 
 #' GLMM parameter estimation using pseudo-likelihood
@@ -108,6 +109,7 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' @param REML bool - use REML for variance component estimation
 #' @param maxit int maximum number of iterations if theta_conv is FALSE
 #' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+#' @param vardist string which variance form to use NB = negative binomial, P=Poisson
 #'
 #' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 #' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -151,7 +153,7 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' NULL
 #'
 #' @name fitPLGlmm
-fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver) {
-    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver)
+fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist) {
+    .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist)
 }
 

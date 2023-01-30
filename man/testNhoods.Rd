@@ -59,6 +59,9 @@ not reach the convergence tolerance threshold.}
 \item{max.tol}{A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
 this number small to provide some confidence that the parameter estimates are at least in a feasible region
 and close to a \emph{local} optimum}
+
+\item{var.dist}{A character scalar that determines the form of the GLMM variance. Must be either NB (negative
+binomial) or P (Poisson).}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -92,6 +95,13 @@ function sets the \code{lib.sizes} to the colSums(x), and uses the
 Quasi-Likelihood F-test in \code{glmQLFTest} for DA testing. FDR correction
 is performed separately as the default multiple-testing correction is
 inappropriate for neighbourhoods with overlapping cells.
+The GLMM testing cannot be performed using \code{edgeR}, however, a separate
+function \code{fitGLMM} can be used to fit a mixed effect model to each
+nhood (see \code{fitGLMM} docs for details). If using the GLMM then note that
+the form of the variance is important. \code{var.dist=NB} assumes that there is dispersion in the
+counts above and beyond what is captured by the NB dispersion parameter, whereas
+\code{var.dist=P} will model \emph{all} of the overdispersion in the random effects variance
+components.
 }
 \examples{
 library(SingleCellExperiment)

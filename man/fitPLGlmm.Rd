@@ -21,7 +21,8 @@ fitPLGlmm(
   curr_disp,
   REML,
   maxit,
-  solver
+  solver,
+  vardist
 )
 }
 \arguments{
@@ -62,6 +63,8 @@ levels}
 \item{maxit}{int maximum number of iterations if theta_conv is FALSE}
 
 \item{solver}{string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring}
+
+\item{vardist}{string which variance form to use NB = negative binomial, P=Poisson}
 }
 \value{
 A \code{list} containing the following elements (note: return types are dictated by Rcpp, so the R
