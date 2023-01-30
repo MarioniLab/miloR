@@ -44,6 +44,8 @@
 #' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
 #' this number small to provide some confidence that the parameter estimates are at least in a feasible region
 #' and close to a \emph{local} optimum
+#' @param var.dist A character scalar that determines the form of the GLMM variance. Must be either NB (negative
+#' binomial) or P (Poisson).
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -53,6 +55,13 @@
 #' Quasi-Likelihood F-test in \code{glmQLFTest} for DA testing. FDR correction
 #' is performed separately as the default multiple-testing correction is
 #' inappropriate for neighbourhoods with overlapping cells.
+#' The GLMM testing cannot be performed using \code{edgeR}, however, a separate
+#' function \code{fitGLMM} can be used to fit a mixed effect model to each
+#' nhood (see \code{fitGLMM} docs for details). If using the GLMM then note that
+#' the form of the variance is important. \code{var.dist=NB} assumes that there is dispersion in the
+#' counts above and beyond what is captured by the NB dispersion parameter, whereas
+#' \code{var.dist=P} will model \emph{all} of the overdispersion in the random effects variance
+#' components.
 #'
 #' @return A \code{data.frame} of model results, which contain:
 #' \describe{
@@ -119,7 +128,8 @@ NULL
 testNhoods <- function(x, design, design.df, genotypes=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
-                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL){
+                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
+                       var.dist="NB"){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -230,6 +240,16 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         }
     }
 
+    if(is.lmm){
+        if(!var.dist %in% c("NB", "P")){
+            stop(var.dist, " variance form not recognised. Must be NB or P")
+        }
+    } else{
+        if(var.dist != "NB"){
+            warning("Ignoring var.dist for GLM - set to NB to fix this warning")
+        }
+    }
+
     # assume nhoodCounts and model are in the same order
     # cast as DGEList doesn't accept sparse matrices
     # what is the cost of cast a matrix that is already dense vs. testing it's class
@@ -311,11 +331,12 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
-        glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
+        glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, var.dist, geno.only=FALSE, kin=NULL){
             model.list <- NULL
             for (i in 1:nrow(y)) {
                 model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                                     dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
+                                           dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont,
+                                           var.dist=var.dist)
             }
             return(model.list)
         }
@@ -331,16 +352,16 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
 
             if(geno.only){
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, Kin=Kin)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, geno.only = geno.only, Kin=Kin)
             } else{
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, genotypes=genotypes, Kin=Kin)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, genotypes=genotypes, Kin=Kin)
             }
 
         } else{
 
             fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                               offsets, rand.levels, REML, glmm.control = glmm.cont)
+                               offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist)
 
             # give warning about how many neighborhoods didn't converge
             if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){

@@ -15,6 +15,9 @@
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #' @param solver a character value that determines which optmisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
+#' @param var.dist A character value that determines the form of the variance - either Negative Binomial (NB) or Poisson (P). The latter is used
+#' to model overdispersion using random effects alone, and therefore ignores the \code{dispersion} parameter. To avoid warnings while using the
+#' Poisson variance form set \code{dispersion = NA}.
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
@@ -80,7 +83,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL, solver=NULL),
                     dispersion = 0.5, geno.only=FALSE,
-                    solver=NULL){
+                    solver=NULL, var.dist="NB"){
 
     if(!glmm.control$solver %in% c("HE", "Fisher", "HE-NNLS")){
         stop(glmm.control$solver, " not recognised - must be HE, HE-NNLS or Fisher")
@@ -107,6 +110,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         curr_beta = matrix(glmm.control[["init.beta"]], ncol=1)
     }
     rownames(curr_beta) <- colnames(X)
+
+    if(!var.dist %in% c("NB", "P")){
+        stop("var.dist value ", var.dist, " not recognised - must be either NB or P")
+    }
+
+    if(var.dist %in% c("P") & !is.na(dispersion)){
+        warning("Using dispersion with Poisson variance - dispersion will be ignored")
+    }
 
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
@@ -250,9 +261,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
     if(is.null(Kin)){
         final.list <- tryCatch(fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
-                                           curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                                           curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                           curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver),
+                                         curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                                         curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                         curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist=var.dist),
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
@@ -264,10 +275,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                    })
     } else{
         final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
-                                       muvec=mu.vec, curr_beta=curr_beta,
-                                       curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
-                                       curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                       curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver),
+                                                muvec=mu.vec, curr_beta=curr_beta,
+                                                curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
+                                                curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
+                                                curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist=var.dist),
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,

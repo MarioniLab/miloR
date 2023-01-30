@@ -6,8 +6,12 @@
 
 arma::vec computeYStar (arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat Dinv,
                         arma::vec curr_u, arma::vec y, arma::vec offsets);
-arma::mat computeVmu (arma::vec mu, double r);
-arma::mat computeW (double disp, arma::mat Dinv, arma::mat V);
+arma::mat computeVmu (arma::vec mu, double r, std::string vardist);
+arma::mat computeVmuPoisson(arma::vec mu);
+arma::mat computeVmuNB(arma::vec mu, double r);
+arma::mat computeW (double disp, arma::mat Dinv, std::string vardist);
+arma::mat computeWNB(double disp, arma::mat Dinv);
+arma::mat computeWPoisson(arma::mat Dinv);
 arma::mat computeVStar (arma::mat Z, arma::mat G, arma::mat W);
 arma::mat computePREML (arma::mat Vsinv, arma::mat X);
 arma::mat initialiseG (Rcpp::List rlevels, arma::vec sigmas);

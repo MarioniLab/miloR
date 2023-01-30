@@ -37,6 +37,7 @@ using namespace Rcpp;
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
 //' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
+//' @param vardist string which variance form to use NB = negative binomial, P=Poisson
 //'
 //' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 //' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -87,7 +88,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                arma::mat curr_G, const arma::vec& y, List u_indices,
                double theta_conv,
                const List& rlevels, double curr_disp, const bool& REML, const int& maxit,
-               std::string solver){
+               std::string solver,
+               std::string vardist){
 
     // declare all variables
     List outlist(10);
@@ -178,8 +180,9 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets);
-        Vmu = computeVmu(muvec, curr_disp);
-        W = computeW(curr_disp, Dinv, Vmu);
+        Vmu = computeVmu(muvec, curr_disp, vardist);
+
+        W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
         V_star = computeVStar(Z, curr_G, W);
         V_star_inv = invertPseudoVar(Winv, curr_G, Z);

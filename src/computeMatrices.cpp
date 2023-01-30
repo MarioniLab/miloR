@@ -1,5 +1,6 @@
 #include "computeMatrices.h"
 #include<RcppArmadillo.h>
+#include<Rcpp.h>
 #include "utils.h"
 // [[Rcpp::depends(RcppArmadillo)]]
 using namespace Rcpp;
@@ -15,7 +16,21 @@ arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat 
 }
 
 
-arma::mat computeVmu(arma::vec mu, double r){
+arma::mat computeVmu(arma::vec mu, double r, std::string vardist){
+    int n = mu.size();
+    arma::mat Vmu(n, n);
+
+    if(vardist == "NB"){
+        Vmu = computeVmuNB(mu, r);
+    } else if(vardist == "P"){
+        Vmu = computeVmuPoisson(mu);
+    }
+
+    return Vmu;
+}
+
+
+arma::mat computeVmuNB(arma::vec mu, double r){
     int n = mu.size();
     arma::mat Vmu(n, n);
 
@@ -24,8 +39,30 @@ arma::mat computeVmu(arma::vec mu, double r){
     return Vmu;
 }
 
+arma::mat computeVmuPoisson(arma::vec mu){
+    int n = mu.size();
+    arma::mat Vmu(n, n);
 
-arma::mat computeW(double disp, arma::mat Dinv, arma::mat V){
+    Vmu.diag() = mu;
+
+    return Vmu;
+}
+
+arma::mat computeW(double disp, arma::mat Dinv, std::string vardist){
+    int n = Dinv.n_cols;
+    arma::mat W(n, n);
+
+    if(vardist == "NB"){
+        W = computeWNB(disp, Dinv);
+    } else if(vardist == "P"){
+        W = computeWPoisson(Dinv);
+    }
+
+    return W;
+}
+
+
+arma::mat computeWNB(double disp, arma::mat Dinv){
     int n = Dinv.n_cols;
     arma::mat W(n, n);
 
@@ -35,7 +72,17 @@ arma::mat computeW(double disp, arma::mat Dinv, arma::mat V){
     arma::fmat idisp = arma::eye<arma::fmat>(n, n);
     idisp = (1/disp) * idisp;
     W = idisp + Dinv;
-    W = Dinv * V * Dinv; // this is a bottle neck - can we speed up these big multiplications?
+    return W;
+}
+
+
+arma::mat computeWPoisson(arma::mat Dinv){
+    int n = Dinv.n_cols;
+    arma::mat W(n, n);
+
+    // this should be trivial as it is a diagonal matrix
+    // in the Poisson case this simplifies to 1/mu
+    W = Dinv;
     return W;
 }
 
