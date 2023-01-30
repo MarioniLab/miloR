@@ -126,7 +126,6 @@ Milo <- function(..., graph=list(), nhoodDistances=Matrix(0L, sparse=TRUE),
         colPairs(out) <- SimpleList()
         rowPairs(out) <- SimpleList()
     }
-
     out
 }
 
