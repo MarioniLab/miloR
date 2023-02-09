@@ -20,13 +20,15 @@
 #' Poisson variance form set \code{dispersion = NA}.
 #'
 #' @details
-#' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
+#' This function runs eithr a negative binomial of Poisson generalised linear mixed effects model. If mixed effects are detected in testNhoods,
 #' this function is run to solve the model. The solver defaults to the \emph{Fisher} optimiser, and in the case of negative variance estimates
 #' it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
 #' \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
-#' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
+#' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm. \code{var.dist} controls the form of the variance function
+#' \(either NB or P\). For the NB-GLMM case the dispersion parameter handles some of the counts overdispersion. However, the Poisson model
+#' instead includes a "residual" variance parameter which is also reported as \emph{Resid.Sigma}.
 #'
-#' @return  A list containing the NB-GLMM output, including inference results. The list elements are as follows:
+#' @return  A list containing the GLMM output, including inference results. The list elements are as follows:
 #' \describe{
 #' \item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
 #' \item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
@@ -118,6 +120,15 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     if(var.dist %in% c("P") & !is.na(dispersion)){
         warning("Using dispersion with Poisson variance - dispersion will be ignored")
     }
+
+    if(var.dist %in% c("P")){
+        message("Adding residual variance component variable")
+        eye <- matrix(seq_len(nrow(Z)), ncol=1, nrow=nrow(Z))
+        colnames(eye) <- c("Indiv")
+        Z <- cbind(Z, eye)
+        random.levels[["Indiv"]] <- paste0("Indiv", seq_len(nrow(Z)))
+    }
+
 
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn

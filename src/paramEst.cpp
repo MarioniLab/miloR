@@ -182,6 +182,9 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
         bool is_singular;
         is_singular = _rcond < 1e-9;
 
+        coeffmat.brief_print("Hessian");
+        Rcpp::Rcout << _rcond << std::endl;
+
         // check for singular condition
         if(is_singular){
             // this happens when G^-1 contains NaN values <- how does this happen

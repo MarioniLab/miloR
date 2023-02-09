@@ -237,6 +237,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
         }
 
+        sigma_update.print();
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;
         curr_G = initialiseG(u_indices, curr_sigma);

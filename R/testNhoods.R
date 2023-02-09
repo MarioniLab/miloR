@@ -306,7 +306,9 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
     }
 
     # estimate disperions _before_ all models
-    dge <- estimateDisp(dge, x.model)
+    if(var.dist %in% c("NB")){
+        dge <- estimateDisp(dge, x.model)
+    }
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
@@ -326,7 +328,12 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
         }
 
         # extract tagwise dispersion for glmm
-        dispersion <- dge$tagwise.dispersion
+        if(var.dist %in% c("NB")){
+            dispersion <- dge$tagwise.dispersion
+        } else{
+            dispersion <- 0
+        }
+
         offsets <- dge$samples$norm.factors
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
