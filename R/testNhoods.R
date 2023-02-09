@@ -11,10 +11,10 @@
 #' argument
 #' @param design.df A \code{data.frame} containing meta-data to which \code{design}
 #' refers to
-#' @param genotypes (optional) An n X g \code{matrix} containing individual genotypes over g
-#' SNPs/SNVs/other genetic variants. Rownames should correspond to the column names
-#' of \code{nhoods(x)} and rownames of \code{design.df}. Genotypes should be in additive
-#' format, i.e. AA=0, Aa=1, aa=2.
+#' @param kinship (optional) An n X n \code{matrix} containing pair-wise relationships between
+#' observations, such as expected relationships or computed from SNPs/SNVs/other genetic variants.
+#' Row names and column names should correspond to the column names of \code{nhoods(x)} and rownames
+#' of \code{design.df}.
 #' @param min.mean A scalar used to threshold neighbourhoods on the minimum
 #' average cell counts across samples.
 #' @param model.contrasts A string vector that defines the contrasts used to perform
@@ -125,7 +125,7 @@ NULL
 #' @importFrom stats dist median
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
-testNhoods <- function(x, design, design.df, genotypes=NULL,
+testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
@@ -144,28 +144,24 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             stop(design, " is an invalid formula for random effects. Use (1 | VARIABLE) format.")
         }
 
-        if(find_re | !is.null(genotypes)){
+        if(find_re | !is.null(kinship)){
             message("Random effects found")
 
             is.lmm <- TRUE
-            if(find_re | is.null(genotypes)){
+            if(find_re | is.null(kinship)){
                 # make model matrices for fixed and random effects
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
-            } else if(find_re | !is.null(genotypes)){
-                if(!all(rownames(genotypes) == rownames(design.df))){
+            } else if(find_re | !is.null(kinship)){
+                if(!all(rownames(kinship) == rownames(design.df))){
                     stop("Genotype rownames do not match design.df rownames")
                 }
 
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
-
-                # rescale genotypes by 1/sqrt(m), where m = number of SNPs
-                genotypes <- (genotypes - 1)/(sqrt(ncol(genotypes)))
-            } else if(!find_re | !is.null(genotypes)){
-                genotypes <- (genotypes - 1)/(sqrt(ncol(genotypes)))
-                z.model <- diag(nrow(genotypes))
-                colnames(z.model) <- paste0("Genetic", seq_len(nrow(genotypes)))
+            } else if(!find_re | !is.null(kinship)){
+                z.model <- diag(nrow(kinship))
+                colnames(z.model) <- paste0("Genetic", seq_len(nrow(kinship)))
                 rownames(z.model) <- rownames(design.df)
                 geno.only <- TRUE
             }
@@ -348,21 +344,19 @@ testNhoods <- function(x, design, design.df, genotypes=NULL,
             return(model.list)
         }
 
-        if(!is.null(genotypes)){
+        if(!is.null(kinship)){
             if(isTRUE(geno.only)){
-                message("Running genetic model with ", nrow(genotypes), " genetic variants")
+                message("Running genetic model with ", nrow(kinship), " individuals")
             } else{
-                message("Running genetic model with ", nrow(z.model), " observations and ", ncol(genotypes), " genetic variants")
+                message("Running genetic model with ", nrow(z.model), " observations")
             }
-
-            Kin <- genotypes %*% genotypes
 
             if(geno.only){
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
                                    offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, geno.only = geno.only, Kin=Kin)
             } else{
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, genotypes=genotypes, Kin=Kin)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, Kin=Kin)
             }
 
         } else{
