@@ -760,3 +760,110 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
 
   return(ma.p)
 }
+
+
+#' Plot the number of cells in a neighbourhood per sample and condition
+#'
+#' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
+#' slot.
+#' @param subset.nhoods A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
+#' plotting. If you use a logical vector, make sure the length matches \code{nrow(nhoodCounts(x))}.
+#' @param design.df A \code{data.frame} which matches samples to a condition of interest.
+#' The row names should correspond to the samples. You can use the same \code{design.df}
+#' that you already used in the \code{testNhoods} function.
+#' @param condition String specifying the condition of interest Has to be a column in the \code{design}.
+#' @param n_col Number of columns in the output \code{ggplot}.
+#'
+#' @return A \code{ggplot-class} object
+#'
+#' @author
+#' Nick Hirschmüller
+#'
+#' @examples
+#'
+#' require(SingleCellExperiment)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=300)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=300)
+#' ux <- rbind(ux.1, ux.2)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
+#'
+#' cond <- sample(c("A","B","C"),300,replace=TRUE)
+#'
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100), rep("R3", 100)))
+#' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
+#' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
+#'
+#' design.mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
+#'                          "Replicate"=rep(c("R1", "R2", "R3"), 3))
+#' design.mtx$SampID <- paste(design.mtx$Condition, design.mtx$Replicate, sep="_")
+#' rownames(design.mtx) <- design.mtx$SampID
+#'
+#' plotNhoodCounts(x = milo,
+#'                 subset.nhoods = c(1,2),
+#'                 design.df = design.mtx,
+#'                 condition = "Condition")
+#'
+#' @export
+#' @rdname plotNhoodCounts
+#' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap ylab
+#' @importFrom tidyr pivot_longer
+#' @importFrom tibble rownames_to_column has_rownames
+#' @importFrom dplyr left_join
+plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
+  if (!is(x, "Milo")) {
+    stop("Unrecognised input type - must be of class Milo")
+  }
+  if (ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1) {
+    stop("No neighbourhoods found. Please run makeNhoods() first.")
+  }
+  if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
+    stop("Neighbourhood counts missing - please run countCells() first")
+  }
+  if (is(subset.nhoods, "logical")){
+    if (length(subset.nhoods) != nrow(nhoodCounts(x))){
+      stop("Length of the logical vector has to match number of rows in nhoodCounts(x)")
+    }
+  } else if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
+      stop("Specified subset.nhoods do not exist - ",
+      "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
+      "or a logical vector with length nrow(nhoodCounts(x)).")
+  }
+  if (!is(design.df,"data.frame") | !has_rownames(design.df)){
+    stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
+  }
+  if (!condition %in% colnames(design.df)){
+    stop("Condition of interest has to be a column in the design matrix")
+  }
+
+
+  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[subset.nhoods, , drop=FALSE]))
+  nhood.counts.df <- rownames_to_column(nhood.counts.df, "subset.nhoods.id")
+  nhood.counts.df.long <- pivot_longer(nhood.counts.df,
+                                       cols=-1, # pivot all columns into longer format, except the first one.
+                                       names_to = "experiment",
+                                       values_to = "values")
+
+  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment",condition)]
+  nhood.counts.df.long <- left_join(nhood.counts.df.long,
+                                    tmp.desgin,
+                                    by="experiment")
+  nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
+
+  p <- ggplot(nhood.counts.df.long, aes_string(x=condition, y="values"))+
+    geom_point()+
+    stat_summary(fun="mean", geom="crossbar",
+                 mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
+                 position=position_dodge(),show.legend = FALSE, color="red")+
+    facet_wrap(~subset.nhoods.id, ncol = n_col)+
+    ylab("# cells in neighbourhood")
+
+  return(p)
+}
