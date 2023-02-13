@@ -152,14 +152,14 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 # make model matrices for fixed and random effects
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
-            } else if(find_re | !is.null(kinship)){
+            } else if(find_re & !is.null(kinship)){
                 if(!all(rownames(kinship) == rownames(design.df))){
                     stop("Genotype rownames do not match design.df rownames")
                 }
 
                 z.model <- .parse_formula(design, design.df, vtype="re")
                 rownames(z.model) <- rownames(design.df)
-            } else if(!find_re | !is.null(kinship)){
+            } else if(!find_re & !is.null(kinship)){
                 z.model <- diag(nrow(kinship))
                 colnames(z.model) <- paste0("Genetic", seq_len(nrow(kinship)))
                 rownames(z.model) <- rownames(design.df)
@@ -353,10 +353,10 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
             if(geno.only){
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, geno.only = geno.only, Kin=Kin)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, geno.only = geno.only, kin=kinship)
             } else{
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, Kin=Kin)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, kin=kinship)
             }
 
         } else{

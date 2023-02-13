@@ -171,17 +171,21 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     unsigned long _kn = K.n_cols;
     arma::mat Kinv(_kn, _kn);
 
-    // check this isn't singular first (why would it be??)
+    // check this isn't singular first - it could be due to a block structure
     double _rcond = arma::rcond(K);
     bool is_singular;
     is_singular = _rcond < 1e-9;
 
     // check for singular condition
     if(is_singular){
-        Rcpp::stop("Kinship matrix is singular");
+        // first try to invert the top block which should be N/2 x N/2
+        Rcpp::warning("Kinship is singular - attempting broad cast inverse");
+        unsigned int nhalf = n/2;
+        Kinv = broadcastInverseMatrix(K, nhalf);
+    } else{
+        Kinv = arma::inv(K); // this could be very slow
     }
 
-    Kinv = arma::inv(K); // this could be very slow
     double pcg_tol = 1e-6;
 
     bool converged = false;

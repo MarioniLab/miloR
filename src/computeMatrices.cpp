@@ -183,6 +183,7 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
         if(x == c - 1){
             unsigned long n = Kin.n_cols;
             if(q != n){
+                Rcpp::Rcout << "q: " << q << "\n n: " << n << std::endl;
                 stop("RE indices and dimensions of covariance do not match");
             } else{
                 sG = subMatG(_s, Kin);
@@ -410,5 +411,35 @@ arma::mat makePCGFill(const List& u_indices, const arma::mat& Kinv){
 
     arma::mat G = Glist(0);
     return G;
+}
+
+
+arma::mat broadcastInverseMatrix(arma::mat matrix, const unsigned int& n){
+    // take the individual nxn matrices where n=N/2
+    arma::mat A(n, n);
+    unsigned int m = 2*n;
+    A = matrix.submat(0, n, 0, n);
+
+    // check for singular sub-matrix
+    double _rcond = arma::rcond(A);
+    bool is_singular;
+    is_singular = _rcond < 1e-9;
+
+    if(is_singular){
+        Rcpp::stop("Kinship sub-matrix is singular");
+    }
+
+    arma::mat Ainv(n, n);
+    Ainv = arma::inv(A);
+
+    arma::mat top(n, m, arma::fill::zeros);
+    top = arma::join_rows(Ainv, Ainv);
+    arma::mat bot(n, m, arma::fill::zeros);
+    bot = arma::join_rows(Ainv, Ainv);
+
+    arma::mat kinverse(m, m, arma::fill::zeros);
+    kinverse = arma::join_cols(top, bot);
+
+    return kinverse;
 }
 

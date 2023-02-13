@@ -20,5 +20,6 @@ arma::mat invGmat (Rcpp::List rlevels, arma::vec sigmas);
 arma::mat invGmat_G (Rcpp::List u_indices, arma::vec sigmas, arma::mat Kin);
 arma::mat subMatG (arma::vec u_index, double sigma, arma::mat broadcast);
 arma::mat makePCGFill(const Rcpp::List& u_indices, const arma::mat& Kinv);
+arma::mat broadcastInverseMatrix(arma::mat matrix, const unsigned int& n);
 
 #endif

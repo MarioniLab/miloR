@@ -121,14 +121,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         warning("Using dispersion with Poisson variance - dispersion will be ignored")
     }
 
-    if(var.dist %in% c("P")){
+    if(var.dist %in% c("P") & is.null(Kin)){
+        # this only works here when no kinship - need to add later if kinship
         message("Adding residual variance component variable")
         eye <- matrix(seq_len(nrow(Z)), ncol=1, nrow=nrow(Z))
         colnames(eye) <- c("Indiv")
         Z <- cbind(Z, eye)
         random.levels[["Indiv"]] <- paste0("Indiv", seq_len(nrow(Z)))
     }
-
 
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
@@ -186,7 +186,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             stop("Input covariance matrix is not square: ", nrow(Kin), "x", ncol(Kin))
         }
 
-        full.Z <- initializeFullZ(Z, cluster_levels=random.levels)
+        # if we only have a GRM then Z _is_ full.Z?
+        # full.Z <- initializeFullZ(Z, cluster_levels=random.levels)
+        full.Z <- Z
         # should this be the matrix R?
         colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
 
@@ -200,10 +202,11 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # compute sample variances of the us
         if(is.null(glmm.control[["init.sigma"]])){
-            curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
+            curr_sigma <- Matrix(runif(length(random.levels), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
         }
+
         rownames(curr_sigma) <- names(random.levels)
 
         #compute variance-covariance matrix G
@@ -253,6 +256,8 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     }
 
     # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
+    print(dim(full.Z))
+    print(colnames(full.Z))
     u_indices <- sapply(seq_along(names(random.levels)),
                         FUN=function(RX) {
                             which(colnames(full.Z) %in% random.levels[[RX]])
@@ -285,7 +290,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                                "ERROR"=err))
                                    })
     } else{
-        final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=Kin, offsets=offsets,
+        final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=as.matrix(Kin), offsets=offsets,
                                                 muvec=mu.vec, curr_beta=curr_beta,
                                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
@@ -437,12 +442,15 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
     # check that all of the levels are present in random.levels AND the
     # entries of Z
     all.present <- unlist(sapply(seq_along(cluster_levels), FUN=function(PX){
-        if(is.numeric(unique(Z[, PX]))){
+        if(is.numeric(unique(Z[, PX])) & ncol(Z) != nrow(Z)){
             all(cluster_levels[[PX]] %in% paste0(names(cluster_levels)[PX], unique(Z[, PX])))
-        } else{
+        } else if(ncol(Z) == nrow(Z)){
+            all(cluster_levels[[PX]] %in% colnames(Z))
+        } else {
             all(cluster_levels[[PX]] %in% unique(Z[, PX]))
-        }
+            }
     }, simplify=FALSE))
+
 
     if(!all(all.present)){
         stop("Columns of Z are discordant with input random effect levels")
