@@ -175,6 +175,10 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             }
 
         } else{
+            if(var.dist %in% c("P")){
+                stop("Poison GLM not implemented. Use var.dist='NB' for a fixed effects model")
+            }
+
             x.model <- model.matrix(design, data=design.df)
             rownames(x.model) <- rownames(design.df)
         }

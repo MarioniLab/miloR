@@ -182,13 +182,11 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
         bool is_singular;
         is_singular = _rcond < 1e-9;
 
-        coeffmat.brief_print("Hessian");
-        Rcpp::Rcout << _rcond << std::endl;
-
         // check for singular condition
         if(is_singular){
             // this happens when G^-1 contains NaN values <- how does this happen
             // and how do we prevent it?
+            Rcpp::Rcout << "Condition number: " << _rcond << std::endl;
             throw std::runtime_error("Coefficients Hessian is computationally singular");
         }
 
@@ -748,4 +746,10 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
     arma::mat vecMat = _Zelements(0);
     return vecMat;
 }
+
+
+
+
+
+
 

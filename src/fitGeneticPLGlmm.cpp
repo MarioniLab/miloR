@@ -180,7 +180,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     if(is_singular){
         // first try to invert the top block which should be N/2 x N/2
         Rcpp::warning("Kinship is singular - attempting broad cast inverse");
-        unsigned int nhalf = n/2;
+        double nhalfloat = (double)n/2;
+        unsigned int nhalf = nhalfloat;
         Kinv = broadcastInverseMatrix(K, nhalf);
     } else{
         Kinv = arma::inv(K); // this could be very slow
@@ -193,6 +194,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         D.diag() = muvec; // data space
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
+
+        // pick an initial dispersion value close to 1
+        curr_disp = 1;
 
         Vmu = Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);

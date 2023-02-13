@@ -125,9 +125,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         # this only works here when no kinship - need to add later if kinship
         message("Adding residual variance component variable")
         eye <- matrix(seq_len(nrow(Z)), ncol=1, nrow=nrow(Z))
-        colnames(eye) <- c("Indiv")
+        colnames(eye) <- c("Resid")
         Z <- cbind(Z, eye)
-        random.levels[["Indiv"]] <- paste0("Indiv", seq_len(nrow(Z)))
+        random.levels[["Resid"]] <- paste0("Resid", seq_len(nrow(Z)))
     }
 
     if(isFALSE(geno.only) & !is.null(Kin)){
@@ -143,6 +143,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+
+        # add the I matrix for P var form and kinship matrix
+        if(var.dist %in% c("P")){
+            eye <- matrix(0L, nrow=nrow(Z), ncol=nrow(Z))
+            colnames(eye) <- paste0("Resid", seq_len(ncol(eye)))
+            full.Z <- cbind(full.Z, eye)
+            random.levels[["Resid"]] <- colnames(eye)
+        }
 
         # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
@@ -191,6 +199,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         full.Z <- Z
         # should this be the matrix R?
         colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
+
+        # add the I matrix for P var form and kinship matrix
+        if(var.dist %in% c("P")){
+            eye <- matrix(0L, nrow=nrow(Z), ncol=nrow(Z))
+            colnames(eye) <- paste0("Resid", seq_len(ncol(eye)))
+            full.Z <- cbind(full.Z, eye)
+            random.levels[["Resid"]] <- colnames(eye)
+        }
 
         # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
@@ -256,8 +272,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     }
 
     # be careful here as the colnames of full.Z might match multiple RE levels <- big source of bugs!!!
-    print(dim(full.Z))
-    print(colnames(full.Z))
     u_indices <- sapply(seq_along(names(random.levels)),
                         FUN=function(RX) {
                             which(colnames(full.Z) %in% random.levels[[RX]])

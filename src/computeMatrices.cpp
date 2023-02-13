@@ -10,7 +10,6 @@ arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat 
     // compute pseudovariable
     int n = X.n_rows;
     arma::vec ystar(n);
-
     ystar = (offsets + (X * curr_beta) + (Z * curr_u)) + Dinv * (y - exp(offsets + (X * curr_beta) + (Z * curr_u)));
     return ystar;
 }
@@ -183,7 +182,6 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
         if(x == c - 1){
             unsigned long n = Kin.n_cols;
             if(q != n){
-                Rcpp::Rcout << "q: " << q << "\n n: " << n << std::endl;
                 stop("RE indices and dimensions of covariance do not match");
             } else{
                 sG = subMatG(_s, Kin);
@@ -418,7 +416,7 @@ arma::mat broadcastInverseMatrix(arma::mat matrix, const unsigned int& n){
     // take the individual nxn matrices where n=N/2
     arma::mat A(n, n);
     unsigned int m = 2*n;
-    A = matrix.submat(0, n, 0, n);
+    A = matrix.submat(0, 0, n-1, n-1);
 
     // check for singular sub-matrix
     double _rcond = arma::rcond(A);
