@@ -100,8 +100,11 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                       std::string solver,
                       std::string vardist){
 
+    // no guarantee that Pi exists before C++ 20(?!?!?!)
+    constexpr double pi = 3.14159265358979323846;
+
     // declare all variables
-    List outlist(12);
+    List outlist(13);
     int iters=0;
     int stot = Z.n_cols;
     const int& c = curr_sigma.size();
@@ -110,6 +113,14 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     bool meet_cond = false;
     double constval = 0.0; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
+    double delta_disp = curr_disp/10.0; // step size for dispersion line search
+    double delta_up = curr_disp + delta_disp;
+    double delta_lo = curr_disp - delta_disp;
+    double update_disp = 0.0;
+    double update_delta = 0.0;
+    double disp_diff = 0.0;
+    double delta_diff = 0.0;
+    bool disp_conv = false;
 
     // setup matrices
     arma::mat D(n, n);
@@ -187,16 +198,11 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Kinv = arma::inv(K); // this could be very slow
     }
 
-    double pcg_tol = 1e-6;
-
     bool converged = false;
     while(!meet_cond){
         D.diag() = muvec; // data space
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
-
-        // pick an initial dispersion value close to 1
-        curr_disp = 1;
 
         Vmu = Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
@@ -264,12 +270,27 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_G = initialiseG_G(u_indices, curr_sigma, K);
         G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
 
+        if(!disp_conv){
+            // dispersion line search - only required if delta diff > tol
+            update_disp = phiLineSearch(curr_disp, delta_lo, delta_up, c,
+                                        muvec, G_inv, pi,
+                                        curr_u, curr_sigma, y);
+            // update delta as the numerical gradient
+            update_delta = ((update_disp + delta_disp) - update_disp)/delta_disp;
+            delta_lo = update_disp - update_delta;
+            delta_up = update_disp + update_delta;
+
+            disp_diff = abs(curr_disp - update_disp);
+            delta_diff = abs(delta_disp - update_delta);
+            curr_disp = update_disp;
+            delta_disp = update_delta;
+
+            disp_conv = disp_diff < theta_conv;
+        }
+
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-        // If using PCG then also use Cholesky factorisation of G - this hasn't been implemented yet
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
-        // coeff_mat = coeffMatrix(X, Winv, Zstar, Gfill);
-        // theta_update = solveEquationsPCG(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_theta, y_star, pcg_tol);
         theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
 
         LogicalVector _check_theta = check_na_arma_numeric(theta_update);
@@ -328,9 +349,12 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     arma::vec tscores(computeTScore(curr_beta, se));
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
 
+    // compute the variance of the pseudovariable
+    double pseduo_var = arma::var(y_star);
+
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
-                           _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores,
+                           _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores, _["PSVAR"]=pseduo_var,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
                            _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
 

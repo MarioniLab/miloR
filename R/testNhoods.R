@@ -46,6 +46,11 @@
 #' and close to a \emph{local} optimum
 #' @param var.dist A character scalar that determines the form of the GLMM variance. Must be either NB (negative
 #' binomial) or P (Poisson).
+#' @param subset.nhoods A character, numeric or logical vector that will subset the analysis to the specific nhoods. If
+#' a character vector these should correspond to row names of \code{nhoodCounts}. If a logical vector then
+#' these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
+#' to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
+#' an error will be produced.
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -129,7 +134,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       var.dist="NB"){
+                       var.dist="NB", subset.nhoods=NULL){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -259,6 +264,29 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         } else{
             keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
         }
+    } else if(!is.null(subset.nhoods)){
+        if(is.character(subset.nhoods)){
+            if(all(subset.nhoods) %in% rownames(nhoodCounts(x))){
+                keep.nh <- rownames(nhoodCounts(x) %in% subset.nhoods)
+            } else{
+                stop("Nhood subsetting is illegal - use same names as in rownames of nhoodCounts")
+            }
+        } else if(is.logical(subset.nhoods)){
+            if(length(subset.nhoods) != nrow(nhoodCounts(x))){
+                stop("Logical subset vector must be same length as nrow nhoodCounts")
+            } else{
+                keep.nh <- subset.nhoods
+            }
+        } else if(is.numeric(subset.nhoods)){
+            if(max(subset.nhoods) > nrow(nhoodCounts(x))){
+                stop("Maximum index is out of bounds: ", max(subset.nhoods))
+            } else{
+                keep.nh <- seq_len(nrow(nhoodCounts(x))) %in% subset.nhoods
+            }
+        } else{
+            stop("Subsetting vector type not recognised: ", type(subset.nhoods))
+        }
+
     } else{
         if(isTRUE(subset.counts)){
             keep.nh <- rep(TRUE, nrow(nhoodCounts(x)[, rownames(x.model)]))
@@ -368,20 +396,29 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
                                offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist)
 
-            # give warning about how many neighborhoods didn't converge
-            if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
-                warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),"neighborhoods did not converge; increase number of iterations?"))
-
-            }
-
-            # res has to reflect output from glmQLFit
-            res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) tail(x,1))), "Std. Error"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) tail(x,1))),
-                                    "t value" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) tail(x,1))), #"Df" = unlist(lapply(fit, `[[`, 11)),
-                                    "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) tail(x,1))), matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
-                                    "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
-            rownames(res) <- 1:length(fit)
-            colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
         }
+
+        # give warning about how many neighborhoods didn't converge
+        if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
+            warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),"neighborhoods did not converge; increase number of iterations?"))
+
+        }
+
+        # res has to reflect output from glmQLFit - express variance as a proportion as well.
+        # this only reports the final fixed effect parameter
+        ret.beta <- ncol(x.model)
+
+        res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) x[ret.beta])),
+                                "Std. Error"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) x[ret.beta])),
+                                "t value" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
+                                "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
+                                matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
+                                matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE)/matrix(unlist(lapply(fit, `[[`, "PSVAR")),
+                                                                                                                        ncol=length(rand.levels), byrow=TRUE),
+                                "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
+        rownames(res) <- 1:length(fit)
+        colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "prop.variance")
 
     } else {
 

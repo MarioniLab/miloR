@@ -298,7 +298,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=NA, "Iters"=NA, "Dispersion"=NA,
-                                               "Hessian"=NA, "SE"=NA, "t"=NA,
+                                               "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA,
                                                "ERROR"=err))
@@ -313,7 +313,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=NA, "Iters"=NA, "Dispersion"=NA,
-                                               "Hessian"=NA, "SE"=NA, "t"=NA,
+                                               "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "DF"=NA, "PVALS"=NA,
                                                "ERROR"=err))

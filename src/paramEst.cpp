@@ -748,8 +748,61 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
 }
 
 
+double phiLineSearch(double disp, double lower, double upper, const int& c,
+                     arma::vec mu, arma::mat Ginv, double pi,
+                     arma::vec curr_u, arma::vec sigma, arma::vec y){
+    // perform a line search for dispersion
+    // evaluate the loglihood at each bound
+    arma::mat littleG(c, c, arma::fill::zeros);
+
+    for(int i=0; i<c; i++){
+        littleG(i, i) = sigma(i);
+    }
+
+    double normlihood = normLogLik(c, Ginv, littleG, curr_u, pi);
+    double half_logli = nbLogLik(mu, disp/2.0, y) - normlihood;
+    double up_logli = nbLogLik(mu, lower, y) - normlihood;
+    double lo_logli = nbLogLik(mu, upper, y) - normlihood;
+    double new_disp = 0.0;
+
+    bool comp_vals = false;
+
+    if(lo_logli < up_logli){
+        new_disp = lower;
+    } else{
+        new_disp = upper;
+    }
+
+    return new_disp;
+}
 
 
+double nbLogLik(arma::vec mu, double phi, arma::vec y){
+    // (y * log(m /(phi + mu))) - (phi * log(1 - (mu/(mu+phi)))) + (lgamma(y+1)/log(gamma(r)))
+    double logli = 0.0;
+    arma::vec logli_indiv(y.n_rows);
+    arma::vec muphi(y.n_rows);
+    muphi = mu/(mu + phi);
+
+    // element wise multiplication of y and other equation elements
+    logli_indiv = y % arma::log(mu/(mu + phi)) + (phi * (1 - (mu/(mu+phi)))) + (arma::lgamma(y+1) - std::lgamma(phi));
+
+    logli = arma::sum(logli_indiv);
+    return logli;
+}
+
+
+double normLogLik(const int& c, arma::mat Ginv, arma::mat G, arma::vec curr_u, double pi){
+    // sum(-((c/2) * log(2*pi)) - (0.5 * log.detG) - (0.5 * (t(big.u[, j, drop=FALSE]) %*% Ginv %*% big.u[, j, drop=FALSE]))))
+    double cdouble = (double)c;
+    double detG = arma::det(G);
+    double logdet = std::log(detG);
+
+    arma::vec normlog_indiv = ((cdouble/2.0) * std::log(2*pi)) - (0.5 * logdet) - (0.5 * (curr_u.t() * Ginv * curr_u));
+    double normlihood = arma::sum(normlog_indiv);
+
+    return normlihood;
+}
 
 
 
