@@ -313,6 +313,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
     }
 
+    dge <- estimateDisp(dge, x.model)
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
