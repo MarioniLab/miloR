@@ -15,18 +15,13 @@
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #' @param solver a character value that determines which optmisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
-#' @param var.dist A character value that determines the form of the variance - either Negative Binomial (NB) or Poisson (P). The latter is used
-#' to model overdispersion using random effects alone, and therefore ignores the \code{dispersion} parameter. To avoid warnings while using the
-#' Poisson variance form set \code{dispersion = NA}.
 #'
 #' @details
-#' This function runs eithr a negative binomial of Poisson generalised linear mixed effects model. If mixed effects are detected in testNhoods,
+#' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
 #' this function is run to solve the model. The solver defaults to the \emph{Fisher} optimiser, and in the case of negative variance estimates
 #' it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
 #' \code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
-#' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm. \code{var.dist} controls the form of the variance function
-#' \(either NB or P\). For the NB-GLMM case the dispersion parameter handles some of the counts overdispersion. However, the Poisson model
-#' instead includes a "residual" variance parameter which is also reported as \emph{Resid.Sigma}.
+#' or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
 #'
 #' @return  A list containing the GLMM output, including inference results. The list elements are as follows:
 #' \describe{
@@ -85,7 +80,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL, solver=NULL),
                     dispersion = 0.5, geno.only=FALSE,
-                    solver=NULL, var.dist="NB"){
+                    solver=NULL){
 
     if(!glmm.control$solver %in% c("HE", "Fisher", "HE-NNLS")){
         stop(glmm.control$solver, " not recognised - must be HE, HE-NNLS or Fisher")
@@ -113,22 +108,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     }
     rownames(curr_beta) <- colnames(X)
 
-    if(!var.dist %in% c("NB", "P")){
-        stop("var.dist value ", var.dist, " not recognised - must be either NB or P")
-    }
-
-    if(var.dist %in% c("P") & !is.na(dispersion)){
-        warning("Using dispersion with Poisson variance - dispersion will be ignored")
-    }
-
-    if(var.dist %in% c("P") & is.null(Kin)){
-        # this only works here when no kinship - need to add later if kinship
-        message("Adding residual variance component variable")
-        eye <- matrix(seq_len(nrow(Z)), ncol=1, nrow=nrow(Z))
-        colnames(eye) <- c("Resid")
-        Z <- cbind(Z, eye)
-        random.levels[["Resid"]] <- paste0("Resid", seq_len(nrow(Z)))
-    }
 
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
@@ -143,14 +122,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-
-        # add the I matrix for P var form and kinship matrix
-        if(var.dist %in% c("P")){
-            eye <- matrix(0L, nrow=nrow(Z), ncol=nrow(Z))
-            colnames(eye) <- paste0("Resid", seq_len(ncol(eye)))
-            full.Z <- cbind(full.Z, eye)
-            random.levels[["Resid"]] <- colnames(eye)
-        }
 
         # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
@@ -199,14 +170,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         full.Z <- Z
         # should this be the matrix R?
         colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
-
-        # add the I matrix for P var form and kinship matrix
-        if(var.dist %in% c("P")){
-            eye <- matrix(0L, nrow=nrow(Z), ncol=nrow(Z))
-            colnames(eye) <- paste0("Resid", seq_len(ncol(eye)))
-            full.Z <- cbind(full.Z, eye)
-            random.levels[["Resid"]] <- colnames(eye)
-        }
 
         # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
@@ -293,7 +256,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         final.list <- tryCatch(fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                          curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                          curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                         curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist=var.dist),
+                                         curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
@@ -308,7 +271,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                                 muvec=mu.vec, curr_beta=curr_beta,
                                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                                curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist=var.dist),
+                                                curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,

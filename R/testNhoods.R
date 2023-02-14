@@ -44,8 +44,6 @@
 #' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
 #' this number small to provide some confidence that the parameter estimates are at least in a feasible region
 #' and close to a \emph{local} optimum
-#' @param var.dist A character scalar that determines the form of the GLMM variance. Must be either NB (negative
-#' binomial) or P (Poisson).
 #' @param subset.nhoods A character, numeric or logical vector that will subset the analysis to the specific nhoods. If
 #' a character vector these should correspond to row names of \code{nhoodCounts}. If a logical vector then
 #' these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
@@ -62,11 +60,7 @@
 #' inappropriate for neighbourhoods with overlapping cells.
 #' The GLMM testing cannot be performed using \code{edgeR}, however, a separate
 #' function \code{fitGLMM} can be used to fit a mixed effect model to each
-#' nhood (see \code{fitGLMM} docs for details). If using the GLMM then note that
-#' the form of the variance is important. \code{var.dist=NB} assumes that there is dispersion in the
-#' counts above and beyond what is captured by the NB dispersion parameter, whereas
-#' \code{var.dist=P} will model \emph{all} of the overdispersion in the random effects variance
-#' components.
+#' nhood (see \code{fitGLMM} docs for details).
 #'
 #' @return A \code{data.frame} of model results, which contain:
 #' \describe{
@@ -134,7 +128,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       var.dist="NB", subset.nhoods=NULL){
+                       subset.nhoods=NULL){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -180,10 +174,6 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             }
 
         } else{
-            if(var.dist %in% c("P")){
-                stop("Poison GLM not implemented. Use var.dist='NB' for a fixed effects model")
-            }
-
             x.model <- model.matrix(design, data=design.df)
             rownames(x.model) <- rownames(design.df)
         }
@@ -242,16 +232,6 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 stop("Random effects design matrix (", nrow(z.model), ") and nhood counts (",
                      ncol(nhoodCounts(x)), ") are not the same dimension")
             }
-        }
-    }
-
-    if(is.lmm){
-        if(!var.dist %in% c("NB", "P")){
-            stop(var.dist, " variance form not recognised. Must be NB or P")
-        }
-    } else{
-        if(var.dist != "NB"){
-            warning("Ignoring var.dist for GLM - set to NB to fix this warning")
         }
     }
 
@@ -333,10 +313,6 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
     }
 
-    # estimate disperions _before_ all models
-    if(var.dist %in% c("NB")){
-        dge <- estimateDisp(dge, x.model)
-    }
 
     if (is.lmm) {
         message("Running GLMM model - this may take a few minutes")
@@ -356,22 +332,17 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         }
 
         # extract tagwise dispersion for glmm
-        if(var.dist %in% c("NB")){
-            dispersion <- dge$tagwise.dispersion
-        } else{
-            dispersion <- 0
-        }
+        dispersion <- dge$tagwise.dispersion
 
         offsets <- dge$samples$norm.factors
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
-        glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, var.dist, geno.only=FALSE, kin=NULL){
+        glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
             model.list <- NULL
             for (i in 1:nrow(y)) {
                 model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                           dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont,
-                                           var.dist=var.dist)
+                                           dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
             }
             return(model.list)
         }
@@ -385,16 +356,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
             if(geno.only){
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, geno.only = geno.only, kin=kinship)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, kin=kinship)
             } else{
                 fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist=var.dist, kin=kinship)
+                                   offsets, rand.levels, REML, glmm.control = glmm.cont, kin=kinship)
             }
 
         } else{
 
             fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                               offsets, rand.levels, REML, glmm.control = glmm.cont, var.dist)
+                               offsets, rand.levels, REML, glmm.control = glmm.cont)
 
         }
 

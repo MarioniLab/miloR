@@ -37,7 +37,7 @@ using namespace Rcpp;
 //' @param REML bool - use REML for variance component estimation
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
 //' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
-//' @param vardist string which variance form to use NB = negative binomial, P=Poisson
+//' @param vardist string which variance form to use NB = negative binomial, P=Poisson [not yet implemented.]
 //'
 //' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 //' switches between the joint fixed and random effect parameter inference, and the variance component
