@@ -559,7 +559,7 @@ glmmControl.defaults <- function(...){
 #' @importFrom stats pt
 #' @export
 computePvalue <- function(Zscore, df) {
-    pval <- 2*(1 - pt(abs(Zscore), df, lower.tail=FALSE))
+    pval <- 2*(pt(abs(Zscore), df, lower.tail=FALSE))
     return(pval)
 }
 
