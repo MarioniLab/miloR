@@ -17,8 +17,7 @@ fitGLMM(
     NULL, init.u = NULL, solver = NULL),
   dispersion = 0.5,
   geno.only = FALSE,
-  solver = NULL,
-  var.dist = "NB"
+  solver = NULL
 )
 }
 \arguments{
@@ -47,13 +46,9 @@ initial parameter values for the fixed (init.beta) and random effects (init.u), 
 
 \item{solver}{a character value that determines which optmisation algorithm is used for the variance components. Must be either
 HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
-
-\item{var.dist}{A character value that determines the form of the variance - either Negative Binomial (NB) or Poisson (P). The latter is used
-to model overdispersion using random effects alone, and therefore ignores the \code{dispersion} parameter. To avoid warnings while using the
-Poisson variance form set \code{dispersion = NA}.}
 }
 \value{
-A list containing the NB-GLMM output, including inference results. The list elements are as follows:
+A list containing the GLMM output, including inference results. The list elements are as follows:
 \describe{
 \item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
 \item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best

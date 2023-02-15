@@ -16,10 +16,10 @@ argument}
 \item{design.df}{A \code{data.frame} containing meta-data to which \code{design}
 refers to}
 
-\item{genotypes}{(optional) An n X g \code{matrix} containing individual genotypes over g
-SNPs/SNVs/other genetic variants. Rownames should correspond to the column names
-of \code{nhoods(x)} and rownames of \code{design.df}. Genotypes should be in additive
-format, i.e. AA=0, Aa=1, aa=2.}
+\item{kinship}{(optional) An n X n \code{matrix} containing pair-wise relationships between
+observations, such as expected relationships or computed from SNPs/SNVs/other genetic variants.
+Row names and column names should correspond to the column names of \code{nhoods(x)} and rownames
+of \code{design.df}.}
 
 \item{min.mean}{A scalar used to threshold neighbourhoods on the minimum
 average cell counts across samples.}
@@ -60,8 +60,11 @@ not reach the convergence tolerance threshold.}
 this number small to provide some confidence that the parameter estimates are at least in a feasible region
 and close to a \emph{local} optimum}
 
-\item{var.dist}{A character scalar that determines the form of the GLMM variance. Must be either NB (negative
-binomial) or P (Poisson).}
+\item{subset.nhoods}{A character, numeric or logical vector that will subset the analysis to the specific nhoods. If
+a character vector these should correspond to row names of \code{nhoodCounts}. If a logical vector then
+these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
+to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
+an error will be produced.}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -97,11 +100,7 @@ is performed separately as the default multiple-testing correction is
 inappropriate for neighbourhoods with overlapping cells.
 The GLMM testing cannot be performed using \code{edgeR}, however, a separate
 function \code{fitGLMM} can be used to fit a mixed effect model to each
-nhood (see \code{fitGLMM} docs for details). If using the GLMM then note that
-the form of the variance is important. \code{var.dist=NB} assumes that there is dispersion in the
-counts above and beyond what is captured by the NB dispersion parameter, whereas
-\code{var.dist=P} will model \emph{all} of the overdispersion in the random effects variance
-components.
+nhood (see \code{fitGLMM} docs for details).
 }
 \examples{
 library(SingleCellExperiment)

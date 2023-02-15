@@ -259,14 +259,4 @@ test_that("Invalid formulae give expected errors", {
                  "is an invalid formula for random effects")
 })
 
-test_that("Variance forms are recognised properly", {
-    set.seed(42)
-    # collinear fixed and random effects
-    wrong.dist <- "Cauchy"
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Sample),
-                                             design.df=sim1.meta, glmm.solver="Fisher", var.dist=wrong.dist)),
-                 "variance form not recognised")
-
-
-})
 
