@@ -294,6 +294,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     # compute Z scores, DF and P-values
     mint <- length(curr_beta)
     cint <- length(curr_u)
+
     dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
                             final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]], random.levels)
     pvals <- computePvalue(final.list[["t"]], dfs)
@@ -558,7 +559,7 @@ glmmControl.defaults <- function(...){
 #' @importFrom stats pt
 #' @export
 computePvalue <- function(Zscore, df) {
-    pval <- 2*pt(abs(Zscore), df, lower.tail=FALSE)
+    pval <- 2*(1 - pt(abs(Zscore), df, lower.tail=FALSE))
     return(pval)
 }
 
