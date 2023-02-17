@@ -85,7 +85,7 @@
         colnames(d.mat) <- trimws(v.terms)
     } else if(vtype %in% c("fe")){
         v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
-        d.mat <- model.matrix(as.formula(paste("~", v.terms)), data = design.df)
+        d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
         d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
     } else{
         stop("vtype ", vtype, " not recognised")

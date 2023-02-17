@@ -226,7 +226,7 @@ arma::mat initialiseG_G (List u_indices, arma::vec sigmas, arma::mat Kin){
 
 
 arma::mat invGmat_G (List u_indices, arma::vec sigmas, arma::mat Kin){
-    // first construct the correct sized G, i.e. c x c, then brodcast this to all RE levels
+    // first construct the correct sized G, i.e. c x c, then broadcast this to all RE levels
     // make little G inverse
     int c = u_indices.size();
     int stot = 0;

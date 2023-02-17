@@ -118,10 +118,10 @@ NULL
 
 
 #' @export
-#' @importFrom stats model.matrix
 #' @importFrom Matrix colSums rowMeans
-#' @importFrom utils tail
-#' @importFrom stats dist median
+#' @importFrom MatrixGenerics rowMeans colSums2
+#' @importFrom utils tail log2
+#' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df, kinship=NULL,
@@ -380,18 +380,18 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         # this only reports the final fixed effect parameter
         ret.beta <- ncol(x.model)
 
-        res <- cbind.data.frame("Estimate" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) x[ret.beta])),
-                                "Std. Error"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) x[ret.beta])),
-                                "t value" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
+        res <- cbind.data.frame("logFC" = unlist(lapply(lapply(fit, `[[`, "FE"), function(x) x[ret.beta])),
+                                "logCPM"=log2((rowMeans(nhoodCounts(x)[keep.nh, ]/colSums2(nhoodCounts(x))))*1e6),
+                                "SE"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) x[ret.beta])),
+                                "tvalue" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
                                 "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
                                 matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
                                 matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE)/matrix(unlist(lapply(fit, `[[`, "PSVAR")),
                                                                                                                         ncol=length(rand.levels), byrow=TRUE),
                                 "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
         rownames(res) <- 1:length(fit)
-        colnames(res)[5:(5+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
-        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "prop.variance")
-
+        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        colnames(res)[7:(7+length(rand.levels)-1)] <- paste(names(rand.levels), "prop.variance")
     } else {
 
         fit <- glmQLFit(dge, x.model, robust=robust)

@@ -718,7 +718,6 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
-            // arma::mat P_Kin = P * Kin * P;
             arma::vec _vecZ = Kin(upper_indices);
             arma::mat _vecZZT = _Zelements(0);
             unsigned long _zc = _vecZZT.n_cols;
@@ -730,7 +729,6 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
             // compute Z_i Z_i^T
             arma::mat _ZZT(n, n);
             _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection
-            // _ZZT = _subZ * _subZ.t();
 
             // vectorise
             arma::vec _vecZ = _ZZT(upper_indices);
