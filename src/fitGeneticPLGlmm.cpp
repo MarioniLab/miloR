@@ -113,14 +113,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     bool meet_cond = false;
     double constval = 0.0; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
-    double delta_disp = curr_disp/10.0; // step size for dispersion line search
-    double delta_up = curr_disp + delta_disp;
-    double delta_lo = curr_disp - delta_disp;
+    double delta_up = 2.0 * curr_disp;
+    double delta_lo = 0.0;
     double update_disp = 0.0;
-    double update_delta = 0.0;
     double disp_diff = 0.0;
-    double delta_diff = 0.0;
-    bool disp_conv = false;
 
     // setup matrices
     arma::mat D(n, n);

@@ -104,14 +104,10 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
-    double delta_disp = curr_disp/10.0; // step size for dispersion line search
-    double delta_up = curr_disp + delta_disp;
-    double delta_lo = curr_disp - delta_disp;
+    double delta_up = 2.0 * curr_disp;
+    double delta_lo = 0.0;
     double update_disp = 0.0;
-    double update_delta = 0.0;
     double disp_diff = 0.0;
-    double delta_diff = 0.0;
-    bool disp_conv = false;
 
     // setup matrices
     arma::mat D(n, n);
@@ -269,7 +265,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // only optimise the dispersion _after_ all other parameters
         // switch this to a golden-section search?
-        update_disp = phiGoldenSearch(curr_disp, 0.0, 1.0, c,
+        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
                                       muvec, G_inv, pi,
                                       curr_u, curr_sigma, y);
         disp_diff = abs(curr_disp - update_disp);

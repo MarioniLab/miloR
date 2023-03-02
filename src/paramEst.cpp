@@ -805,7 +805,7 @@ double phiGoldenSearch(double disp, double lower, double upper, const int& c,
     // iteratively choose either c or d and discard anything to the
     // left or right, respectively.
     while((upper - lower) >= tol){
-        if(c_logli < d_logli){
+        if(c_logli > d_logli){
             upper = pd;
             pd = pc;
             d_logli = c_logli;
