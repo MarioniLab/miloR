@@ -204,7 +204,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
 
-        Vmu = Vmu = computeVmu(muvec, curr_disp, vardist);
+        Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
 
@@ -270,24 +270,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_G = initialiseG_G(u_indices, curr_sigma, K);
         G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
 
-        if(!disp_conv){
-            // dispersion line search - only required if delta diff > tol
-            update_disp = phiLineSearch(curr_disp, delta_lo, delta_up, c,
-                                        muvec, G_inv, pi,
-                                        curr_u, curr_sigma, y);
-            // update delta as the numerical gradient
-            update_delta = ((update_disp + delta_disp) - update_disp)/delta_disp;
-            delta_lo = update_disp - update_delta;
-            delta_up = update_disp + update_delta;
-
-            disp_diff = abs(curr_disp - update_disp);
-            delta_diff = abs(delta_disp - update_delta);
-            curr_disp = update_disp;
-            delta_disp = update_delta;
-
-            disp_conv = disp_diff < theta_conv;
-        }
-
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
@@ -312,6 +294,37 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_u = curr_theta.elem(u_ix); //model space
 
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u)); // data space
+
+        // only optimise the dispersion _after_ all other parameters
+        // switch this to a golden-section search?
+        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                      muvec, G_inv, pi,
+                                      curr_u, curr_sigma, y);
+        disp_diff = abs(curr_disp - update_disp);
+        curr_disp = update_disp;
+        // make the upper and lower bounds based on the current value,
+        // but 0 < lo < up < 1.0
+        delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
+        delta_up = std::min(1.0, curr_disp + (curr_disp*0.5));
+
+        // if(!disp_conv){
+        //     // dispersion line search - only required if delta diff > tol
+        //     update_disp = phiLineSearch(curr_disp, delta_lo, delta_up, c,
+        //                                 muvec, G_inv, pi,
+        //                                 curr_u, curr_sigma, y);
+        //     // update delta as the numerical gradient
+        //     // is this too crude?
+        //     update_delta = ((update_disp + delta_disp) - update_disp)/delta_disp; // compute the gradient
+        //     delta_lo = update_disp - update_delta;
+        //     delta_up = update_disp + update_delta;
+        //
+        //     disp_diff = abs(curr_disp - update_disp);
+        //     delta_diff = abs(delta_disp - update_delta);
+        //     curr_disp = update_disp;
+        //     delta_disp = update_delta;
+        //
+        //     disp_conv = delta_diff < 1e-3;
+        // }
 
         LogicalVector _check_mu_inf = check_inf_arma_numeric(muvec);
         bool _any_mu_inf = any(_check_mu_inf).is_true();
@@ -338,9 +351,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
-        List this_conv(5);
+        List this_conv(7);
         this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                 _["u"]=curr_u, _["sigma"]=curr_sigma);
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma, _["disp"]=curr_disp, _["PhiDiff"]=disp_diff);
         conv_list(iters-1) = this_conv;
     }
 

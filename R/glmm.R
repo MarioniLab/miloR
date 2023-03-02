@@ -11,9 +11,9 @@
 #' @param random.levels A list describing the random effects of the model, and for each, the different unique levels.
 #' @param glmm.control A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
 #' initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).
-#' @param dispersion A scalar value for the dispersion of the negative binomial.
+#' @param dispersion A scalar value for the initial dispersion of the negative binomial.
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
-#' @param solver a character value that determines which optmisation algorithm is used for the variance components. Must be either
+#' @param solver a character value that determines which optimisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
 #'
 #' @details
@@ -79,7 +79,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     glmm.control=list(theta.tol=1e-6, max.iter=100,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL, solver=NULL),
-                    dispersion = 0.5, geno.only=FALSE,
+                    dispersion = 1, geno.only=FALSE,
                     solver=NULL){
 
     if(!glmm.control$solver %in% c("HE", "Fisher", "HE-NNLS")){

@@ -749,7 +749,7 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
 double phiLineSearch(double disp, double lower, double upper, const int& c,
                      arma::vec mu, arma::mat Ginv, double pi,
                      arma::vec curr_u, arma::vec sigma, arma::vec y){
-    // perform a line search for dispersion
+    // perform a bisection search for dispersion
     // evaluate the loglihood at each bound
     arma::mat littleG(c, c, arma::fill::zeros);
 
@@ -775,8 +775,59 @@ double phiLineSearch(double disp, double lower, double upper, const int& c,
 }
 
 
+double phiGoldenSearch(double disp, double lower, double upper, const int& c,
+                       arma::vec mu, arma::mat Ginv, double pi,
+                       arma::vec curr_u, arma::vec sigma, arma::vec y){
+
+    // perform a golden section search
+    // function inspired by https://drlvk.github.io/nm/section-golden-section.html
+    // this only requires a single call to this function
+
+    double tol = 1e-4; // tolerance for phi
+    double r = (3 - std::sqrtf(5))/2.0;
+    double pc = lower + r*(upper - lower);
+    double pd = upper - r*(upper - lower);
+
+    // make non-broadcast G matrix
+    arma::mat littleG(c, c, arma::fill::zeros);
+
+    for(int i=0; i<c; i++){
+        littleG(i, i) = sigma(i);
+    }
+
+    // evaluate normal likelihood - should this be the pseudo-likelihood instead?
+    double normlihood = normLogLik(c, Ginv, littleG, curr_u, pi);
+
+    // evaluate NB liklihood
+    double c_logli = nbLogLik(mu, pc, y) - normlihood;
+    double d_logli = nbLogLik(mu, pd, y) - normlihood;
+
+    // iteratively choose either c or d and discard anything to the
+    // left or right, respectively.
+    while((upper - lower) >= tol){
+        if(c_logli < d_logli){
+            upper = pd;
+            pd = pc;
+            d_logli = c_logli;
+            pc = lower + r*(upper - lower);
+            c_logli =  nbLogLik(mu, pc, y) - normlihood;
+        } else{
+            lower = pc;
+            pc = pd;
+            c_logli = d_logli;
+            pd = upper - r*(upper - lower);
+            d_logli = nbLogLik(mu, pd, y) - normlihood;
+        }
+    }
+
+    // return the mid-point between [c, d]
+    double new_disp = (pc + pd)/2.0;
+    return new_disp;
+}
+
+
+
 double nbLogLik(arma::vec mu, double phi, arma::vec y){
-    // (y * log(m /(phi + mu))) - (phi * log(1 - (mu/(mu+phi)))) + (lgamma(y+1)/log(gamma(r)))
     double logli = 0.0;
     arma::vec logli_indiv(y.n_rows);
     arma::vec muphi(y.n_rows);
@@ -791,7 +842,6 @@ double nbLogLik(arma::vec mu, double phi, arma::vec y){
 
 
 double normLogLik(const int& c, arma::mat Ginv, arma::mat G, arma::vec curr_u, double pi){
-    // sum(-((c/2) * log(2*pi)) - (0.5 * log.detG) - (0.5 * (t(big.u[, j, drop=FALSE]) %*% Ginv %*% big.u[, j, drop=FALSE]))))
     double cdouble = (double)c;
     double detG = arma::det(G);
     double logdet = std::log(detG);
