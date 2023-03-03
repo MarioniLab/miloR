@@ -240,7 +240,60 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
     # what is the cost of cast a matrix that is already dense vs. testing it's class
     if(min.mean > 0){
         if(isTRUE(subset.counts)){
-            keep.nh <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
+            if(!is.null(subset.nhoods)){
+                mean.keep <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
+                if(is.character(subset.nhoods)){
+                    if(all(subset.nhoods) %in% rownames(nhoodCounts(x))){
+                        keep.nh <- rownames(nhoodCounts(x) %in% subset.nhoods)
+                    } else{
+                        stop("Nhood subsetting is illegal - use same names as in rownames of nhoodCounts")
+                    }
+                } else if(is.logical(subset.nhoods)){
+                    if(length(subset.nhoods) != nrow(nhoodCounts(x))){
+                        stop("Logical subset vector must be same length as nrow nhoodCounts")
+                    } else{
+                        keep.nh <- subset.nhoods
+                    }
+                } else if(is.numeric(subset.nhoods)){
+                    if(max(subset.nhoods) > nrow(nhoodCounts(x))){
+                        stop("Maximum index is out of bounds: ", max(subset.nhoods))
+                    } else{
+                        keep.nh <- seq_len(nrow(nhoodCounts(x))) %in% subset.nhoods
+                    }
+                } else{
+                    stop("Subsetting vector type not recognised: ", type(subset.nhoods))
+                }
+
+                keep.nh <- mean.keep & keep.nh
+
+            } else{
+                keep.nh <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
+            }
+        } else if(!is.null(subset.nhoods)){
+            mean.keep <- rowMeans(nhoodCounts(x)[, rownames(x.model)]) >= min.mean
+            if(is.character(subset.nhoods)){
+                if(all(subset.nhoods) %in% rownames(nhoodCounts(x))){
+                    keep.nh <- rownames(nhoodCounts(x) %in% subset.nhoods)
+                } else{
+                    stop("Nhood subsetting is illegal - use same names as in rownames of nhoodCounts")
+                }
+            } else if(is.logical(subset.nhoods)){
+                if(length(subset.nhoods) != nrow(nhoodCounts(x))){
+                    stop("Logical subset vector must be same length as nrow nhoodCounts")
+                } else{
+                    keep.nh <- subset.nhoods
+                }
+            } else if(is.numeric(subset.nhoods)){
+                if(max(subset.nhoods) > nrow(nhoodCounts(x))){
+                    stop("Maximum index is out of bounds: ", max(subset.nhoods))
+                } else{
+                    keep.nh <- seq_len(nrow(nhoodCounts(x))) %in% subset.nhoods
+                }
+            } else{
+                stop("Subsetting vector type not recognised: ", type(subset.nhoods))
+            }
+
+            keep.nh <- mean.keep & keep.nh
         } else{
             keep.nh <- rowMeans(nhoodCounts(x)) >= min.mean
         }
@@ -341,10 +394,17 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         #wrapper function is the same for all analyses
         glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
             model.list <- NULL
-            for (i in 1:nrow(y)) {
-                model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-                                           dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
-            }
+            # this needs to be able to run with BiocParallel
+            model.list <- lapply(seq_len(nrow(y)),
+                                 FUN=function(i) fitGLMM(X=x.model, Z=z.model, y=y[i, ], offsets=offsets,
+                                                         random.levels=rand.levels, REML = TRUE,
+                                                         dispersion=dispersion[i], geno.only=geno.only,
+                                                         Kin=kin, glmm.control=glmm.cont))
+
+            # for (i in 1:nrow(y)) {
+            #     model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
+            #                                dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
+            # }
             return(model.list)
         }
 
@@ -386,12 +446,10 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "tvalue" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
                                 "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
                                 matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
-                                matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE)/matrix(unlist(lapply(fit, `[[`, "PSVAR")),
-                                                                                                                        ncol=length(rand.levels), byrow=TRUE),
                                 "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
+
         rownames(res) <- 1:length(fit)
         colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
-        colnames(res)[7:(7+length(rand.levels)-1)] <- paste(names(rand.levels), "prop.variance")
     } else {
 
         fit <- glmQLFit(dge, x.model, robust=robust)

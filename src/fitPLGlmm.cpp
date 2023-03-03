@@ -173,6 +173,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     }
 
     bool converged = false;
+
+    // initial optimisation of dispersions
+    // switch this to a golden-section search?
+    update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                  muvec, G_inv, pi,
+                                  curr_u, curr_sigma, y);
+    disp_diff = abs(curr_disp - update_disp);
+    curr_disp = update_disp;
+    // make the upper and lower bounds based on the current value,
+    // but 0 < lo < up < ??
+    delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
+    delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
     while(!meet_cond){
         D.diag() = muvec;
 
@@ -262,40 +274,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // need to check for infinite and NA values here...
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
-
-        // only optimise the dispersion _after_ all other parameters
-        // switch this to a golden-section search?
-        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                      muvec, G_inv, pi,
-                                      curr_u, curr_sigma, y);
-        disp_diff = abs(curr_disp - update_disp);
-        curr_disp = update_disp;
-        // make the upper and lower bounds based on the current value,
-        // but 0 < lo < up < 1.0
-        delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-        delta_up = std::min(1.0, curr_disp + (curr_disp*0.5));
-
-        // if(!disp_conv){
-        //     // dispersion line search - only required if delta diff > tol
-        //     update_disp = phiLineSearch(curr_disp, delta_lo, delta_up, c,
-        //                                 muvec, G_inv, pi,
-        //                                 curr_u, curr_sigma, y);
-        //     // update delta as the numerical gradient
-        //     // is this too crude?
-        //     update_delta = ((update_disp + delta_disp) - update_disp)/delta_disp; // compute the gradient
-        //     delta_lo = update_disp - update_delta;
-        //     delta_up = update_disp + update_delta;
-        //
-        //     disp_diff = abs(curr_disp - update_disp);
-        //     delta_diff = abs(delta_disp - update_delta);
-        //     curr_disp = update_disp;
-        //     delta_disp = update_delta;
-        //
-        //     // do we need the same accuracy, or just a rough estimate?
-        //     // I should show that empirically vary by 1e-2 doesn't change the result
-        //     disp_conv = delta_diff < 1e-3;
-        // }
-
         LogicalVector _check_mu = check_na_arma_numeric(muvec);
         bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
 
@@ -334,7 +312,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
 
     // return the variance of the pseudo-variable - this is used to compute the proportion of
-    // variance explained
+    // variance explained - is this on the correct scale though?
     double pseduo_var = arma::var(y_star);
 
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,

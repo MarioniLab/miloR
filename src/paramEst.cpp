@@ -783,7 +783,7 @@ double phiGoldenSearch(double disp, double lower, double upper, const int& c,
     // function inspired by https://drlvk.github.io/nm/section-golden-section.html
     // this only requires a single call to this function
 
-    double tol = 1e-4; // tolerance for phi
+    double tol = 1e-2; // tolerance for phi
     double r = (3 - std::sqrtf(5))/2.0;
     double pc = lower + r*(upper - lower);
     double pd = upper - r*(upper - lower);

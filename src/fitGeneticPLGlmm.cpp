@@ -195,6 +195,19 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     }
 
     bool converged = false;
+
+    // initial optimisation of dispersion
+    // switch this to a golden-section search?
+    update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                  muvec, G_inv, pi,
+                                  curr_u, curr_sigma, y);
+    disp_diff = abs(curr_disp - update_disp);
+    curr_disp = update_disp;
+    // make the upper and lower bounds based on the current value,
+    // but 0 < lo < up < 1.0
+    delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
+    delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
+
     while(!meet_cond){
         D.diag() = muvec; // data space
         Dinv = D.i();
@@ -290,38 +303,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_u = curr_theta.elem(u_ix); //model space
 
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u)); // data space
-
-        // only optimise the dispersion _after_ all other parameters
-        // switch this to a golden-section search?
-        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                      muvec, G_inv, pi,
-                                      curr_u, curr_sigma, y);
-        disp_diff = abs(curr_disp - update_disp);
-        curr_disp = update_disp;
-        // make the upper and lower bounds based on the current value,
-        // but 0 < lo < up < 1.0
-        delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-        delta_up = std::min(1.0, curr_disp + (curr_disp*0.5));
-
-        // if(!disp_conv){
-        //     // dispersion line search - only required if delta diff > tol
-        //     update_disp = phiLineSearch(curr_disp, delta_lo, delta_up, c,
-        //                                 muvec, G_inv, pi,
-        //                                 curr_u, curr_sigma, y);
-        //     // update delta as the numerical gradient
-        //     // is this too crude?
-        //     update_delta = ((update_disp + delta_disp) - update_disp)/delta_disp; // compute the gradient
-        //     delta_lo = update_disp - update_delta;
-        //     delta_up = update_disp + update_delta;
-        //
-        //     disp_diff = abs(curr_disp - update_disp);
-        //     delta_diff = abs(delta_disp - update_delta);
-        //     curr_disp = update_disp;
-        //     delta_disp = update_delta;
-        //
-        //     disp_conv = delta_diff < 1e-3;
-        // }
-
         LogicalVector _check_mu_inf = check_inf_arma_numeric(muvec);
         bool _any_mu_inf = any(_check_mu_inf).is_true();
 
