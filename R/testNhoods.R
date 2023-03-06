@@ -49,6 +49,8 @@
 #' these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
 #' to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 #' an error will be produced.
+#' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
+#' this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -61,6 +63,12 @@
 #' The GLMM testing cannot be performed using \code{edgeR}, however, a separate
 #' function \code{fitGLMM} can be used to fit a mixed effect model to each
 #' nhood (see \code{fitGLMM} docs for details).
+#'
+#' Parallelisation is currently only enabled for the NB-LMM and uses the BiocParallel paradigm. In
+#' general the GLM implementation in \code{glmQLFit} is sufficiently fast that it does not require
+#' parallelisation. Parallelisation requires the user to pass a \linkS4class{BiocParallelParam} object
+#' with the parallelisation arguments contained therein. This relies on the user to specify how
+#' parallelisation - for details see the \code{BiocParallel} package.
 #'
 #' @return A \code{data.frame} of model results, which contain:
 #' \describe{
@@ -123,12 +131,13 @@ NULL
 #' @importFrom utils tail log2
 #' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
+#' @importFrom BiocParallel bplapply SerialParam
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       subset.nhoods=NULL){
+                       subset.nhoods=NULL, BPPARAM=SerialParam()){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -392,14 +401,21 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
-        glmmWrapper <- function(y, dispersion, x.model, z.model, offsets, rand.levels, REML, glmm.control, geno.only=FALSE, kin=NULL){
+        glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM){
             model.list <- NULL
             # this needs to be able to run with BiocParallel
-            model.list <- lapply(seq_len(nrow(y)),
-                                 FUN=function(i) fitGLMM(X=x.model, Z=z.model, y=y[i, ], offsets=offsets,
-                                                         random.levels=rand.levels, REML = TRUE,
-                                                         dispersion=dispersion[i], geno.only=geno.only,
-                                                         Kin=kin, glmm.control=glmm.cont))
+            model.list <- bplapply(seq_len(nrow(Y)),
+                                 FUN=function(i, Xmodel, Zmodel, Y, off.sets,
+                                              randlevels, disper, genonly,
+                                              kin.ship, glmm.contr, reml){
+                                     fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
+                                             random.levels=randlevels, REML = reml,
+                                             dispersion=disper[i], geno.only=genonly,
+                                             Kin=kinship, glmm.control=glmm.contr)
+                                     }, BPPARAM=BPPARAM,
+                                 Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
+                                 randlevels=randlevels, disper=disper, genonly=genonly,
+                                 kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
 
             # for (i in 1:nrow(y)) {
             #     model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
@@ -416,18 +432,23 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             }
 
             if(geno.only){
-                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, geno.only = geno.only, kin=kinship)
+                fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
+                                   off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
+                                   genonly = geno.only, kin.ship=kinship,
+                                   BPPARAM=BPPARAM)
             } else{
-                fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                                   offsets, rand.levels, REML, glmm.control = glmm.cont, kin=kinship)
+                fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
+                                   off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
+                                   genonly = geno.only, kin.ship=kinship,
+                                   BPPARAM=BPPARAM)
             }
 
         } else{
 
-            fit <- glmmWrapper(y=dge$counts, dispersion = 1/dispersion, x.model, z.model,
-                               offsets, rand.levels, REML, glmm.control = glmm.cont)
-
+            fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
+                               off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
+                               genonly = geno.only, kin.ship=kinship,
+                               BPPARAM=BPPARAM)
         }
 
         # give warning about how many neighborhoods didn't converge
