@@ -127,8 +127,8 @@ NULL
 
 #' @export
 #' @importFrom Matrix colSums rowMeans
-#' @importFrom MatrixGenerics rowMeans colSums2
-#' @importFrom utils tail log2
+#' @importFrom MatrixGenerics colSums2
+#' @importFrom utils tail
 #' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
 #' @importFrom BiocParallel bplapply SerialParam
@@ -468,7 +468,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "tvalue" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
                                 "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
                                 matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
-                                "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")))
+                                "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")),
+                                "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
         rownames(res) <- 1:length(fit)
         colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
