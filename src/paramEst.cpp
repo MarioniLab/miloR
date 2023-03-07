@@ -826,6 +826,27 @@ double phiGoldenSearch(double disp, double lower, double upper, const int& c,
 }
 
 
+double phiMME(arma::vec y, arma::vec curr_sigma){
+    // use the pseudovariance and method of moments
+    double ps_bar = arma::var(y);
+    double y_bar = arma::mean(y);
+    double sigma_sum = arma::sum(y);
+    double denom = 0.0;
+    double disp_mme = 0.0;
+
+    denom = ps_bar - y_bar - sigma_sum;
+    // check for near zero denom that could blow
+    // up the estimate
+    if(denom < 1e-3){
+        disp_mme = 0;
+    } else{
+        disp_mme = 1/denom;
+    }
+
+    return disp_mme;
+}
+
+
 
 double nbLogLik(arma::vec mu, double phi, arma::vec y){
     double logli = 0.0;

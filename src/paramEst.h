@@ -34,6 +34,7 @@ double phiLineSearch(double disp, double lower, double upper, const int& c,
 double phiGoldenSearch(double disp, double lower, double upper, const int& c,
                        arma::vec mu, arma::mat Ginv, double pi,
                        arma::vec curr_u, arma::vec sigma, arma::vec y);
+double phiMME(arma::vec y, arma::vec curr_sigma);
 double nbLogLik(arma::vec mu, double phi, arma::vec y);
 double normLogLik(const int& c, arma::mat Ginv, arma::mat G, arma::vec curr_u, double pi);
 #endif

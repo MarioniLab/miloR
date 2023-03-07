@@ -395,6 +395,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         }
 
         # extract tagwise dispersion for glmm
+        # re-scale these to allow for non-zero variances
         dispersion <- dge$tagwise.dispersion
 
         offsets <- dge$samples$norm.factors

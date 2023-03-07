@@ -104,7 +104,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     constexpr double pi = 3.14159265358979323846;
 
     // declare all variables
-    List outlist(13);
+    List outlist(14);
     int iters=0;
     int stot = Z.n_cols;
     const int& c = curr_sigma.size();
@@ -280,6 +280,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         curr_G = initialiseG_G(u_indices, curr_sigma, K);
         G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
 
+        // Update the dispersion with the new variances
+        update_disp = phiMME(y_star, curr_sigma);
+
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
@@ -320,24 +323,24 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // should we optimise once we got close to a local solution?
         // only do this once.
-        double phi_check = std::max(1e-2, theta_conv *100.0);
+        // double phi_check = std::max(1e-2, theta_conv *100.0);
 
-        if(all(theta_diff < phi_check) && all(sigma_diff < phi_check) && _phi_est){
-            update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                          muvec, G_inv, pi,
-                                          curr_u, curr_sigma, y);
-            disp_diff = abs(curr_disp - update_disp);
-
-            // only accept new disp if the difference is >1e-3
-            if(disp_diff > 5e-2){
-                curr_disp = update_disp;
-                // make the upper and lower bounds based on the current value,
-                // but 0 < lo < up < ??
-                delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-                delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
-            }
-            _phi_est = false;
-        }
+        // if(all(theta_diff < phi_check) && all(sigma_diff < phi_check) && _phi_est){
+            // update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+            //                               muvec, G_inv, pi,
+            //                               curr_u, curr_sigma, y);
+            // disp_diff = abs(curr_disp - update_disp);
+            //
+            // // only accept new disp if the difference is >1e-3
+            // if(disp_diff > 5e-2){
+            //     curr_disp = update_disp;
+            //     // make the upper and lower bounds based on the current value,
+            //     // but 0 < lo < up < ??
+            //     delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
+            //     delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
+            // }
+        //     _phi_est = false;
+        // }
 
         iters++;
 
@@ -366,11 +369,21 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // compute the variance of the pseudovariable
     double pseduo_var = arma::var(y_star);
 
+    // compute final loglihood
+    // make non-broadcast G matrix
+    arma::mat littleG(c, c, arma::fill::zeros);
+
+    for(int i=0; i<c; i++){
+        littleG(i, i) = curr_sigma(i);
+    }
+    double loglihood = nbLogLik(muvec, curr_disp, y) - normLogLik(c, G_inv, littleG, curr_u, pi);
+
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores, _["PSVAR"]=pseduo_var,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
-                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["CONVLIST"]=conv_list);
+                           _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["LOGLIHOOD"]=loglihood,
+                             _["CONVLIST"]=conv_list);
 
     return outlist;
 }
