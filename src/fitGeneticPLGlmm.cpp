@@ -207,7 +207,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // make the upper and lower bounds based on the current value,
     // but 0 < lo < up < 1.0
     delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-    delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
+    delta_up = std::max(0.0, curr_disp);
 
     while(!meet_cond){
         D.diag() = muvec; // data space
@@ -321,27 +321,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             stop("Infinite parameter estimates - consider an alternative model");
         }
 
-        // should we optimise once we got close to a local solution?
-        // only do this once.
-        // double phi_check = std::max(1e-2, theta_conv *100.0);
-
-        // if(all(theta_diff < phi_check) && all(sigma_diff < phi_check) && _phi_est){
-            // update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-            //                               muvec, G_inv, pi,
-            //                               curr_u, curr_sigma, y);
-            // disp_diff = abs(curr_disp - update_disp);
-            //
-            // // only accept new disp if the difference is >1e-3
-            // if(disp_diff > 5e-2){
-            //     curr_disp = update_disp;
-            //     // make the upper and lower bounds based on the current value,
-            //     // but 0 < lo < up < ??
-            //     delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-            //     delta_up = std::max(0.0, curr_disp + (curr_disp*0.5));
-            // }
-        //     _phi_est = false;
-        // }
-
         iters++;
 
         bool _thconv = false;
@@ -355,9 +334,20 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         meet_cond = ((_thconv && _siconv) || _ithit);
         converged = _thconv && _siconv;
-        List this_conv(7);
+
+        // compute final loglihood
+        // make non-broadcast G matrix
+        arma::mat littleG(c, c, arma::fill::zeros);
+
+        for(int i=0; i<c; i++){
+            littleG(i, i) = curr_sigma(i);
+        }
+        double loglihood = nbLogLik(muvec, curr_disp, y) - normLogLik(c, G_inv, littleG, curr_u, pi);
+
+        List this_conv(8);
         this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
-                                 _["u"]=curr_u, _["sigma"]=curr_sigma, _["disp"]=curr_disp, _["PhiDiff"]=disp_diff);
+                                 _["u"]=curr_u, _["sigma"]=curr_sigma, _["disp"]=curr_disp, _["PhiDiff"]=disp_diff,
+                                 _["LOGLIHOOD"]=loglihood);
         conv_list(iters-1) = this_conv;
     }
 
@@ -383,7 +373,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores, _["PSVAR"]=pseduo_var,
                            _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
                            _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["LOGLIHOOD"]=loglihood,
-                             _["CONVLIST"]=conv_list);
+                            _["CONVLIST"]=conv_list);
 
     return outlist;
 }

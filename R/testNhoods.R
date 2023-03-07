@@ -174,6 +174,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 geno.only <- TRUE
             }
 
+            # this will always implicitly include an intercept term - perhaps
+            # this shouldn't be the case?
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)
             max.iters <- max.iters
@@ -405,7 +407,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM){
             model.list <- NULL
             # this needs to be able to run with BiocParallel
-            model.list <- bplapply(seq_len(nrow(Y)),
+            model.list <- lapply(seq_len(nrow(Y)),
                                  FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                               randlevels, disper, genonly,
                                               kin.ship, glmm.contr, reml){
@@ -413,7 +415,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                              random.levels=randlevels, REML = reml,
                                              dispersion=disper[i], geno.only=genonly,
                                              Kin=kinship, glmm.control=glmm.contr)
-                                     }, BPPARAM=BPPARAM,
+                                     }, #BPPARAM=BPPARAM,
                                  Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                  randlevels=randlevels, disper=disper, genonly=genonly,
                                  kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)

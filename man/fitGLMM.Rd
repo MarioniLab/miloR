@@ -15,7 +15,7 @@ fitGLMM(
   REML = FALSE,
   glmm.control = list(theta.tol = 1e-06, max.iter = 100, init.sigma = NULL, init.beta =
     NULL, init.u = NULL, solver = NULL),
-  dispersion = 0.5,
+  dispersion = 1,
   geno.only = FALSE,
   solver = NULL
 )
@@ -40,11 +40,11 @@ fitGLMM(
 \item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
 initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).}
 
-\item{dispersion}{A scalar value for the dispersion of the negative binomial.}
+\item{dispersion}{A scalar value for the initial dispersion of the negative binomial.}
 
 \item{geno.only}{A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.}
 
-\item{solver}{a character value that determines which optmisation algorithm is used for the variance components. Must be either
+\item{solver}{a character value that determines which optimisation algorithm is used for the variance components. Must be either
 HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
 }
 \value{

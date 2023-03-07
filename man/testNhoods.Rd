@@ -65,6 +65,9 @@ a character vector these should correspond to row names of \code{nhoodCounts}. I
 these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
 to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 an error will be produced.}
+
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
+this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -101,6 +104,12 @@ inappropriate for neighbourhoods with overlapping cells.
 The GLMM testing cannot be performed using \code{edgeR}, however, a separate
 function \code{fitGLMM} can be used to fit a mixed effect model to each
 nhood (see \code{fitGLMM} docs for details).
+
+Parallelisation is currently only enabled for the NB-LMM and uses the BiocParallel paradigm. In
+general the GLM implementation in \code{glmQLFit} is sufficiently fast that it does not require
+parallelisation. Parallelisation requires the user to pass a \linkS4class{BiocParallelParam} object
+with the parallelisation arguments contained therein. This relies on the user to specify how
+parallelisation - for details see the \code{BiocParallel} package.
 }
 \examples{
 library(SingleCellExperiment)
