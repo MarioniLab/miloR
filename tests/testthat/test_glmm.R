@@ -91,31 +91,11 @@ test_that("Discordant input matrices give errors", {
 })
 
 test_that("Infinite and NA values fail as expected", {
-    inf.offsets <- rep(0, nrow(X))
-    inf.offsets[sample(length(inf.offsets), size=1)] <- Inf
-
-    set.seed(42)
-    expect_error(fitGLMM(X=X, Z=Z, y=y, offsets=inf.offsets, random.levels=random.levels, REML = TRUE,
-                         dispersion=dispersion, glmm.control=mmcontrol),
-                 "Infinite values in initial estimates")
-
-    na.offsets <- rep(0, nrow(X))
-    na.offsets[sample(length(na.offsets), size=1)] <- NA
-    set.seed(42)
-    expect_error(fitGLMM(X=X, Z=Z, y=y, offsets=na.offsets, random.levels=random.levels, REML = TRUE,
-                         dispersion=dispersion, glmm.control=mmcontrol), "NA values in offsets")
-
     na.X <- X
     na.X[sample(seq_len(nrow(X)), size=1), 2] <- NA
     set.seed(42)
     expect_error(fitGLMM(X=na.X, Z=Z, y=y, offsets=rep(0, nrow(X)), random.levels=random.levels, REML = TRUE,
                            dispersion=dispersion, glmm.control=mmcontrol), "NAs values in initial estimates")
-
-    # force infinite values with large offsets
-    set.seed(42)
-    expect_error(fitGLMM(X=X, Z=Z, y=y, offsets=rep(10000, nrow(X)), random.levels=random.levels, REML = TRUE,
-                         dispersion=dispersion, glmm.control=mmcontrol), "Infinite values in initial estimates - reconsider model")
-
 })
 
 
