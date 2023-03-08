@@ -400,7 +400,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         # re-scale these to allow for non-zero variances
         dispersion <- dge$tagwise.dispersion
 
-        offsets <- dge$samples$norm.factors
+        # I think these need to be logged
+        offsets <- log(dge$samples$norm.factors)
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
