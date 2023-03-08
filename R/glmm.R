@@ -632,7 +632,7 @@ Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V
     for (i in 1:length(curr_beta)) {
         jac_var_beta <- matrix(unlist(lapply(lapply(jac_list, diag), `[[`, i)), ncol=1) # could this be done with AD?
         denom <- t(jac_var_beta) %*% (V_a) %*% jac_var_beta #g' Va g
-        df[i] <- 2*((SE[i]^2)^2)/denom
+        df[i] <- (2*(SE[i]^2))/denom
     }
     return(as.matrix(df))
 }
