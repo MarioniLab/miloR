@@ -85,6 +85,10 @@
         colnames(d.mat) <- trimws(v.terms)
     } else if(vtype %in% c("fe")){
         v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
+        if(length(v.terms) > 1){
+            v.terms <- paste(v.terms, collapse=" + ")
+        }
+
         d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
         d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
     } else{

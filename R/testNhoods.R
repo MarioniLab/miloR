@@ -408,8 +408,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM){
             model.list <- NULL
             # this needs to be able to run with BiocParallel
-            model.list <- lapply(seq_len(nrow(Y)),
-                                 FUN=function(i, Xmodel, Zmodel, Y, off.sets,
+            model.list <- bplapply(seq_len(nrow(Y)),
+                                   FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                               randlevels, disper, genonly,
                                               kin.ship, glmm.contr, reml){
                                      fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
