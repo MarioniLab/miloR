@@ -52,7 +52,7 @@ annotateNhoods <- function(x, da.res, coldata_col, subset.nhoods=NULL){
         if(ncol(nhoods(x)) != nrow(da.res)){
             stop("the number of rows in da.res does not match the number of neighbourhoods in nhoods(x). Are you sure da.res is the output of testNhoods(x) or did you use subset.nhoods?")
         }
-        keep.nh <- rep(TRUE, ncols(nhoods(x)))
+        keep.nh <- rep(TRUE, ncol(nhoods(x)))
     } else{
         keep.nh <- subset.nhoods
     }

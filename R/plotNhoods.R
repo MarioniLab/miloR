@@ -84,7 +84,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' \code{\linkS4class{Milo}} object to use for layout (default: 'UMAP') (b) an igraph layout object
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
 #' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
-#' (default: NULL, no subsetting)
+#' (default: NULL, no subsetting). This is necessary if \code{testNhoods} was run using \code{subset.nhoods=...}.
 #' @param size_range a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
 #' in the graph)
 #' @param node_stroke a numeric indicating the desired thickness of the border around each node
@@ -222,7 +222,16 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   signif_res <- milo_res
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
-  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+
+  # this needs to handle nhood subsetting.
+  if(any(names(list(...)) %in% c("subset.nhoods"))){
+      subset.nhoods <- list(...)$subset.nhoods
+      sub.indices <- nhoodIndex(x)[subset.nhoods]
+      colData(x)[unlist(sub.indices[signif_res$Nhood]), res_column] <- signif_res[,res_column]
+  } else{
+      colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+  }
+
 
   ## Plot logFC
   plotNhoodGraph(x, colour_by = res_column, ... )
@@ -246,7 +255,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
 #' NULL
 #'
 #' @export
-#' @rdname plotNhoodGraphDA
+#' @rdname plotNhoodGroups
 #' @import igraph
 plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   if(!.valid_graph(nhoodGraph(x))){
@@ -657,7 +666,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   if (!is.null(subset.nhoods)) {
     da.res <- da.res[subset.nhoods,]
   }
-  
+
   # Get position with ggbeeswarm
   beeswarm_pos <- ggplot_build(
     da.res %>%
@@ -666,12 +675,12 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
       ggplot(aes(group_by, logFC)) +
       geom_quasirandom()
   )
-  
+
   pos_x <- beeswarm_pos$data[[1]]$x
   pos_y <- beeswarm_pos$data[[1]]$y
-  
+
   n_groups <- unique(da.res$group_by) %>% length()
-  
+
   da.res %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
     mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
@@ -856,19 +865,21 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
                                        names_to = "experiment",
                                        values_to = "values")
 
-  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment",condition)]
+  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment", condition)]
+  colnames(tmp.desgin) <- c("experiment", "condition")
   nhood.counts.df.long <- left_join(nhood.counts.df.long,
                                     tmp.desgin,
                                     by="experiment")
   nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
-  p <- ggplot(nhood.counts.df.long, aes(x=condition, y="values")) +
+  p <- ggplot(nhood.counts.df.long, aes(x=condition, y=values)) +
       geom_point()+
     stat_summary(fun="mean", geom="crossbar",
-                 mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
+                 mapping=aes(ymin=after_stat, ymax=after_stat), width=0.22,
                  position=position_dodge(),show.legend = FALSE, color="red")+
     facet_wrap(~subset.nhoods.id, ncol = n_col)+
-    ylab("# cells in neighbourhood")
+    labs(x=condition, y="# cells in neighbourhood") +
+      NULL
 
   return(p)
 }
