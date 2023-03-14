@@ -1,4 +1,4 @@
-context("Testing annotateNhoods function")
+context("Testing checkSeparation function")
 
 ### Set up a mock data set using simulated data
 suppressWarnings({
@@ -86,8 +86,8 @@ sim1.mylo <- buildGraph(sim1.mylo, k=21, d=30)
 # define neighbourhoods - this is slow for large data sets
 # how can this be sped up? There are probably some parallelisable steps
 sim1.mylo <- makeNhoods(sim1.mylo, k=21, prop=0.1, refined=TRUE,
-                                d=30,
-                                reduced_dims="PCA")
+                        d=30,
+                        reduced_dims="PCA")
 sim1.mylo <- calcNhoodDistance(sim1.mylo, d=30)
 
 sim1.meta <- data.frame("Condition"=c(rep("A", 3), rep("B", 3)),
@@ -97,32 +97,44 @@ rownames(sim1.meta) <- sim1.meta$Sample
 
 sim1.mylo <- countCells(sim1.mylo, samples="Sample", meta.data=meta.df)
 
-## Do test
-da_df <- testNhoods(sim1.mylo, design=~Condition, fdr.weighting="k-distance",
-                      design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)),])
-
-colData(sim1.mylo) <- DataFrame(meta.df)
 
 test_that("Wrong input gives errors", {
-    # Subsetted da.res
-    expect_error(annotateNhoods(sim1.mylo, da_df[1:10,], "Block"),
-                 "the number of rows in da.res does not match the number of neighbourhoods in nhoods(x)",
-                 fixed=FALSE
-                 )
+    # no rownames - can't do subsetting
+    rownames(sim1.meta) <- NULL
+    expect_error(checkSeparation(sim1.mylo, sim1.meta, "Condition"),
+                 "Please add rownames to design.df that are the same as the colnames of nhoodCounts",
+                 fixed=TRUE)
+
+    rownames(sim1.meta) <- paste0("NOTSAMPLE", sim1.meta$Sample)
+    expect_error(checkSeparation(sim1.mylo, sim1.meta, "Condition"),
+                 "rownames of design.df are not a subset of nhoodCounts colnames",
+                 fixed=TRUE)
 
     # Asking for column not in coldata
-    expect_error(annotateNhoods(sim1.mylo, da_df, "BlockD"),
-                 "BlockD is not a column in colData(x)",
-                 fixed=TRUE
-    )
+    expect_error(checkSeparation(sim1.mylo, sim1.meta, "BLAH"),
+                 "BLAH is not a variable in design",
+                 fixed=TRUE)
+
+    nhoodCounts(sim1.mylo) <- matrix(0L)
+    expect_error(checkSeparation(sim1.mylo, sim1.meta, "Condition"),
+                 "nhoodCounts not found - please run countCells() first",
+                 fixed=TRUE)
+
 })
 
-test_that("The DA testing results are not modified", {
-    da_anno <- annotateNhoods(sim1.mylo, da_df, "Block")
-    expect_identical(da_anno[,colnames(da_df)], da_df)
+test_that("Factor checking handles expected formats", {
+    sim1.meta$Variable <- seq_len(nrow(sim1.meta))
+    expect_error(checkSeparation(sim1.mylo, sim1.meta, "Variable"),
+                 "Too many levels in Variable",
+                 fixed=FALSE)
 })
 
-test_that("The fractions are right", {
-    da_anno <- annotateNhoods(sim1.mylo, da_df, "Block")
-    expect_true(all(da_anno[,"Block_fraction"] == 1 ))
+test_that("Output is the expected format", {
+    # set the first 5 nhood counts to 0 for one condition level
+    nhoodCounts(sim1.mylo)[c(1:5), sim1.meta$Sample[sim1.meta$Condition %in% c("A")]] <- 0
+    expect_gte(sum(checkSeparation(sim1.mylo, sim1.meta, "Condition", min.val=1)), 5)
+
+    expect_identical(length(checkSeparation(sim1.mylo, sim1.meta, "Condition", min.val=1)), nrow(nhoodCounts(sim1.mylo)))
 })
+
+

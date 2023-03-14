@@ -67,17 +67,16 @@
 NULL
 
 #' @export
-#'
-checkSeparation <- function(x, design.df, condition, factor.check=TRUE){
+checkSeparation <- function(x, design.df, condition, min.val=1, factor.check=TRUE){
     if(!any(colnames(design.df) %in% condition)){
         stop(condition, " is not a variable in design.df")
     }
 
-    if(is.null(nhoodCounts(x))){
+    if(.check_empty(x, "nhoodCounts")){
         stop("nhoodCounts not found - please run countCells() first")
     }
 
-    if(is.null(rownames(design.df))){
+    if(all(rownames(design.df) %in% as.character(seq_len(nrow(design.df))))){
         stop("Please add rownames to design.df that are the same as the colnames of nhoodCounts(x)")
     } else{
         if(sum(rownames(design.df) %in% colnames(nhoodCounts(x))) < 1){
