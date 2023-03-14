@@ -33,7 +33,7 @@
 #' @author Mike Morgan
 #'
 #' @examples
-#' #' library(SingleCellExperiment)
+#' library(SingleCellExperiment)
 #' ux.1 <- matrix(rpois(12000, 5), ncol=400)
 #' ux.2 <- matrix(rpois(12000, 4), ncol=400)
 #' ux <- rbind(ux.1, ux.2)
