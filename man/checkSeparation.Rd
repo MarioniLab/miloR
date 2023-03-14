@@ -41,7 +41,7 @@ number of unique values - if this exceeds > 50% of the number of elements an
 error is generated. Users can override this behaviour with \code{factor.check=FALSE}.
 }
 \examples{
-#' library(SingleCellExperiment)
+library(SingleCellExperiment)
 ux.1 <- matrix(rpois(12000, 5), ncol=400)
 ux.2 <- matrix(rpois(12000, 4), ncol=400)
 ux <- rbind(ux.1, ux.2)
