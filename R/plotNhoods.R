@@ -875,7 +875,7 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
   p <- ggplot(nhood.counts.df.long, aes(x=condition, y=values)) +
       geom_point()+
     stat_summary(fun="mean", geom="crossbar",
-                 mapping=aes(ymin=after_stat, ymax=after_stat), width=0.22,
+                 mapping=aes(ymin=after_stat(y), ymax=after_stat(y)), width=0.22,
                  position=position_dodge(),show.legend = FALSE, color="red")+
     facet_wrap(~subset.nhoods.id, ncol = n_col)+
     labs(x=condition, y="# cells in neighbourhood") +
