@@ -7,13 +7,11 @@ on:
       - master
       - devel
       - genetic_case
-      - alice
   pull_request:
     branches:
       - main
       - master
       - devel
-      - alice
 
 name: R-CMD-check
 
@@ -75,7 +73,7 @@ jobs:
         run: |
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran("rcmdcheck")
-          BiocManager::install(c("MouseGastrulationData", "MouseThymusAgeing"))
+          BiocManager::install(c("MouseGastrulationData", "MouseThymusAgeing", "scRNAseq"))
         shell: Rscript {0}
 
       - name: Check
