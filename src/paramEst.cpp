@@ -187,7 +187,8 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
             // this happens when G^-1 contains NaN values <- how does this happen
             // and how do we prevent it?
             Rcpp::Rcout << "Condition number: " << _rcond << std::endl;
-            throw std::runtime_error("Coefficients Hessian is computationally singular");
+            Rcpp::stop("Coefficients Hessian is computationally singular");
+            // throw std::runtime_error("Coefficients Hessian is computationally singular");
         }
 
         // can we just use solve here instead?
