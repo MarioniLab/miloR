@@ -406,27 +406,47 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
         #wrapper function is the same for all analyses
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM){
-            model.list <- NULL
+            #bp.list <- NULL
             # this needs to be able to run with BiocParallel
-            model.list <- bplapply(seq_len(nrow(Y)),
-                                   FUN=function(i, Xmodel, Zmodel, Y, off.sets,
-                                              randlevels, disper, genonly,
-                                              kin.ship, glmm.contr, reml){
-                                     fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
-                                             random.levels=randlevels, REML = reml,
-                                             dispersion=disper[i], geno.only=genonly,
-                                             Kin=kinship, glmm.control=glmm.contr)
-                                     }, #BPPARAM=BPPARAM,
-                                 Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
-                                 randlevels=randlevels, disper=disper, genonly=genonly,
-                                 kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
+            bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = FALSE),
+                                         FUN=function(i, Xmodel, Zmodel, Y, off.sets,
+                                                      randlevels, disper, genonly,
+                                                      kin.ship, glmm.contr, reml){
+                                             fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
+                                                     random.levels=randlevels, REML = reml,
+                                                     dispersion=disper[i], geno.only=genonly,
+                                                     Kin=kinship, glmm.control=glmm.contr)
+                                             }, BPPARAM=BPPARAM,
+                                         Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
+                                         randlevels=randlevels, disper=disper, genonly=genonly,
+                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
+                                }) # need to handle this output which is a bplist_error object
 
-            # for (i in 1:nrow(y)) {
-            #     model.list[[i]] <- fitGLMM(X=x.model, Z=z.model, y=y[i,], offsets=offsets, random.levels=rand.levels, REML = TRUE,
-            #                                dispersion=dispersion[i], geno.only=geno.only, Kin=kin, glmm.control=glmm.cont)
-            # }
+            # parse the bplist_error object
+            if(all(bpok(bp.list))){
+                model.list <- as(bp.list, "list")
+            } else{
+                model.list <- list()
+                # set the failed results to all NA
+                for(x in seq_along(bp.list)){
+                    if(!bpok(bp.list)[x]){
+                        bperr <- attr(bp.list[[x]], "traceback")
+                        #message(bperr)
+                        model.list[[x]] <- list("FE"=NA, "RE"=NA, "Sigma"=NA,
+                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
+                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
+                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
+                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
+                                                "DF"=NA, "PVALS"=NA,
+                                                "ERROR"=bperr)
+                    }else{
+                        model.list[[x]] <- bp.list[[x]]
+                    }
+                }
+            }
             return(model.list)
         }
+
 
         if(!is.null(kinship)){
             if(isTRUE(geno.only)){
