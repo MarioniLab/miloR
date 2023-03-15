@@ -264,7 +264,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
-                                               "converged"=NA, "Iters"=NA, "Dispersion"=NA,
+                                               "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
@@ -280,7 +280,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                error=function(err){
                                    message(err)
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
-                                               "converged"=NA, "Iters"=NA, "Dispersion"=NA,
+                                               "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,

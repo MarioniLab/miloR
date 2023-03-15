@@ -866,17 +866,18 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
                                        values_to = "values")
 
   tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment", condition)]
-  colnames(tmp.desgin) <- c("experiment", "condition")
+  colnames(tmp.desgin) <- c("experiment", "cond")
+
   nhood.counts.df.long <- left_join(nhood.counts.df.long,
                                     tmp.desgin,
                                     by="experiment")
   nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
-  p <- ggplot(nhood.counts.df.long, aes(x=condition, y=values)) +
+  p <- ggplot(nhood.counts.df.long, aes(x=cond, y=values)) +
       geom_point()+
     stat_summary(fun="mean", geom="crossbar",
                  mapping=aes(ymin=after_stat(y), ymax=after_stat(y)), width=0.22,
-                 position=position_dodge(),show.legend = FALSE, color="red")+
+                 position=position_dodge(), show.legend = FALSE, color="red")+
     facet_wrap(~subset.nhoods.id, ncol = n_col)+
     labs(x=condition, y="# cells in neighbourhood") +
       NULL
