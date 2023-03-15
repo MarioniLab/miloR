@@ -66,6 +66,7 @@ Suggests:
     RCurl,
     MASS,
     curl,
+    scRNAseq,
     graphics
 RoxygenNote: 7.2.3
 NeedsCompilation: no
