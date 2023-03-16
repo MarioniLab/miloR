@@ -132,7 +132,7 @@ NULL
 #' @importFrom utils tail
 #' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
-#' @importFrom BiocParallel bplapply SerialParam
+#' @importFrom BiocParallel bplapply SerialParam bptry bpok
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
