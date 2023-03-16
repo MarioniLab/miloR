@@ -409,7 +409,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM, error.fail=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
-            bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = FALSE),
+            bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = error.fail),
                                          FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                                       randlevels, disper, genonly,
                                                       kin.ship, glmm.contr, reml){
@@ -420,7 +420,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                              }, BPPARAM=BPPARAM,
                                          Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                          randlevels=randlevels, disper=disper, genonly=genonly,
-                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml, error.fail=fail.on.error)
+                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
                                 }) # need to handle this output which is a bplist_error object
 
             # parse the bplist_error object
@@ -472,16 +472,15 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             }
 
         } else{
-
             fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
                                off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
                                genonly = geno.only, kin.ship=kinship,
-                               BPPARAM=BPPARAM)
+                               BPPARAM=BPPARAM, error.fail=fail.on.error)
         }
 
         # give warning about how many neighborhoods didn't converge and error is all nhoods failed
         if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
-            if(all(is.na(unlist(lapply(fit, `[[`, "logFC"))))){
+            if(all(is.na(unlist(lapply(fit, `[[`, "FE"))))){
                 err.list <- unique(unlist(lapply(fit, `[[`, "ERROR")))
                 n.err <- length(err.list)
                 stop("Lowest traceback returned: ", paste(err.list[1:3], err.list[c((n.err-3):(n.err))], collapse="\n")) # the first and last 3 traceback steps

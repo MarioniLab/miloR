@@ -133,13 +133,13 @@ variances, we also want these to be unbiased, so we use restricted maximum likel
 matrix inversion steps that don't scale very nicely. While we have made every effort to reduce the computational burden we are still limited by the bounds of matrix algebra!
 
 ```{r}
-set.seed(101)
+set.seed(42)
 rownames(pbmc.design) <- pbmc.design$ObsID
 bpparam <- SerialParam()
 register(bpparam)
 
 da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
-                         glmm.solver="HE-NNLS", REML=TRUE, norm.method="TMM", BPPARAM = bpparam)
+                         glmm.solver="HE-NNLS", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
 table(da_results$SpatialFDR < 0.1)
 ```
 
