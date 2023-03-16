@@ -66,6 +66,8 @@ these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. I
 to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 an error will be produced.}
 
+\item{fail.on.error}{A logical scalar the determines the behaviour of the error reporting. Used for debugging only.}
+
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
 this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.}
 }
