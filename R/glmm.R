@@ -262,14 +262,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                          curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                          curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
-                                   message(err)
+                                   errmess <- traceback()
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
                                                "DF"=NA, "PVALS"=NA,
-                                               "ERROR"=err))
+                                               "ERROR"=errmess))
                                    })
     } else{
         final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=as.matrix(Kin), offsets=offsets,
@@ -278,23 +278,15 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                                 curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
-                                   message(err)
+                                   errmess <- traceback()
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
                                                "DF"=NA, "PVALS"=NA,
-                                               "ERROR"=err))
+                                               "ERROR"=errmess))
                                    })
-    }
-
-    check_na_output <- any(is.na(unlist(lapply(names(final.list)[!grepl(names(final.list), pattern="ERROR")],
-                                               function(CH) final.list[[CH]]))))
-    if(check_na_output){
-        traceback(3)
-        error_cat <- paste(unlist(final.list[["ERROR"]]), sep=", ")
-        stop("No GLMM results returned - see traceback for errors. ", error_cat)
     }
 
     # compute Z scores, DF and P-values

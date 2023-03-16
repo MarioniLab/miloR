@@ -49,6 +49,7 @@
 #' these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
 #' to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 #' an error will be produced.
+#' @param fail.on.error A logical scalar the determines the behaviour of the error reporting. Used for debugging only.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
 #' this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.
 #'
@@ -137,7 +138,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       subset.nhoods=NULL, BPPARAM=SerialParam()){
+                       subset.nhoods=NULL, fail.on.error=FALSE, BPPARAM=SerialParam()){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -405,7 +406,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
-        glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM){
+        glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM, error.fail=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
             bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = FALSE),
@@ -419,7 +420,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                              }, BPPARAM=BPPARAM,
                                          Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                          randlevels=randlevels, disper=disper, genonly=genonly,
-                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
+                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml, error.fail=fail.on.error)
                                 }) # need to handle this output which is a bplist_error object
 
             # parse the bplist_error object
@@ -431,7 +432,10 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 for(x in seq_along(bp.list)){
                     if(!bpok(bp.list)[x]){
                         bperr <- attr(bp.list[[x]], "traceback")
-                        #message(bperr)
+                        if(isTRUE(error.fail)){
+                            stop(bperr)
+                        }
+
                         model.list[[x]] <- list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                 "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                 "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
@@ -459,12 +463,12 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
                                    off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
                                    genonly = geno.only, kin.ship=kinship,
-                                   BPPARAM=BPPARAM)
+                                   BPPARAM=BPPARAM, error.fail=fail.on.error)
             } else{
                 fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
                                    off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
                                    genonly = geno.only, kin.ship=kinship,
-                                   BPPARAM=BPPARAM)
+                                   BPPARAM=BPPARAM, error.fail=fail.on.error)
             }
 
         } else{
@@ -475,9 +479,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                BPPARAM=BPPARAM)
         }
 
-        # give warning about how many neighborhoods didn't converge
+        # give warning about how many neighborhoods didn't converge and error is all nhoods failed
         if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
-            warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),"neighborhoods did not converge; increase number of iterations?"))
+            if(all(is.na(unlist(lapply(fit, `[[`, "logFC"))))){
+                err.list <- unique(unlist(lapply(fit, `[[`, "ERROR")))
+                n.err <- length(err.list)
+                stop("Lowest traceback returned: ", paste(err.list[1:3], err.list[c((n.err-3):(n.err))], collapse="\n")) # the first and last 3 traceback steps
+            } else{
+                warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),
+                              "neighborhoods did not converge; increase number of iterations?"))
+            }
 
         }
 
