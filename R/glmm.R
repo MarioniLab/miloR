@@ -262,14 +262,13 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                          curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                          curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
-                                   errmess <- traceback()
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
                                                "DF"=NA, "PVALS"=NA,
-                                               "ERROR"=errmess))
+                                               "ERROR"=err))
                                    })
     } else{
         final.list <- tryCatch(fitGeneticPLGlmm(Z=full.Z, X=X, K=as.matrix(Kin), offsets=offsets,
@@ -278,39 +277,36 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
                                                 curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
-                                   errmess <- traceback()
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
                                                "Hessian"=NA, "SE"=NA, "t"=NA, "PSVAR"=NA,
                                                "COEFF"=NA, "P"=NA, "Vpartial"=NA, "Ginv"=NA,
                                                "Vsinv"=NA, "Winv"=NA, "VCOV"=NA, "LOGLIHOOD"=NA,
                                                "DF"=NA, "PVALS"=NA,
-                                               "ERROR"=errmess))
+                                               "ERROR"=err))
                                    })
     }
 
-    # compute Z scores, DF and P-values
-    mint <- length(curr_beta)
-    cint <- length(curr_u)
+    if(!all(is.na(unlist(final.list[c(1:3)])))){
+        # compute Z scores, DF and P-values
+        mint <- length(curr_beta)
+        cint <- length(curr_u)
 
-    dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
-                            final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]], random.levels)
-    pvals <- computePvalue(final.list[["t"]], dfs)
+        dfs <- Satterthwaite_df(final.list[["COEFF"]], mint, cint, final.list[["SE"]], final.list[["Sigma"]], final.list[["FE"]],
+                                final.list[["Vpartial"]], final.list[["VCOV"]], final.list[["Ginv"]], random.levels)
+        pvals <- computePvalue(final.list[["t"]], dfs)
 
-    if(any(is.infinite(pvals))){
-        stop("Setting infinite p-values to NA")
-        pvals[is.infinite(pvals)] <- NA
+        if(any(is.infinite(pvals))){
+            stop("Setting infinite p-values to NA")
+            pvals[is.infinite(pvals)] <- NA
+        }
+
+        final.list[["DF"]] <- dfs
+        final.list[["PVALS"]] <- pvals
     }
 
-    final.list[["DF"]] <- dfs
-    final.list[["PVALS"]] <- pvals
 
     # final checks
-    na.params <- is.na(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
-    if(sum(na.params) > 0){
-        stop("NA parameter estimates - reconsider model")
-    }
-
     inf.params <- is.infinite(c(final.list[["Sigma"]], final.list[["FE"]], final.list[["RE"]]))
     if(sum(inf.params) > 0){
         stop("Infinite parameter estimates - reconsider model or increase sample size")

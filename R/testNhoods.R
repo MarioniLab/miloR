@@ -132,7 +132,7 @@ NULL
 #' @importFrom utils tail
 #' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
-#' @importFrom BiocParallel bplapply SerialParam bptry bpok bpoptions bpstopOnError
+#' @importFrom BiocParallel bplapply SerialParam bptry bpok bpoptions
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
@@ -406,7 +406,9 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
-        glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels, reml, glmm.contr, genonly=FALSE, kin.ship=NULL, BPPARAM=BPPARAM, error.fail=FALSE){
+        glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels,
+                                reml, glmm.contr, genonly=FALSE, kin.ship=NULL,
+                                BPPARAM=BPPARAM, error.fail=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
             bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = error.fail),
@@ -478,12 +480,13 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                BPPARAM=BPPARAM, error.fail=fail.on.error)
         }
 
-        # give warning about how many neighborhoods didn't converge and error is all nhoods failed
+        # give warning about how many neighborhoods didn't converge and error if > 50% nhoods failed
+        n.nhoods <- length(fit)
+        half.n <- floor(n.nhoods * 0.5)
         if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
-            if(all(is.na(unlist(lapply(fit, `[[`, "FE"))))){
-                err.list <- unique(unlist(lapply(fit, `[[`, "ERROR")))
-                n.err <- length(err.list)
-                stop("Lowest traceback returned: ", paste(err.list[1:3], err.list[c((n.err-3):(n.err))], collapse="\n")) # the first and last 3 traceback steps
+            if(sum(is.na(unlist(lapply(fit, `[[`, "FE")))) >= half.n){
+                err.list <- paste(unique(unlist(lapply(fit, `[[`, "ERROR"))), collapse="\n")
+                stop("Lowest traceback returned: ", err.list) # all unique error messages
             } else{
                 warning(paste(sum(!unlist(lapply(fit, `[[`, "converged")), na.rm = TRUE), "out of", length(unlist(lapply(fit, `[[`, "converged"))),
                               "neighborhoods did not converge; increase number of iterations?"))
