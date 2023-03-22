@@ -284,7 +284,15 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   colData(x)[unlist(nhoodIndex(x)[groups_res$Nhood]),"NhoodGroup"] <- groups_res$NhoodGroup
 
   ## Plot logFC
-  plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  # allow override of colour_by aesthetic
+  if(length(list(...))){
+      if(any(names(list(...)) %in% c("colour_by"))){
+          plotNhoodGraph(x, ... )
+          }
+  } else{
+      plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  }
+
 }
 
 #' Visualize gene expression in neighbourhoods
