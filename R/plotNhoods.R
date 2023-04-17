@@ -654,7 +654,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   if (!is.null(subset.nhoods)) {
     da.res <- da.res[subset.nhoods,]
   }
-  
+
   # Get position with ggbeeswarm
   beeswarm_pos <- ggplot_build(
     da.res %>%
@@ -663,12 +663,12 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
       ggplot(aes(group_by, logFC)) +
       geom_quasirandom()
   )
-  
+
   pos_x <- beeswarm_pos$data[[1]]$x
   pos_y <- beeswarm_pos$data[[1]]$y
-  
+
   n_groups <- unique(da.res$group_by) %>% length()
-  
+
   da.res %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
     mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
@@ -857,7 +857,7 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
                                     by="experiment")
   nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
-  p <- ggplot(nhood.counts.df.long, aes_string(x=condition, y="values"))+
+  p <- ggplot(nhood.counts.df.long, aes(x=condition, y=values))+
     geom_point()+
     stat_summary(fun="mean", geom="crossbar",
                  mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
