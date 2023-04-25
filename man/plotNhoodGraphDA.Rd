@@ -42,6 +42,4 @@ NULL
 }
 \author{
 Emma Dann
-
-Emma Dann
 }
