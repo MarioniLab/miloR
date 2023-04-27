@@ -10,15 +10,14 @@
 
 // All functions used in parameter estimation
 
-arma::vec sigmaScoreREML_arma (Rcpp::List pvstar_i, const arma::vec& ystar, const arma::mat& P){
+arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar, const arma::mat& P){
     // Armadillo implementation
+    // sparsifying doesn't speed up - overhead is too high
     const int& c = pvstar_i.size();
     arma::vec reml_score(c);
-    // arma::sp_mat _P(P);
 
     for(int i=0; i < c; i++){
         const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
-
         double lhs = -0.5 * arma::trace(P_pvi);
         arma::mat mid1(1, 1);
         mid1 = arma::trans(ystar) * P_pvi * P * ystar;
@@ -33,6 +32,7 @@ arma::vec sigmaScoreREML_arma (Rcpp::List pvstar_i, const arma::vec& ystar, cons
 
 arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P){
     // REML Fisher/expected information matrix
+    // sparsifying this is baaaad for performance
     const int& c = pvstari.size();
     arma::mat sinfo(c, c);
 
@@ -102,7 +102,7 @@ arma::mat sigmaInformation (arma::mat V_star_inv, Rcpp::List V_partial){
 }
 
 
-arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat){
+arma::vec fisherScore (const arma::mat& hess, const arma::vec& score_vec, const arma::vec& theta_hat){
     // sequentially update the parameter using the Newton-Raphson algorithm
     // theta ~= theta_hat + hess^-1 * score
     // this needs to be in a direction of descent towards a minimum
@@ -134,35 +134,42 @@ arma::vec fisherScore (arma::mat hess, arma::vec score_vec, arma::vec theta_hat)
 
 
 arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat& Z, const arma::mat& Ginv){
-    // compute the components of the coefficient matrix for the MMEs
-    //
+    // compute the components of the coefficient matrix for the MMEs0
+    // sparsification _does_ help here, despite the added overhead
     int c = Z.n_cols;
     int m = X.n_cols;
 
-    arma::mat ul(m, m);
-    arma::mat ur(m, c);
-    arma::mat ll(c, m);
-    arma::mat lr(c, c);
+    arma::sp_mat ul(m, m);
+    arma::sp_mat ur(m, c);
+    arma::sp_mat ll(c, m);
+    arma::sp_mat lr(c, c);
 
-    arma::mat lhs_top(m, m+c);
-    arma::mat lhs_bot(c, m+c);
-    arma::mat lhs(m+c, m+c);
+    arma::sp_mat lhs_top(m, m+c);
+    arma::sp_mat lhs_bot(c, m+c);
 
-    ul = X.t() * Winv * X;
-    ur = X.t() * Winv * Z;
-    ll = Z.t() * Winv * X;
-    lr = (Z.t() * Winv * Z) + Ginv;
+    arma::sp_mat res(m+c, m+c);
+
+    arma::sp_mat sX(X);
+    arma::sp_mat sZ(Z);
+    arma::sp_mat sW(Winv);
+    arma::sp_mat sG(Ginv);
+
+    ul = sX.t() * sW * sX;
+    ur = sX.t() * sW * sZ;
+    ll = sZ.t() * sW * sX;
+    lr = (sZ.t() * sW * sZ) + sG;
 
     lhs_top = arma::join_rows(ul, ur); // join_rows matches the rows i.e. glue columns together
     lhs_bot = arma::join_rows(ll, lr);
 
-    lhs = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
+    res = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
+    arma::mat lhs(res);
     return lhs;
 }
 
 
 arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
-                          arma::mat coeffmat, arma::vec beta, arma::vec u, const arma::vec& ystar){
+                          const arma::mat& coeffmat, const arma::vec& beta, const arma::vec& u, const arma::vec& ystar){
     // solve the mixed model equations
     arma::vec rhs_beta(m);
     arma::vec rhs_u(c);
@@ -201,7 +208,7 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 }
 
 
-arma::mat computeZstar(const arma::mat& Z, arma::vec curr_sigma, Rcpp::List u_indices){
+arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rcpp::List& u_indices){
     // use the A = LL^T, ZL = Z* trick similar to lme4 - described in more detail
     // in https://onlinelibrary.wiley.com/doi/epdf/10.1046/j.1439-0388.2002.00327.x
     // this assumes that G is PSD - it will fail if it is not
@@ -230,115 +237,116 @@ arma::mat computeZstar(const arma::mat& Z, arma::vec curr_sigma, Rcpp::List u_in
 }
 
 
-arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
-                          arma::mat coeffmat, arma::vec curr_theta, const arma::vec& ystar, const double& conv_tol){
-    // solve the mixed model equations with a preconditioned conjugate gradient
-    // A = coeffmat
-    // x = theta
-    // b = rhs
-
-    arma::vec rhs_beta(m);
-    arma::vec rhs_u(c);
-    arma::mat rhs(m+c, 1);
-
-    arma::vec theta_up(m+c, arma::fill::zeros);
-
-    rhs_beta.col(0) = Xt * Winv * ystar;
-    rhs_u.col(0) = Zt * Winv * ystar;
-
-    rhs = arma::join_cols(rhs_beta, rhs_u);
-
-    // I'll assume any preconditioning has already been applied
-    // need a check for singular hessian here
-    try{
-        double _rcond = arma::rcond(coeffmat);
-        bool is_singular;
-        is_singular = _rcond < 1e-9;
-
-        // check for singular condition
-        if(is_singular){
-            Rcpp::stop("Coefficients Hessian is computationally singular");
-        }
-
-        // can we just use solve here instead?
-        // if the coefficient matrix is singular then do we resort to pinv?
-        // is it worth doing a quick analysis of the eigen values of coeff?
-        // the _rcond might be sufficient to tell us if the matrix is ill-conditioned
-        // do we need to know a priori if we have a few large eigenvalues??
-        // maybe this could be tweaked by setting the convergence criterai to > 0?
-        theta_up = conjugateGradient(coeffmat, curr_theta, rhs, conv_tol);
-        // theta_up = arma::solve(coeffmat, rhs);
-
-    } catch(std::exception &ex){
-        forward_exception_to_r(ex);
-    } catch(...){
-        Rf_error("c++ exception (unknown reason)");
-    }
-
-    return theta_up;
-}
-
-
-arma::vec conjugateGradient(arma::mat A, arma::vec x, arma::vec b, double conv_tol){
-    // use conjugate gradients to solve the system of linear equations
-    // Ax = b
-    // Algorithm:
-    // r_0 <- Ax_0 - b, p_0 <- -r_0, k <- 0
-    // while r_k != 0:
-    // alpha_k <- (rk^T * rk)/(pk^T * A * pk)
-    // x_k+1 <- xk + alpha_k * pK
-    // r_k+1 <- rk + alpha_k * A * pK
-    // beta_k+1 <- r rk+1 + beta_k+1 * pk
-    // pk+1 <- -r_k+1 + beta_k+1 * pk
-    // k++
-
-    // need to generate x_0 from the current estimates: [beta u]
-    const unsigned int m = A.n_cols;
-    const unsigned int n = b.size();
-
-    arma::dcolvec xk(m);
-    xk = x; // use current estimates as x0
-    arma::vec xk_update(m);
-    xk_update = arma::dcolvec(m);
-    // x0.randu(); // initial x values
-
-    double alpha_k = 0.0;
-    double beta_k = 0.0;
-
-    arma::dcolvec rk(n);
-    arma::dcolvec rk_update(n);
-    arma::dcolvec pk(m);
-    arma::dcolvec pk_update(m);
-
-    rk = (A * xk) - b;
-    pk = -rk;
-    unsigned int k = 0;
-
-    Rcpp::LogicalVector _check_rzero = check_tol_arma_numeric(rk, conv_tol);
-    bool _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
-
-    while(_all_rk_zero){ // evaluates true until all rk are zero
-        alpha_k = (rk.t() * rk).eval()(0,0)/(pk.t() * A * pk).eval()(0, 0); // needed to convert vector inner product to scalar
-        xk_update = xk + alpha_k * pk;
-        rk_update = rk + alpha_k * A * pk;
-        beta_k = (rk_update.t() * rk_update).eval()(0, 0)/(rk.t() * rk).eval()(0, 0); // needed to convert vector inner product to scalar
-        pk_update = -rk_update + beta_k * pk;
-
-        rk = rk_update;
-        pk = pk_update;
-        xk = xk_update;
-
-        _check_rzero = check_tol_arma_numeric(rk, conv_tol);
-        _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
-        k++;
-    }
-
-    Rprintf("CG completed in %u iterations\n", k);
-    return xk_update;
-}
+// arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
+//                           arma::mat coeffmat, arma::vec curr_theta, const arma::vec& ystar, const double& conv_tol){
+//     // solve the mixed model equations with a preconditioned conjugate gradient
+//     // A = coeffmat
+//     // x = theta
+//     // b = rhs
+//
+//     arma::vec rhs_beta(m);
+//     arma::vec rhs_u(c);
+//     arma::mat rhs(m+c, 1);
+//
+//     arma::vec theta_up(m+c, arma::fill::zeros);
+//
+//     rhs_beta.col(0) = Xt * Winv * ystar;
+//     rhs_u.col(0) = Zt * Winv * ystar;
+//
+//     rhs = arma::join_cols(rhs_beta, rhs_u);
+//
+//     // I'll assume any preconditioning has already been applied
+//     // need a check for singular hessian here
+//     try{
+//         double _rcond = arma::rcond(coeffmat);
+//         bool is_singular;
+//         is_singular = _rcond < 1e-9;
+//
+//         // check for singular condition
+//         if(is_singular){
+//             Rcpp::stop("Coefficients Hessian is computationally singular");
+//         }
+//
+//         // can we just use solve here instead?
+//         // if the coefficient matrix is singular then do we resort to pinv?
+//         // is it worth doing a quick analysis of the eigen values of coeff?
+//         // the _rcond might be sufficient to tell us if the matrix is ill-conditioned
+//         // do we need to know a priori if we have a few large eigenvalues??
+//         // maybe this could be tweaked by setting the convergence criterai to > 0?
+//         theta_up = conjugateGradient(coeffmat, curr_theta, rhs, conv_tol);
+//         // theta_up = arma::solve(coeffmat, rhs);
+//
+//     } catch(std::exception &ex){
+//         forward_exception_to_r(ex);
+//     } catch(...){
+//         Rf_error("c++ exception (unknown reason)");
+//     }
+//
+//     return theta_up;
+// }
 
 
-arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices, arma::vec ystar, arma::mat Kin){
+// arma::vec conjugateGradient(arma::mat A, arma::vec x, arma::vec b, double conv_tol){
+//     // use conjugate gradients to solve the system of linear equations
+//     // Ax = b
+//     // Algorithm:
+//     // r_0 <- Ax_0 - b, p_0 <- -r_0, k <- 0
+//     // while r_k != 0:
+//     // alpha_k <- (rk^T * rk)/(pk^T * A * pk)
+//     // x_k+1 <- xk + alpha_k * pK
+//     // r_k+1 <- rk + alpha_k * A * pK
+//     // beta_k+1 <- r rk+1 + beta_k+1 * pk
+//     // pk+1 <- -r_k+1 + beta_k+1 * pk
+//     // k++
+//
+//     // need to generate x_0 from the current estimates: [beta u]
+//     const unsigned int m = A.n_cols;
+//     const unsigned int n = b.size();
+//
+//     arma::dcolvec xk(m);
+//     xk = x; // use current estimates as x0
+//     arma::vec xk_update(m);
+//     xk_update = arma::dcolvec(m);
+//     // x0.randu(); // initial x values
+//
+//     double alpha_k = 0.0;
+//     double beta_k = 0.0;
+//
+//     arma::dcolvec rk(n);
+//     arma::dcolvec rk_update(n);
+//     arma::dcolvec pk(m);
+//     arma::dcolvec pk_update(m);
+//
+//     rk = (A * xk) - b;
+//     pk = -rk;
+//     unsigned int k = 0;
+//
+//     Rcpp::LogicalVector _check_rzero = check_tol_arma_numeric(rk, conv_tol);
+//     bool _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
+//
+//     while(_all_rk_zero){ // evaluates true until all rk are zero
+//         alpha_k = (rk.t() * rk).eval()(0,0)/(pk.t() * A * pk).eval()(0, 0); // needed to convert vector inner product to scalar
+//         xk_update = xk + alpha_k * pk;
+//         rk_update = rk + alpha_k * A * pk;
+//         beta_k = (rk_update.t() * rk_update).eval()(0, 0)/(rk.t() * rk).eval()(0, 0); // needed to convert vector inner product to scalar
+//         pk_update = -rk_update + beta_k * pk;
+//
+//         rk = rk_update;
+//         pk = pk_update;
+//         xk = xk_update;
+//
+//         _check_rzero = check_tol_arma_numeric(rk, conv_tol);
+//         _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
+//         k++;
+//     }
+//
+//     Rprintf("CG completed in %u iterations\n", k);
+//     return xk_update;
+// }
+
+
+arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
+                                  const Rcpp::List& u_indices, const arma::vec& ystar, const arma::mat& Kin){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -370,7 +378,7 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, Rc
 }
 
 
-arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices, arma::vec ystar){
+arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices, const arma::vec& ystar){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -378,10 +386,17 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, Rcpp::Lis
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
 
-    arma::mat Ycovar(n, n);
-    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+    // sparsify just the multiplication steps.
+    // arma::mat Ycovar(n, n);
+    arma::sp_mat sYcovar(n, n);
+    arma::sp_mat sP(PREML);
+    arma::sp_mat YT(ystar * ystar.t());
+
+    sYcovar = sP * YT * sP; // project onto REML P matrix
+    // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
 
     // select the upper triangular elements, including the diagonal
+    arma::mat Ycovar(sYcovar);
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
 
@@ -395,15 +410,15 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, Rcpp::Lis
     arma::vec he_update(c);
 
     // use OSL here for starters
-    _he_update = arma::solve(vecZ, Ybig);
+    _he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
     he_update = _he_update.tail(c);
 
     return he_update;
 }
 
 
-arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices,
-                                      arma::vec ystar, arma::vec he_update, const int& Iters){
+arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
+                                      const arma::vec& ystar, arma::vec he_update, const int& Iters){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -412,10 +427,16 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
 
-    arma::mat Ycovar(n, n);
-    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+    // sparsify just the multiplication steps.
+    // arma::mat Ycovar(n, n);
+    arma::sp_mat sYcovar(n, n);
+    arma::sp_mat sP(PREML);
+    arma::sp_mat YT(ystar * ystar.t());
 
+    sYcovar = sP * YT * sP; // project onto REML P matrix
+    // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
     // select the upper triangular elements, including the diagonal
+    arma::mat Ycovar(sYcovar);
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
 
@@ -451,8 +472,10 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
 }
 
 
-arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, Rcpp::List u_indices,
-                                             arma::vec ystar, arma::mat Kin, arma::vec he_update, const int& Iters){
+arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML,
+                                             const Rcpp::List& u_indices,
+                                             const arma::vec& ystar, const arma::mat& Kin,
+                                             arma::vec he_update, const int& Iters){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -498,7 +521,7 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
 }
 
 
-arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, const int& Iters){
+arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters){
     // Lawson and Hanson algorithm for constrained NNLS
     // initial params
     // P is the passive set - i.e. the indices of the non-negative estimates
@@ -533,7 +556,6 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
     arma::dvec w(m);
     w = vecZ.t() * (Y - vecZ*nnls_update); //Lagrangian multipliers
 
-    // arma::mat _hessian = arma::inv(vecZ.t() * vecZ);
     // _hessian.print("(X^TX)^-1");
     bool check_R;
     bool check_wR;
@@ -621,7 +643,7 @@ arma::vec nnlsSolve(const arma::mat& vecZ, arma::vec Y, arma::vec nnls_update, c
 }
 
 
-arma::vec fastNnlsSolve(const arma::mat& vecZ, arma::vec Y){
+arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y){
     // This uses the Fast Approximate Solution Trajectory NNLS
     // from https://stackoverflow.com/questions/58006606/rcpp-implementation-of-fast-nonnegative-least-squares
 
@@ -648,7 +670,7 @@ arma::vec fastNnlsSolve(const arma::mat& vecZ, arma::vec Y){
 }
 
 
-arma::mat vectoriseZ(arma::mat Z, Rcpp::List u_indices, arma::mat P){
+arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     int c = u_indices.size();
@@ -690,7 +712,8 @@ arma::mat vectoriseZ(arma::mat Z, Rcpp::List u_indices, arma::mat P){
 }
 
 
-arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma::mat Kin){
+arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
+                            const arma::mat& P, const arma::mat& Kin){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     int c = u_indices.size();
@@ -746,8 +769,9 @@ arma::mat vectoriseZGenetic(arma::mat Z, Rcpp::List u_indices, arma::mat P, arma
 
 
 double phiLineSearch(double disp, double lower, double upper, const int& c,
-                     arma::vec mu, arma::mat Ginv, double pi,
-                     arma::vec curr_u, arma::vec sigma, arma::vec y){
+                     const arma::vec& mu, const arma::mat& Ginv, double pi,
+                     const arma::vec& curr_u, const arma::vec& sigma,
+                     const arma::vec& y){
     // perform a bisection search for dispersion
     // evaluate the loglihood at each bound
     arma::mat littleG(c, c, arma::fill::zeros);
@@ -775,8 +799,9 @@ double phiLineSearch(double disp, double lower, double upper, const int& c,
 
 
 double phiGoldenSearch(double disp, double lower, double upper, const int& c,
-                       arma::vec mu, arma::mat Ginv, double pi,
-                       arma::vec curr_u, arma::vec sigma, arma::vec y){
+                       const arma::vec& mu, const arma::mat& Ginv, double pi,
+                       const arma::vec& curr_u, const arma::vec& sigma,
+                       const arma::vec& y){
 
     // perform a golden section search
     // function inspired by https://drlvk.github.io/nm/section-golden-section.html
@@ -825,7 +850,7 @@ double phiGoldenSearch(double disp, double lower, double upper, const int& c,
 }
 
 
-double phiMME(arma::vec y, arma::vec curr_sigma){
+double phiMME(const arma::vec& y, const arma::vec& curr_sigma){
     // use the pseudovariance and method of moments
     double ps_bar = arma::var(y);
     double y_bar = arma::mean(y);
@@ -847,7 +872,7 @@ double phiMME(arma::vec y, arma::vec curr_sigma){
 
 
 
-double nbLogLik(arma::vec mu, double phi, arma::vec y){
+double nbLogLik(const arma::vec& mu, double phi, const arma::vec& y){
     double logli = 0.0;
     arma::vec logli_indiv(y.n_rows);
     arma::vec muphi(y.n_rows);
@@ -861,7 +886,8 @@ double nbLogLik(arma::vec mu, double phi, arma::vec y){
 }
 
 
-double normLogLik(const int& c, arma::mat Ginv, arma::mat G, arma::vec curr_u, double pi){
+double normLogLik(const int& c, const arma::mat& Ginv, const arma::mat& G,
+                  const arma::vec& curr_u, double pi){
     double cdouble = (double)c;
     double detG = arma::det(G);
     double logdet = std::log(detG);

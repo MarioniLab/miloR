@@ -44,6 +44,7 @@ List pseudovarPartial_C(arma::mat Z, List u_indices){
 
 List pseudovarPartial_P(List V_partial, const arma::mat& P){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes
+    // don't be tempted to sparsify this - the overhead of casting is too expensive
     unsigned int items = V_partial.size();
     List outlist(items);
 

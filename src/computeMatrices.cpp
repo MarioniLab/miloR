@@ -98,11 +98,19 @@ arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W){
 
 arma::mat computePREML (arma::mat Vsinv, arma::mat X){
     int n = Vsinv.n_cols;
-    // int m = X.n_cols;
-    // arma::mat _mid(m , m);
-    // _mid = inv(X.t() * Vsinv * X);
-    arma::mat P(n, n);
-    P = Vsinv - (Vsinv * X * inv(X.t() * Vsinv * X) * X.t() * Vsinv); // also slow with all these multiplications
+    // arma::mat P(n, n);
+    // sparsify this for speed-up
+    arma::sp_mat sP(n, n);
+    arma::sp_mat spvsinv(Vsinv);
+    arma::sp_mat spX(X);
+    arma::sp_mat spXt(X.t());
+    arma::sp_mat sinternal(spXt * spvsinv * spX);
+    arma::mat _toinvert(sinternal);
+    arma::sp_mat _sintP(inv(_toinvert));
+
+    sP = spvsinv - (spvsinv * spX * _sintP * spXt * spvsinv);
+    arma::mat P(sP);
+    // P = Vsinv - (Vsinv * X * inv(X.t() * Vsinv * X) * X.t() * Vsinv); // also slow with all these multiplications
     return P;
 }
 
@@ -341,75 +349,75 @@ arma::mat invGmat (List u_indices, arma::vec sigmas){
 }
 
 
-arma::mat makePCGFill(const List& u_indices, const arma::mat& Kinv){
-    // this makes a matrix of the same dimension as Ginv but without
-    // the variance components
-
-    // first construct the correct sized G, i.e. c x c, then brodcast this to all RE levels
-    // make little G inverse
-    int c = u_indices.size();
-    int stot = 0;
-
-    // sum total number of levels
-    for(int i=0; i < c; i++){
-        StringVector _ir = u_indices(i);
-        stot += _ir.size();
-    }
-
-    // arma::uvec _Gindex(c); // G is always square
-    Rcpp::List Glist(1); // to store the first G
-
-    for(int x = 0; x < c; x++){
-        // create the broadcast matrix
-        arma::uvec _r = u_indices(x); // the vector of indices of Z that map to the RE
-        unsigned long q = _r.size(); // the number of levels for the RE
-
-        arma::mat sG(q, q);
-
-        if(x == c - 1){
-            unsigned long n = Kinv.n_cols;
-            if(q != n){
-                stop("RE indices and dimensions of covariance do not match");
-            } else{
-                sG = Kinv; // sub in 1.0 for 1/sigma
-            }
-        } else{
-            // create the rxr identity matrix
-            arma::mat sG(q, q, arma::fill::eye);
-        }
-
-        // grow G at each iteration here
-        if(x == 0){
-            unsigned long ig_cols = sG.n_cols;
-            unsigned long ig_rows = sG.n_rows;
-            Glist(0) = sG;
-        } else{
-            unsigned long sg_cols = sG.n_cols;
-            unsigned long sg_rows = sG.n_rows;
-
-            arma::mat G = Glist(0);
-
-            unsigned long g_cols = G.n_cols;
-            unsigned long g_rows = G.n_rows;
-
-            arma::mat gright(g_rows, sg_cols);
-            arma::mat gleft(sg_rows, g_cols);
-
-            arma::mat top(g_rows, g_cols + sg_cols);
-            arma::mat bottom(sg_rows, sg_cols + g_cols);
-
-            top = arma::join_rows(G, gright);
-            bottom = arma::join_rows(gleft, sG);
-
-            arma::mat _G(sg_rows + g_rows, sg_cols + g_cols);
-            _G = arma::join_cols(top, bottom);
-            Glist(0) = _G;
-        }
-    }
-
-    arma::mat G = Glist(0);
-    return G;
-}
+// arma::mat makePCGFill(const List& u_indices, const arma::mat& Kinv){
+//     // this makes a matrix of the same dimension as Ginv but without
+//     // the variance components
+//
+//     // first construct the correct sized G, i.e. c x c, then brodcast this to all RE levels
+//     // make little G inverse
+//     int c = u_indices.size();
+//     int stot = 0;
+//
+//     // sum total number of levels
+//     for(int i=0; i < c; i++){
+//         StringVector _ir = u_indices(i);
+//         stot += _ir.size();
+//     }
+//
+//     // arma::uvec _Gindex(c); // G is always square
+//     Rcpp::List Glist(1); // to store the first G
+//
+//     for(int x = 0; x < c; x++){
+//         // create the broadcast matrix
+//         arma::uvec _r = u_indices(x); // the vector of indices of Z that map to the RE
+//         unsigned long q = _r.size(); // the number of levels for the RE
+//
+//         arma::mat sG(q, q);
+//
+//         if(x == c - 1){
+//             unsigned long n = Kinv.n_cols;
+//             if(q != n){
+//                 stop("RE indices and dimensions of covariance do not match");
+//             } else{
+//                 sG = Kinv; // sub in 1.0 for 1/sigma
+//             }
+//         } else{
+//             // create the rxr identity matrix
+//             arma::mat sG(q, q, arma::fill::eye);
+//         }
+//
+//         // grow G at each iteration here
+//         if(x == 0){
+//             unsigned long ig_cols = sG.n_cols;
+//             unsigned long ig_rows = sG.n_rows;
+//             Glist(0) = sG;
+//         } else{
+//             unsigned long sg_cols = sG.n_cols;
+//             unsigned long sg_rows = sG.n_rows;
+//
+//             arma::mat G = Glist(0);
+//
+//             unsigned long g_cols = G.n_cols;
+//             unsigned long g_rows = G.n_rows;
+//
+//             arma::mat gright(g_rows, sg_cols);
+//             arma::mat gleft(sg_rows, g_cols);
+//
+//             arma::mat top(g_rows, g_cols + sg_cols);
+//             arma::mat bottom(sg_rows, sg_cols + g_cols);
+//
+//             top = arma::join_rows(G, gright);
+//             bottom = arma::join_rows(gleft, sG);
+//
+//             arma::mat _G(sg_rows + g_rows, sg_cols + g_cols);
+//             _G = arma::join_cols(top, bottom);
+//             Glist(0) = _G;
+//         }
+//     }
+//
+//     arma::mat G = Glist(0);
+//     return G;
+// }
 
 
 arma::mat broadcastInverseMatrix(arma::mat matrix, const unsigned int& n){
