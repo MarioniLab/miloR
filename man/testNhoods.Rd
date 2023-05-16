@@ -25,7 +25,8 @@ of \code{design.df}.}
 average cell counts across samples.}
 
 \item{model.contrasts}{A string vector that defines the contrasts used to perform
-DA testing.}
+DA testing. For a specific comparison we recommend a single contrast be passed to
+\code{testNhoods}. More details can be found in the vignette \code{milo_contrasts}.}
 
 \item{fdr.weighting}{The spatial FDR weighting scheme to use. Choice from max,
 neighbour-distance, graph-overlap or k-distance (default). If \code{none} is passed no

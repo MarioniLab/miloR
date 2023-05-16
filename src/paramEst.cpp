@@ -134,36 +134,53 @@ arma::vec fisherScore (const arma::mat& hess, const arma::vec& score_vec, const 
 
 
 arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat& Z, const arma::mat& Ginv){
-    // compute the components of the coefficient matrix for the MMEs0
+    // compute the components of the coefficient matrix for the MMEs
     // sparsification _does_ help here, despite the added overhead
+    // unsparsify
     int c = Z.n_cols;
     int m = X.n_cols;
 
-    arma::sp_mat ul(m, m);
-    arma::sp_mat ur(m, c);
-    arma::sp_mat ll(c, m);
-    arma::sp_mat lr(c, c);
+    // arma::sp_mat ul(m, m);
+    // arma::sp_mat ur(m, c);
+    // arma::sp_mat ll(c, m);
+    // arma::sp_mat lr(c, c);
+    //
+    // arma::sp_mat lhs_top(m, m+c);
+    // arma::sp_mat lhs_bot(c, m+c);
+    //
+    // arma::sp_mat res(m+c, m+c);
+    //
+    // arma::sp_mat sX(X);
+    // arma::sp_mat sZ(Z);
+    // arma::sp_mat sW(Winv);
+    // arma::sp_mat sG(Ginv);
+    //
+    // ul = sX.t() * sW * sX;
+    // ur = sX.t() * sW * sZ;
+    // ll = sZ.t() * sW * sX;
+    // lr = (sZ.t() * sW * sZ) + sG;
 
-    arma::sp_mat lhs_top(m, m+c);
-    arma::sp_mat lhs_bot(c, m+c);
+    arma::mat ul(m, m);
+    arma::mat ur(m, c);
+    arma::mat ll(c, m);
+    arma::mat lr(c, c);
 
-    arma::sp_mat res(m+c, m+c);
+    arma::mat lhs_top(m, m+c);
+    arma::mat lhs_bot(c, m+c);
 
-    arma::sp_mat sX(X);
-    arma::sp_mat sZ(Z);
-    arma::sp_mat sW(Winv);
-    arma::sp_mat sG(Ginv);
+    arma::mat lhs(m+c, m+c);
 
-    ul = sX.t() * sW * sX;
-    ur = sX.t() * sW * sZ;
-    ll = sZ.t() * sW * sX;
-    lr = (sZ.t() * sW * sZ) + sG;
+    ul = X.t() * Winv * X;
+    ur = X.t() * Winv * Z;
+    ll = Z.t() * Winv * X;
+    lr = (Z.t() * Winv * Z) + Ginv;
 
     lhs_top = arma::join_rows(ul, ur); // join_rows matches the rows i.e. glue columns together
     lhs_bot = arma::join_rows(ll, lr);
 
-    res = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
-    arma::mat lhs(res);
+    lhs = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
+    // res = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
+    // arma::mat lhs(res);
     return lhs;
 }
 
