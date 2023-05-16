@@ -44,6 +44,12 @@ method by Anders & Huber, 2010, to compute normalisation factors relative to a r
 the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 when there are very large compositional differences between samples.}
 
+\item{cell.sizes}{A named numeric vector of cell numbers per experimental samples. Names should correspond
+to the columns of \code{nhoodCounts}. This can be used to define the model normalisation factors based on
+a set of numbers instead of the \codes{colSums(nhoodCounts(x))}. The example use-case is when performing an
+analysis of a subset of nhoods while retaining the need to normalisation based on the numbers of cells
+collected for each experimental sample to avoid compositional biases. Infinite or NA values will give an error.}
+
 \item{reduced.dim}{A character scalar referring to the reduced dimensional slot used to compute distances for
 the spatial FDR. This should be the same as used for graph building.}
 

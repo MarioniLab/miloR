@@ -37,7 +37,7 @@
 #' to the columns of \code{nhoodCounts}. This can be used to define the model normalisation factors based on
 #' a set of numbers instead of the \codes{colSums(nhoodCounts(x))}. The example use-case is when performing an
 #' analysis of a subset of nhoods while retaining the need to normalisation based on the numbers of cells
-#' collected for each experimental sample to avoid compositional biases.
+#' collected for each experimental sample to avoid compositional biases. Infinite or NA values will give an error.
 #' @param reduced.dim A character scalar referring to the reduced dimensional slot used to compute distances for
 #' the spatial FDR. This should be the same as used for graph building.
 #' @param REML A logical scalar that controls the variance component behaviour to use either restricted maximum
@@ -366,6 +366,11 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
     if(isTRUE(is.null(cell.sizes))){
         cell.sizes <- colSums(nhoodCounts(x)[keep.nh, keep.samps])
+    } else{
+        check_inf_na <- any(is.na(cell.sizes)) | any(is.infinite(cell.sizes))
+        if(isTRUE(check_inf_na)){
+            stop("NA or Infinite values found in cell.sizes - remove samples these and re-try")
+        }
     }
 
     if(length(norm.method) > 1){

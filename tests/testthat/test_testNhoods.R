@@ -260,4 +260,20 @@ test_that("Invalid formulae give expected errors", {
                  "is an invalid formula for random effects")
 })
 
+test_that("NA or Inf cell sizes causes the expected errors", {
+    cell.sizes.na <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.na[1] <- NA
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.na)),
+                 "NA or Infinite values found in cell\\.sizes")
+
+    cell.sizes.inf <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.inf[1] <- Inf
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.inf)),
+                                  "NA or Infinite values found in cell\\.sizes")
+})
+
 
