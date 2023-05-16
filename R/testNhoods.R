@@ -33,6 +33,11 @@
 #' method by Anders & Huber, 2010, to compute normalisation factors relative to a reference computed from
 #' the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 #' when there are very large compositional differences between samples.
+#' @param cell.sizes A named numeric vector of cell numbers per experimental samples. Names should correspond
+#' to the columns of \code{nhoodCounts}. This can be used to define the model normalisation factors based on
+#' a set of numbers instead of the \codes{colSums(nhoodCounts(x))}. The example use-case is when performing an
+#' analysis of a subset of nhoods while retaining the need to normalisation based on the numbers of cells
+#' collected for each experimental sample to avoid compositional biases.
 #' @param reduced.dim A character scalar referring to the reduced dimensional slot used to compute distances for
 #' the spatial FDR. This should be the same as used for graph building.
 #' @param REML A logical scalar that controls the variance component behaviour to use either restricted maximum
@@ -138,7 +143,8 @@ NULL
 testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
-                       norm.method=c("TMM", "RLE", "logMS"), max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
+                       norm.method=c("TMM", "RLE", "logMS"), cell.sizes=NULL,
+                       max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
                        subset.nhoods=NULL, fail.on.error=FALSE, BPPARAM=SerialParam()){
     is.lmm <- FALSE
     geno.only <- FALSE
@@ -358,25 +364,29 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         }
     }
 
+    if(isTRUE(is.null(cell.sizes))){
+        cell.sizes <- colSums(nhoodCounts(x)[keep.nh, keep.samps])
+    }
+
     if(length(norm.method) > 1){
         message("Using TMM normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+                       lib.size=cell.sizes)
         dge <- calcNormFactors(dge, method="TMM")
     } else if(norm.method %in% c("TMM")){
         message("Using TMM normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+                       lib.size=cell.sizes)
         dge <- calcNormFactors(dge, method="TMM")
     } else if(norm.method %in% c("RLE")){
         message("Using RLE normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+                       lib.size=cell.sizes)
         dge <- calcNormFactors(dge, method="RLE")
     }else if(norm.method %in% c("logMS")){
         message("Using logMS normalisation")
         dge <- DGEList(counts=nhoodCounts(x)[keep.nh, keep.samps],
-                       lib.size=colSums(nhoodCounts(x)[keep.nh, keep.samps]))
+                       lib.size=cell.sizes)
     }
 
     dge <- estimateDisp(dge, x.model)
