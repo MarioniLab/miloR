@@ -187,14 +187,15 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
 
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
-  } else if(is.factor(V(nh_graph_pl)$colour_by)){
-      mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
+  } else {
+      if(is.factor(V(nh_graph)$colour_by)){
+          mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
+          } else{
+              mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
+          }
       pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
-  } else{
-    mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
-    pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
   }
-  pl
+  return(pl)
   }
 
 #' Plot Milo results on graph of neighbourhood
