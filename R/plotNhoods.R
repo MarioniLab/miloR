@@ -141,9 +141,11 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
     if (colour_by %in% colnames(colData(x))) {
 
       col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
-      if (!is.numeric(col_vals)) {
-        col_vals <- as.character(col_vals)
-        }
+      if(!is.factor(col_vals)){
+          if(!is.numeric(col_vals)) {
+              col_vals <- as.character(col_vals)
+          }
+      }
       V(nh_graph)$colour_by <- col_vals
     } else {
       stop(colour_by, "is not a column in colData(x)")
