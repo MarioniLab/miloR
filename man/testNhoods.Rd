@@ -46,7 +46,7 @@ when there are very large compositional differences between samples.}
 
 \item{cell.sizes}{A named numeric vector of cell numbers per experimental samples. Names should correspond
 to the columns of \code{nhoodCounts}. This can be used to define the model normalisation factors based on
-a set of numbers instead of the \codes{colSums(nhoodCounts(x))}. The example use-case is when performing an
+a set of numbers instead of the \code{colSums(nhoodCounts(x))}. The example use-case is when performing an
 analysis of a subset of nhoods while retaining the need to normalisation based on the numbers of cells
 collected for each experimental sample to avoid compositional biases. Infinite or NA values will give an error.}
 

@@ -287,12 +287,15 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   # allow override of colour_by aesthetic
   if(length(list(...))){
       if(any(names(list(...)) %in% c("colour_by"))){
-          plotNhoodGraph(x, ... )
+          pl <- plotNhoodGraph(x, ... )
+      } else{
+          pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
           }
   } else{
-      plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+      pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
   }
 
+  return(pl)
 }
 
 #' Visualize gene expression in neighbourhoods
