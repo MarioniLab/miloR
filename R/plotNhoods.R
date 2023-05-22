@@ -139,8 +139,13 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   ## Define node color
   if (!is.na(colour_by)) {
     if (colour_by %in% colnames(colData(x))) {
-
-      col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
+        if(is.factor(colData(x)[, colour_by])){
+            col_levels <- levels(colData(x)[, colour_by])
+            col_vals <- as.character(colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by])
+            col_vals <- factor(col_vals, levels=col_levels)
+        } else{
+            col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
+        }
       if(!is.factor(col_vals)){
           if(!is.numeric(col_vals)) {
               col_vals <- as.character(col_vals)
@@ -182,7 +187,10 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
 
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
-  } else {
+  } else if(is.factor(V(nh_graph_pl)$colour_by)){
+      mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
+      pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
+  } else{
     mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
     pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
   }
