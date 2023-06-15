@@ -1,7 +1,7 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 1.7.1
+Version: 1.9.1
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk"),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
@@ -60,7 +60,7 @@ Suggests:
     RCurl,
     curl,
     graphics
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.3
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
 Collate: 
