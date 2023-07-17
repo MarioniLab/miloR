@@ -1,0 +1,269 @@
+---
+title: "Mixed effect models for Milo DA testing"
+author: "Mike Morgan"
+date: "14/03/2023"
+output:
+  BiocStyle::html_document:
+    toc_float: true
+  BiocStyle::pdf_document: default
+package: miloR
+vignette: |
+  %\VignetteIndexEntry{Mixed effect models for Milo DA testing}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = FALSE
+)
+```
+
+
+```{r setup, message=FALSE, warning=FALSE}
+library(miloR)
+library(SingleCellExperiment)
+library(scater)
+library(scran)
+library(dplyr)
+library(patchwork)
+library(scRNAseq)
+library(scuttle)
+library(irlba)
+library(BiocParallel)
+library(ggplot2)
+```
+
+
+# Introduction
+
+Our first implementation of Milo used a negative binomial GLM to perform hypothesis testing and identify differentially abundant neighbourhoods. GLMs are incredibly powerful, 
+but they have certain limitations. Notably, they assume that the dependent variable (nhood counts) are (conditionally) independently and identically distributed - that means 
+there can't be any relationship between the individual counts e.g. they can't be derived from the same individual. This creates a dependency between count observations in the 
+same nhood and can lead to inflated type I error rates. This is especially problematic when considering genetic analyses and organisms of the same species share a genetic 
+ancestry, which in humans only goes back ~100,000 years. In the simplest example, imagine we performed single-cell experiments on individuals from multiple families, and from 
+each family we included siblings and parents. Within a family the individuals would share on average 50% of their DNA, so the observations for DA testing wouldn't be independent. 
+For more distantly related individuals the relationships are smaller, but can be non-trivial, particularly as sample sizes increase.  It's not just genetics that leads to 
+dependencies, multiple measurements from the same individual, e.g. multiple time points or from different organs, can also introduce dependency between observations.
+
+We have opted to use GLMM to address this problem as they are very powerful and can explicitly account for fairly arbitrary dependencies, as long as they can be encoded either 
+as a multi-level factor variable (sometimes referred to as clusters in the mixed effect model literature) or by an nXn matrix.
+
+For the purpose of demonstrating how to use Milo in GLMM mode I'll use a data set `KotliarovPBMC` from the `scRNAseq` package. These data are derived from SLE patients with 
+variable treatment responses. This should allow us to model the batching as a random effect variable while testing for differential abundance between the high and low drug 
+responders.
+
+# Load data
+
+We will use the `KotliarovPBMCData` data set as there are multiple groups that we can compare.
+
+```{r}
+pbmc.sce <- KotliarovPBMCData(mode="rna", ensembl=TRUE) # download the PBMC data from Kotliarov _et al._
+pbmc.sce
+```
+# Data processing and normalisation
+
+```{r}
+set.seed(42)
+# remove sparser cells
+drop.cells <- colSums(counts(pbmc.sce)) < 1000
+pbmc.sce <- computeSumFactors(pbmc.sce[, !drop.cells])
+pbmc.sce <- logNormCounts(pbmc.sce)
+
+pbmc.hvg <- modelGeneVar(pbmc.sce)
+pbmc.hvg$FDR[is.na(pbmc.hvg$FDR)] <- 1
+reducedDim(pbmc.sce, "PCA") <- prcomp_irlba(t(logcounts(pbmc.sce[pbmc.hvg$FDR < 0.1, ])), n=50, center=TRUE, scale.=TRUE)$x
+pbmc.sce
+```
+
+# Define cell neighbourhoods
+
+```{r, fig.height=4.1, fig.width=10.5}
+set.seed(42)
+pbmc.sce <- runUMAP(pbmc.sce, n_neighbors=30, pca=50) # add a UMAP for plotting results later
+
+pbmc.milo <- Milo(pbmc.sce) # from the SCE object
+reducedDim(pbmc.milo, "UMAP") <- reducedDim(pbmc.sce, "UMAP")
+
+plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotUMAP(pbmc.milo, colour_by="sampleid")
+```
+
+These UMAPs shows how the different constituent cell types of PBMCs distributed across the drug response categories (left) and samples (right). Next we build the KNN graph and 
+define neighbourhoods to quantify cell abundance across our experimental samples.
+
+```{r}
+set.seed(42)
+# we build KNN graph
+pbmc.milo <- buildGraph(pbmc.milo, k = 60, d = 30)
+pbmc.milo <- makeNhoods(pbmc.milo, prop = 0.05, k = 60, d=30, refined = TRUE, refinement_scheme="graph") # make nhoods using graph-only as this is faster
+colData(pbmc.milo)$ObsID <- paste(colData(pbmc.milo)$tenx_lane, colData(pbmc.milo)$sampleid, sep="_")
+pbmc.milo <- countCells(pbmc.milo, meta.data = data.frame(colData(pbmc.milo)), samples="ObsID") # make the nhood X sample counts matrix
+pbmc.milo
+``` 
+
+Do we have a good distribution of nhood sizes?
+
+```{r}
+plotNhoodSizeHist(pbmc.milo)
+```
+
+The smallest nhood is 60 (we used k=60) - that should be sufficient for the number of samples (N~120)
+
+# Demonstrating the GLMM syntax
+
+Now we have the pieces in place for DA testing to demonstrate how to use the GLMM. We should first consider what our random effect variable is. There is a fair bit of debate on 
+what constitutes a random effect vs. a fixed effect. As a rule of thumb, we can ask if the groups are randomly selected from a larger population of possible groups. For instance, 
+if we recruited patients from 5 hospitals, could we consider the hospital as a random effect if there are actually 500 hospitals that we could have chosen?  For these PBMC data 
+we don't have a variable in the experiment that fits this decision _per se_, so the `tenx_lane` will be arbitrarily selected (assuming cells were randomly assigned to batches).
+
+```{r}
+pbmc.design <- data.frame(colData(pbmc.milo))[,c("tenx_lane", "adjmfc.time", "sample", "sampleid", "timepoint", "ObsID")]
+pbmc.design <- distinct(pbmc.design)
+rownames(pbmc.design) <- pbmc.design$ObsID
+## Reorder rownames to match columns of nhoodCounts(milo)
+pbmc.design <- pbmc.design[colnames(nhoodCounts(pbmc.milo)), , drop=FALSE]
+table(pbmc.design$adjmfc.time)
+```
+
+We encode the fixed effect variables as normal - but the random effects are different. We encode them as `(1|variable)` which tells the model that this is a random intercept.  There 
+are also random slopes GLMMs, but Milo doesn't currently work with these. There are few other arguments we have to pass to `testNhoods`. We need to consider what solver we use, as 
+the parameter estimation is a little more complex. The options are 'Fisher', 'HE' or 'HE-NNLS'; the latter refers to a constrained optimisation for the variance components. If at 
+any point during the optimisation negative variance estimates are encountered, then Milo will produce a warning message and automatically switch to 'HE-NNLS'. As we are estimating 
+variances, we also want these to be unbiased, so we use restricted maximum likelihood (`REML=TRUE`). Note that NB-GLMMs are by construction slower than NB-GLMs as there are additional 
+matrix inversion steps that don't scale very nicely. While we have made every effort to reduce the computational burden we are still limited by the bounds of matrix algebra!
+
+```{r}
+set.seed(42)
+rownames(pbmc.design) <- pbmc.design$ObsID
+bpparam <- SerialParam()
+register(bpparam)
+
+da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
+                         glmm.solver="HE-NNLS", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
+table(da_results$SpatialFDR < 0.1)
+```
+
+We can see that the GLMM produces a warning if parameters don't converge - this is important because we want to know if we can trust our estimates or not. One way to handle this 
+is to increase `max.iters` (default is 50) - the downside is that this will increase the compute time and doesn't guarantee convergence. If the nhood counts are very sparse then this 
+can cause problems as there isn't much information/variance from which to learn the (locally) optimal parameter values. An additional point is that the GLMM may fail on some nhoods, 
+likely due to singular Hessian matrices during parameter estimation. These nhoods will have results with all `NA` values.
+
+```{r}
+which(is.na(da_results$logFC))
+```
+
+In this analysis there are `r length(which(is.na(da_results$logFC)))` nhood models that failed. If this happens to a large number of nhoods then there may be issues with the 
+combination of variables in the model, nhood counts might have a lot of zero-values, or there could be separation. For the latter `checkSeparation` can be used to check for all-zero 
+values in the testing variables of interest. If any nhoods have perfect separation between zero and non-zero counts on a variable level then these nhoods can be excluded from the 
+analysis.
+
+```{r}
+which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=3))
+```
+
+Here we can see that nhood 1632 can be separated into counts >= 2 and < 2 on our test variable `adjmfc.time` - this is the same nhood that encounters a model failure in our GLMM. We 
+can also visualise the count distribution to confirm this using `plotNhoodCounts` (kindly contributed by Nick Hirschmüller).
+
+```{r}
+plotNhoodCounts(pbmc.milo, which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=3)), 
+                design.df=pbmc.design, condition="adjmfc.time")
+```
+
+This shows the extremely low counts in the d0 high group, or specifically, that only a single observation is non-zero.
+
+As with the GLM implementation, the GLMM calculates a log fold-change and corrected P-value for each neighbourhood, which indicates whether there is significant differential 
+abundance between conditions for `r sum(da_results$SpatialFDR < 0.1)` neighbourhoods. The hypothesis testing is slightly different - for the GLM we use `edgeR::glmQLFTest` which 
+performs an F-test on the quasi-likelihood negative binomial fit. In the GLMM we use a pseudo-likelihood, so we instead we opt for a Wald-type test on the fixed effect variable 
+log-fold change; FDR correction is performed the same.
+
+The output of `testNhoods` with a GLMM has some additional columns that are worth exploring.
+
+```{r}
+head(da_results[!is.na(da_results$logFC), ])
+```
+
+Due to the way parameter estimation is performed in the GLMM, we can directly compute standard errors (SE column) - these are used to compute the subequent test statistic (tvalue) 
+and p-value. We next have the variance parameter estimate for each random effect variable (here 'tenx_lane variance'). As we use constrained optimisation to prevent negative 
+estimates some of these values will be bounded at 1e-8. We then have a column that determines which nhoods have converged - this can be useful for checking if, for example, the 
+inference is different between converged and not-converged nhoods. We also return the estimated dispersion value and the log pseudo-likelihood in addition the same columns in 
+the results table when using the GLM.
+
+We can also inspect our results as we would for the GLM, by using the neighbourhood graph produced by `buildNhoodGraph`
+
+```{r, fig.width=10, fig.height=4.5}
+pbmc.milo <- buildNhoodGraph(pbmc.milo, overlap=25)
+
+# we need to subset the plotting results as it can't handle the NAs internally.
+plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, da_results[!is.na(da_results$logFC), ],
+                                                                subset.nhoods=!is.na(da_results$logFC), alpha=0.1) +
+  plot_layout(guides="auto" )
+```
+
+We can see that there are some complex differences between the high and low responder patients. How does this compare to running the same analysis with a GLM using the batching 
+variable as a fixed effect?
+
+```{r}
+set.seed(42)
+# we need to use place the test variable at the end of the formula
+glm_results <- testNhoods(pbmc.milo, design = ~ tenx_lane + adjmfc.time, design.df = pbmc.design, fdr.weighting="graph-overlap",
+                          REML=TRUE, norm.method="TMM", BPPARAM = bpparam)
+table(glm_results$SpatialFDR < 0.1)
+```
+
+The first and obvious difference is that we have fewer DA nhoods. We can attribute this to the fact that the GLM uses more degrees of freedom to model the batching variable which 
+reduces the overall statistical power.
+
+```{r, fig.width=10, fig.height=4.5}
+plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, glm_results, alpha=0.1) +
+  plot_layout(guides="auto" )
+```
+
+We can do a side-by-side comparison of the estimated log fold changes from the GLM and GLMM.
+
+```{r}
+comp.da <- merge(da_results, glm_results, by='Nhood')
+comp.da$Sig <- "none"
+comp.da$Sig[comp.da$SpatialFDR.x < 0.1 & comp.da$SpatialFDR.y < 0.1] <- "Both"
+comp.da$Sig[comp.da$SpatialFDR.x >= 0.1 & comp.da$SpatialFDR.y < 0.1] <- "GLM"
+comp.da$Sig[comp.da$SpatialFDR.x < 0.1 & comp.da$SpatialFDR.y >= 0.1] <- "GLMM"
+
+ggplot(comp.da, aes(x=logFC.x, y=logFC.y)) +
+    geom_point(data=comp.da[, c("logFC.x", "logFC.y")], aes(x=logFC.x, y=logFC.y),
+               colour='grey80', size=1) +
+    geom_point(aes(colour=Sig)) +
+    labs(x="GLMM LFC", y="GLM LFC") +
+    facet_wrap(~Sig) +
+    NULL
+```
+
+This shows that the parameter estimates are extremely similar - this is what we _should_ expect to see. We can see that both models identify the nhoods with the strongest DA. The 
+difference appears in the nhoods that are more modestly DA - the GLMM has more power to identify these.
+
+# A note on when to use GLMM vs. GLM
+
+In general, GLMMs require larger samples sizes than GLMs - the power gain comes from the narrower scope of the GLMM in it's inference that leads to (generally) smaller standard 
+errors and thus bigger test statistics. That doesn't mean that GLMMs are inherently better than GLMs - with great power comes great responsibilities, and it's easy to abuse 
+a mixed effect model. In general I wouldn't recommend using a GLMM with fewer than 50 observations and a good case for including a variable as a random effect. The simplest 
+case for this is where you have multiple observations per experimental individual/sample and thus the nhood counts are not i.i.d. The other  obvious case, as discussed in the intro 
+is for genetic analysis or for time course data.
+
+
+<details>
+  <summary>**Session Info**</summary>
+  
+```{r}
+sessionInfo()
+```
+
+</details>
+
+
+
+
+
+
+
+
+
+
+

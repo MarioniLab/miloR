@@ -13,9 +13,11 @@ fitGLMM(
   Kin = NULL,
   random.levels = NULL,
   REML = FALSE,
-  glmm.control = list(theta.tol = 1e-06, max.iter = 100),
-  dispersion = 0.5,
-  geno.only = FALSE
+  glmm.control = list(theta.tol = 1e-06, max.iter = 100, init.sigma = NULL, init.beta =
+    NULL, init.u = NULL, solver = NULL),
+  dispersion = 1,
+  geno.only = FALSE,
+  solver = NULL
 )
 }
 \arguments{
@@ -35,16 +37,72 @@ fitGLMM(
 
 \item{REML}{A logical value denoting whether REML (Restricted Maximum Likelihood) should be run. Default is TRUE.}
 
-\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model and the maximum number of iterations to be run.}
+\item{glmm.control}{A list containing parameter values specifying the theta tolerance of the model, the maximum number of iterations to be run,
+initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).}
 
-\item{dispersion}{A scalar value for the dispersion of the negative binomial.}
+\item{dispersion}{A scalar value for the initial dispersion of the negative binomial.}
 
 \item{geno.only}{A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.}
+
+\item{solver}{a character value that determines which optimisation algorithm is used for the variance components. Must be either
+HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
+}
+\value{
+A list containing the GLMM output, including inference results. The list elements are as follows:
+\describe{
+\item{\code{FE}:}{\code{numeric} vector of fixed effect parameter estimates.}
+\item{\code{RE}:}{\code{list} of the same length as the number of random effect variables. Each slot contains the best
+linear unbiased predictors (BLUPs) for the levels of the corresponding RE variable.}
+\item{\code{Sigma:}}{\code{numeric} vector of variance component estimates, 1 per random effect variable.}
+\item{\code{converged:}}{\code{logical} scalar of whether the model has reached the convergence tolerance or not.}
+\item{\code{Iters:}}{\code{numeric} scalar with the number of iterations that the model ran for. Is strictly <= \code{max.iter}.}
+\item{\code{Dispersion:}}{\code{numeric} scalar of the dispersion estimate computed off-line}
+\item{\code{Hessian:}}{\code{matrix} of 2nd derivative elements from the fixed and random effect parameter inference.}
+\item{\code{SE:}}{\code{matrix} of standard error estimates, derived from the hessian, i.e. the square roots of the diagonal elements.}
+\item{\code{t:}}{\code{numeric} vector containing the compute t-score for each fixed effect variable.}
+\item{\code{COEFF:}}{\code{matrix} containing the coefficient matrix from the mixed model equations.}
+\item{\code{P:}}{\code{matrix} containing the elements of the REML projection matrix.}
+\item{\code{Vpartial:}}{\code{list} containing the partial derivatives of the (pseudo)variance matrix with respect to each variance
+component.}
+\item{\code{Ginv:}}{\code{matrix} of the inverse variance components broadcast to the full Z matrix.}
+\item{\code{Vsinv:}}{\code{matrix} of the inverse pseudovariance.}
+\item{\code{Winv:}}{\code{matrix} of the inverse elements of W = D^-1 V D^-1}
+\item{\code{VCOV:}}{\code{matrix} of the variance-covariance for all model fixed and random effect variable parameter estimates.
+This is required to compute the degrees of freedom for the fixed effect parameter inference.}
+\item{\code{DF:}}{\code{numeric} vector of the number of inferred degrees of freedom. For details see \link{Satterthwaite_df}.}
+\item{\code{PVALS:}}{\code{numeric} vector of the compute p-values from a t-distribution with the inferred number of degrees of
+freedom.}
+\item{\code{ERROR:}}{\code{list} containing Rcpp error messages - used for internal checking.}
+}
 }
 \description{
 This function will perform DA testing per-nhood using a negative binomial generalised linear mixed model
 }
 \details{
 This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
-this function is run to solve the model.
+this function is run to solve the model. The solver defaults to the \emph{Fisher} optimiser, and in the case of negative variance estimates
+it will switch to the non-negative least squares (NNLS) Haseman-Elston solver. This behaviour can be pre-set by passing
+\code{glmm.control$solver="HE"} for Haseman-Elston regression, which is the recommended solver when a covariance matrix is provided,
+or \code{glmm.control$solver="HE-NNLS"} which is the constrained HE optimisation algorithm.
+}
+\examples{
+data(sim_nbglmm)
+random.levels <- list("RE1"=paste("RE1", levels(as.factor(sim_nbglmm$RE1)), sep="_"),
+                      "RE2"=paste("RE2", levels(as.factor(sim_nbglmm$RE2)), sep="_"))
+X <- as.matrix(data.frame("Intercept"=rep(1, nrow(sim_nbglmm)), "FE2"=as.numeric(sim_nbglmm$FE2)))
+Z <- as.matrix(data.frame("RE1"=paste("RE1", as.numeric(sim_nbglmm$RE1), sep="_"),
+                          "RE2"=paste("RE2", as.numeric(sim_nbglmm$RE2), sep="_")))
+y <- sim_nbglmm$Mean.Count
+dispersion <- 0.5
+
+glmm.control <- glmmControl.defaults()
+glmm.control$theta.tol <- 1e-6
+glmm.control$max.iter <- 15
+model.list <- fitGLMM(X=X, Z=Z, y=y, offsets=rep(0, nrow(X)), random.levels=random.levels,
+                      REML = TRUE, glmm.control=glmm.control, dispersion=dispersion, solver="Fisher")
+model.list
+
+}
+\author{
+Mike Morgan
 }

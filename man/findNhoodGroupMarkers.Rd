@@ -77,5 +77,6 @@ the latter it is recommended to set \code{gene.offset=TRUE} as this behaviour ad
 the model offsets by the number of detected genes in each cell.
 }
 \examples{
+NULL
 
 }

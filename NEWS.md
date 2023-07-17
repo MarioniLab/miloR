@@ -1,3 +1,12 @@
+# 1.7.1 (2023-02-15)
++ Patch to fix `NA` plotting in `plotDABeeswarm`
+
+# 1.60 (2022-11-02)
++ Vignette describing the use of contrasts in `testNhoods`
+
+# 1.5.0 (2022-04-27)
++ Introduce plotting function to visualise neighbourhood count distributions for nhoods interest: `plotNhoodCounts`. Implemented by Nick Hirschmüller
+
 # 1.3.1 (2022-01-07)
 + Fix bug in `findNhoodGroupMarkers` to merge on gene IDs explicitly
 + Fix bug in `makeNhoods` to include index cell in nhoods() matrix

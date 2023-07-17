@@ -6,18 +6,33 @@
 // using namespace Rcpp;
 
 // All functions used for inference
-// [[Rcpp::export]]
 arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     // compute the fixed effect standard errors from the MME coefficient matrix
-    const int& l = coeff_mat.n_cols;
-    const int& p = coeff_mat.n_rows;
-    arma::mat ul(m, m);
-    ul = coeff_mat(arma::span(0, m-1), arma::span(0, m-1)); // m X m
-    arma::mat ur(coeff_mat.submat(0, m+c-1, m-1, l-1)); // m X l
-    arma::mat ll(coeff_mat.submat(m, 0, p-1, m-1)); //p X m
-    arma::mat lr(coeff_mat.submat(m, m+c-1, p-1, l-1)); // p X l
-    
+
+    const int& l = coeff_mat.n_cols; // this should be m + c
+    const int& p = coeff_mat.n_rows; // this should be m + c
+
+    const int& scol = m + c;
+    const int& srow = m + c;
+    if(l != scol){
+        Rcpp::Rcout << scol << std::endl;
+        Rcpp::Rcout << l << std::endl;
+        Rcpp::Rcout << p << std::endl;
+        Rcpp::stop("N cols and input dimensions m + c are not equal");
+    }
+
+    if(p != srow){
+        Rcpp::stop("N rows and input dimensions m + c are not equal");
+    }
+
+    arma::mat ul(coeff_mat.submat(0, 0, m-1, m-1)); // m X m
+    arma::mat ur(coeff_mat.submat(0, m, m-1, m+c-1)); // m X l
+    arma::mat ll(coeff_mat.submat(m, 0, m+c-1, m-1)); // p X m
+    arma::mat lr(coeff_mat.submat(m, m, m+c-1, m+c-1)); // p X l
+
+
     arma::mat _se(ul - ur * lr.i() * ll); // m X m - (m X c X m) <- this should commute
+    arma::vec se(m+c);
     // will need a check here for singular hessians...
     try{
         double _rcond = arma::rcond(_se);
@@ -30,18 +45,18 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
         }
 
         arma::mat _seInv(_se.i());
-        arma::vec se(arma::sqrt(_seInv.diag()));
-        return se;
+        // arma::vec se(arma::sqrt(_seInv.diag()));
+        se = arma::sqrt(_seInv.diag());
     } catch(std::exception &ex){
         forward_exception_to_r(ex);
     } catch(...){
         Rf_error("c++ exception (unknown reason)");
     }
 
-
+    return se;
 }
 
-// [[Rcpp::export]]
+
 arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
 
     const int& m = curr_beta.size();
@@ -64,7 +79,7 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
     return tscore;
 }
 
-// [[Rcpp::export]]
+
 arma::mat varCovar(const Rcpp::List& psvari, const int& c){
 
     arma::mat Va(c, c);

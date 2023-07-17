@@ -8,6 +8,7 @@ library(scater)
 library(irlba)
 library(MASS)
 library(mvtnorm)
+library(BiocParallel)
 
 set.seed(42)
 r.n <- 1000
@@ -249,15 +250,30 @@ test_that("Singular Hessians are detectable and fail appropriately", {
 
     # collinear fixed and random effects
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
-                            design.df=sim1.meta)),
-                 "Hessian is computationally singular")
-
-    # more variables than observations
-    set.seed(42)
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition_num + (1|Replicate_num) + (1|Replicate2),
-                                             design.df=sim1.meta)),
-                 "Zero eigenvalues in D")
+                            design.df=sim1.meta, glmm.solver="Fisher", fail.on.error=TRUE)),
+                 "Coefficients Hessian is computationally singular")
 })
 
+test_that("Invalid formulae give expected errors", {
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (50|Condition),
+                                             design.df=sim1.meta, glmm.solver="Fisher")),
+                 "is an invalid formula for random effects")
+})
+
+test_that("NA or Inf cell sizes causes the expected errors", {
+    cell.sizes.na <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.na[1] <- NA
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.na)),
+                 "NA or Infinite values found in cell\\.sizes")
+
+    cell.sizes.inf <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.inf[1] <- Inf
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.inf)),
+                                  "NA or Infinite values found in cell\\.sizes")
+})
 
 

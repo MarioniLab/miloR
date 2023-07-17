@@ -79,12 +79,17 @@
         v.terms <- v.terms[!is.na(v.terms)]
         d.mat <- as.matrix(design.df[, trimws(v.terms)])
         if (is.character(d.mat)) {
-            d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE], function(x) as.integer(factor(x)))), ncol = length(v.terms))
+            d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE],
+                                          function(x) as.integer(factor(x)))), ncol = length(v.terms))
         }
         colnames(d.mat) <- trimws(v.terms)
     } else if(vtype %in% c("fe")){
         v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
-        d.mat <- model.matrix(as.formula(paste("~", v.terms)), data = design.df)
+        if(length(v.terms) > 1){
+            v.terms <- paste(v.terms, collapse=" + ")
+        }
+
+        d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
         d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
     } else{
         stop("vtype ", vtype, " not recognised")

@@ -4,7 +4,7 @@
 \alias{annotateNhoods}
 \title{Add annotations from colData to DA testing results}
 \usage{
-annotateNhoods(x, da.res, coldata_col)
+annotateNhoods(x, da.res, coldata_col, subset.nhoods = NULL)
 }
 \arguments{
 \item{x}{A \code{\linkS4class{Milo}} object containing single-cell gene expression
@@ -15,6 +15,12 @@ and neighbourhoods.}
 
 \item{coldata_col}{A character scalar determining which column of \code{colData(x)} stores
 the annotation to be added to the neighbourhoods}
+
+\item{subset.nhoods}{A character, numeric or logical vector that will subset the annotation to the specific nhoods. If
+a character vector these should correspond to row names of \code{nhoodCounts}. If a logical vector then
+these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
+to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
+an error will be produced. This is necessary if \code{testNhoods} was run using \code{subset.nhoods=...}.}
 }
 \value{
 A \code{data.frame} of model results (as \code{da.res} input) with two new columns: (1) \code{coldata_col} storing

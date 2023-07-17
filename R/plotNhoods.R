@@ -84,7 +84,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' \code{\linkS4class{Milo}} object to use for layout (default: 'UMAP') (b) an igraph layout object
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
 #' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
-#' (default: NULL, no subsetting)
+#' (default: NULL, no subsetting). This is necessary if \code{testNhoods} was run using \code{subset.nhoods=...}.
 #' @param size_range a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
 #' in the graph)
 #' @param node_stroke a numeric indicating the desired thickness of the border around each node
@@ -139,11 +139,18 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   ## Define node color
   if (!is.na(colour_by)) {
     if (colour_by %in% colnames(colData(x))) {
-
-      col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
-      if (!is.numeric(col_vals)) {
-        col_vals <- as.character(col_vals)
+        if(is.factor(colData(x)[, colour_by])){
+            col_levels <- levels(colData(x)[, colour_by])
+            col_vals <- as.character(colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by])
+            col_vals <- factor(col_vals, levels=col_levels)
+        } else{
+            col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
         }
+      if(!is.factor(col_vals)){
+          if(!is.numeric(col_vals)) {
+              col_vals <- as.character(col_vals)
+          }
+      }
       V(nh_graph)$colour_by <- col_vals
     } else {
       stop(colour_by, "is not a column in colData(x)")
@@ -181,10 +188,14 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
   } else {
-    mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
-    pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
+      if(is.factor(V(nh_graph)$colour_by)){
+          mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
+          } else{
+              mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
+          }
+      pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
   }
-  pl
+  return(pl)
   }
 
 #' Plot Milo results on graph of neighbourhood
@@ -222,7 +233,16 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   signif_res <- milo_res
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
-  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+
+  # this needs to handle nhood subsetting.
+  if(any(names(list(...)) %in% c("subset.nhoods"))){
+      subset.nhoods <- list(...)$subset.nhoods
+      sub.indices <- nhoodIndex(x)[subset.nhoods]
+      colData(x)[unlist(sub.indices[signif_res$Nhood]), res_column] <- signif_res[,res_column]
+  } else{
+      colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+  }
+
 
   ## Plot logFC
   plotNhoodGraph(x, colour_by = res_column, ... )
@@ -246,7 +266,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
 #' NULL
 #'
 #' @export
-#' @rdname plotNhoodGraphDA
+#' @rdname plotNhoodGroups
 #' @import igraph
 plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   if(!.valid_graph(nhoodGraph(x))){
@@ -275,7 +295,18 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   colData(x)[unlist(nhoodIndex(x)[groups_res$Nhood]),"NhoodGroup"] <- groups_res$NhoodGroup
 
   ## Plot logFC
-  plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  # allow override of colour_by aesthetic
+  if(length(list(...))){
+      if(any(names(list(...)) %in% c("colour_by"))){
+          pl <- plotNhoodGraph(x, ... )
+      } else{
+          pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+          }
+  } else{
+      pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  }
+
+  return(pl)
 }
 
 #' Visualize gene expression in neighbourhoods
@@ -398,7 +429,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ',
+              paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -607,6 +639,8 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
 
 #' Visualize DA results as a beeswarm plot
 #'
+#' This function constructs a beeswarm plot using the ggplot engine to visualise the distribution of
+#' log fold changes across neighbourhood annotations.
 #' @param da.res a data.frame of DA testing results
 #' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
 #' This can be a column added to the DA testing results using the `annotateNhoods` function.
@@ -638,7 +672,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
       stop(group.by, " is not a column in da.res. Have you forgot to run annotateNhoods(x, da.res, ", group.by,")?")
     }
     if (is.numeric(da.res[,group.by])) {
-      stop(group.by, " is a numeric variable. Please bin to use for grouping.")
+      # stop(group.by, " is a numeric variable. Please bin to use for grouping.")
     }
     da.res <- mutate(da.res, group_by = da.res[,group.by])
   } else {
@@ -646,8 +680,8 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   }
 
   if (!is.factor(da.res[,"group_by"])) {
-    message("Converting group.by to factor...")
-    da.res <- mutate(da.res, factor(group_by, levels=unique(group_by)))
+    message("Converting group_by to factor...")
+    da.res <- mutate(da.res, group_by = factor(group_by, levels=unique(group_by)))
     # anno_vec <- factor(anno_vec, levels=unique(anno_vec))
   }
 
@@ -655,16 +689,35 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     da.res <- da.res[subset.nhoods,]
   }
 
+  # Get position with ggbeeswarm
+  beeswarm_pos <- ggplot_build(
+    da.res %>%
+      mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
+      arrange(group_by) %>%
+      ggplot(aes(group_by, logFC)) +
+      geom_quasirandom()
+  )
+
+  pos_x <- beeswarm_pos$data[[1]]$x
+  pos_y <- beeswarm_pos$data[[1]]$y
+
+  n_groups <- unique(da.res$group_by) %>% length()
+
   da.res %>%
     mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
     mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
     arrange(group_by) %>%
     mutate(Nhood=factor(Nhood, levels=unique(Nhood))) %>%
-    ggplot(aes(group_by, logFC, color=logFC_color)) +
+    mutate(pos_x = pos_x, pos_y=pos_y) %>%
+    ggplot(aes(pos_x, pos_y, color=logFC_color)) +
     scale_color_gradient2() +
     guides(color="none") +
     xlab(group.by) + ylab("Log Fold Change") +
-    geom_quasirandom(alpha=1) +
+    scale_x_continuous(
+      breaks = seq(1,n_groups),
+      labels = setNames(levels(da.res$group_by), seq(1,n_groups))
+      ) +
+    geom_point() +
     coord_flip() +
     theme_bw(base_size=22) +
     theme(strip.text.y =  element_text(angle=0))
@@ -674,6 +727,9 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
 
 #' Visualize DA results as an MAplot
 #'
+#' Make an MAplot to visualise the relationship between DA log fold changes and neighbourhood abundance. This
+#' is a useful way to diagnose issues with the DA testing, such as large compositional biases and/or issues
+#' relating to large imbalances in numbers of cells between condition labels/levels.
 #' @param da.res A data.frame of DA testing results
 #' @param null.mean A numeric scalar determining the expected value of the log fold change under the null
 #' hypothesis. \code{default=0}.
@@ -740,4 +796,113 @@ plotNhoodMA <- function(da.res, alpha=0.05, null.mean=0){
     NULL
 
   return(ma.p)
+}
+
+
+#' Plot the number of cells in a neighbourhood per sample and condition
+#'
+#' @param x A \code{\linkS4class{Milo}} object with a non-empty \code{nhoodCounts}
+#' slot.
+#' @param subset.nhoods A logical, integer or character vector indicating the rows of \code{nhoodCounts(x)} to use for
+#' plotting. If you use a logical vector, make sure the length matches \code{nrow(nhoodCounts(x))}.
+#' @param design.df A \code{data.frame} which matches samples to a condition of interest.
+#' The row names should correspond to the samples. You can use the same \code{design.df}
+#' that you already used in the \code{testNhoods} function.
+#' @param condition String specifying the condition of interest Has to be a column in the \code{design}.
+#' @param n_col Number of columns in the output \code{ggplot}.
+#'
+#' @return A \code{ggplot-class} object
+#'
+#' @author
+#' Nick Hirschmüller
+#'
+#' @examples
+#'
+#' require(SingleCellExperiment)
+#' ux.1 <- matrix(rpois(12000, 5), ncol=300)
+#' ux.2 <- matrix(rpois(12000, 4), ncol=300)
+#' ux <- rbind(ux.1, ux.2)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#'
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
+#'
+#' cond <- sample(c("A","B","C"),300,replace=TRUE)
+#'
+#' meta.df <- data.frame(Condition=cond, Replicate=c(rep("R1", 100), rep("R2", 100), rep("R3", 100)))
+#' meta.df$SampID <- paste(meta.df$Condition, meta.df$Replicate, sep="_")
+#' milo <- countCells(milo, meta.data=meta.df, samples="SampID")
+#'
+#' design.mtx <- data.frame("Condition"=c(rep("A", 3), rep("B", 3), rep("C",3)),
+#'                          "Replicate"=rep(c("R1", "R2", "R3"), 3))
+#' design.mtx$SampID <- paste(design.mtx$Condition, design.mtx$Replicate, sep="_")
+#' rownames(design.mtx) <- design.mtx$SampID
+#'
+#' plotNhoodCounts(x = milo,
+#'                 subset.nhoods = c(1,2),
+#'                 design.df = design.mtx,
+#'                 condition = "Condition")
+#'
+#' @export
+#' @rdname plotNhoodCounts
+#' @importFrom ggplot2 ggplot geom_point stat_summary facet_wrap ylab
+#' @importFrom tidyr pivot_longer
+#' @importFrom tibble rownames_to_column has_rownames
+#' @importFrom dplyr left_join
+plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
+  if (!is(x, "Milo")) {
+    stop("Unrecognised input type - must be of class Milo")
+  }
+  if (ncol(nhoods(x)) == 1 & nrow(nhoods(x)) == 1) {
+    stop("No neighbourhoods found. Please run makeNhoods() first.")
+  }
+  if (ncol(nhoodCounts(x)) == 1 & nrow(nhoodCounts(x)) == 1) {
+    stop("Neighbourhood counts missing - please run countCells() first")
+  }
+  if (is(subset.nhoods, "logical")){
+    if (length(subset.nhoods) != nrow(nhoodCounts(x))){
+      stop("Length of the logical vector has to match number of rows in nhoodCounts(x)")
+    }
+  } else if (!all(subset.nhoods %in% rownames(nhoodCounts(x)))) {
+      stop("Specified subset.nhoods do not exist - ",
+      "these should either be an integer or character vector corresponding to row names in nhoodCounts(x) ",
+      "or a logical vector with length nrow(nhoodCounts(x)).")
+  }
+  if (!is(design.df,"data.frame") | !has_rownames(design.df)){
+    stop("The design.df has to be of type data.frame with rownames that correspond to the samples.")
+  }
+  if (!condition %in% colnames(design.df)){
+    stop("Condition of interest has to be a column in the design matrix")
+  }
+
+  nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[subset.nhoods, , drop=FALSE]))
+  nhood.counts.df <- rownames_to_column(nhood.counts.df, "subset.nhoods.id")
+  nhood.counts.df.long <- pivot_longer(nhood.counts.df,
+                                       cols=-1, # pivot all columns into longer format, except the first one.
+                                       names_to = "experiment",
+                                       values_to = "values")
+
+  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment", condition)]
+  colnames(tmp.desgin) <- c("experiment", "cond")
+
+  nhood.counts.df.long <- left_join(nhood.counts.df.long,
+                                    tmp.desgin,
+                                    by="experiment")
+  nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
+
+  p <- ggplot(nhood.counts.df.long, aes(x=cond, y=values)) +
+      geom_point()+
+    stat_summary(fun="mean", geom="crossbar",
+                 mapping=aes(ymin=after_stat(y), ymax=after_stat(y)), width=0.22,
+                 position=position_dodge(), show.legend = FALSE, color="red")+
+    facet_wrap(~subset.nhoods.id, ncol = n_col)+
+    labs(x=condition, y="# cells in neighbourhood") +
+      NULL
+
+  return(p)
 }
