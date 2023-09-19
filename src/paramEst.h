@@ -20,17 +20,22 @@ arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rc
 // arma::vec conjugateGradient(const arma::mat& A, const arma::vec& x, const arma::vec& b, double conv_tol);
 arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
                            const Rcpp::List& u_indices, const arma::vec& ystar);
+arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices,
+                             const arma::vec& ystar);
 arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
                                   const Rcpp::List& u_indices, const arma::vec& ystar,
                                   const arma::mat& Kin);
 arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
                                       const arma::vec& ystar, arma::vec he_update, const int& Iters);
+arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_indices,
+                                        const arma::vec& ystar, arma::vec he_update, const int& Iters);
 arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
                                              const arma::vec& ystar, const arma::mat& Kin, arma::vec he_update,
                                              const int& Iters);
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters);
 arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y);
 arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P);
+arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices);
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
                             const arma::mat& P, const arma::mat& Kin);
 double phiLineSearch(double disp, double lower, double upper, const int& c,

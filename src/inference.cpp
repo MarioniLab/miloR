@@ -81,10 +81,9 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
 
 
 arma::mat varCovar(const Rcpp::List& psvari, const int& c){
-
     arma::mat Va(c, c);
     for(int i=0; i < c; i++){
-        arma::mat _ips = psvari(i);
+        arma::mat _ips = psvari(i); // why isn't this
         for(int j=i; j < c; j++){
             arma::mat _jps = psvari(j);
             arma::mat _ij(_ips * _jps);

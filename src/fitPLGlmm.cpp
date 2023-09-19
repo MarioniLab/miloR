@@ -215,7 +215,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P);
             information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
-            List VP_partial = V_partial;
+            // theres a strange bug that means assigning V_partial to VP_partial
+            // doesn't copy over the contents of the list - perhaps it needs to
+            // be a pointer? Crude solve is to just to pre-multiply by I
+            P = arma::eye(n, n);
+            VP_partial = pseudovarPartial_P(V_partial, P);
+            // List VP_partial = V_partial;
             score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
             information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
@@ -225,7 +230,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // to NNLS using these as the initial estimates?
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
-            sigma_update = estHasemanElston(Z, P, u_indices, y_star);
+            if(REML){
+                sigma_update = estHasemanElston(Z, P, u_indices, y_star);
+            } else{
+                sigma_update = estHasemanElstonML(Z, u_indices, y_star);
+            }
+
         } else if(solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
@@ -236,7 +246,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 _curr_sigma[0] = _intercept;
                 _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
             }
-            sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+            if(REML){
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+            } else{
+                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+            }
         }else if(solver == "Fisher"){
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         }
@@ -254,7 +268,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 _curr_sigma[0] = _intercept;
                 _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
             }
-            sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+            if(REML){
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+            } else{
+                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+            }
         }
 
         // update sigma, G, and G_inv
@@ -325,7 +343,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
-
     // return the variance of the pseudo-variable - this is used to compute the proportion of
     // variance explained - is this on the correct scale though?
     double pseduo_var = arma::var(y_star);
@@ -342,9 +359,9 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     outlist = List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                            _["converged"]=converged, _["Iters"]=iters, _["Dispersion"]=curr_disp,
                            _["Hessian"]=information_sigma, _["SE"]=se, _["t"]=tscores, _["PSVAR"]=pseduo_var,
-                           _["COEFF"]=coeff_mat, _["P"]=P, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
+                           _["COEFF"]=coeff_mat, _["Vpartial"]=VP_partial, _["Ginv"]=G_inv,
                            _["Vsinv"]=V_star_inv, _["Winv"]=Winv, _["VCOV"]=vcov, _["LOGLIHOOD"]=loglihood,
-                             _["CONVLIST"]=conv_list);
+                           _["CONVLIST"]=conv_list, _["solver"]=solver);
 
     return outlist;
 }

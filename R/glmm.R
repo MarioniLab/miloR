@@ -82,6 +82,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     dispersion = 1, geno.only=FALSE,
                     solver=NULL){
 
+    if(!is.null(solver)){
+        glmm.control$solver <- solver
+    }
+
     if(!glmm.control$solver %in% c("HE", "Fisher", "HE-NNLS")){
         stop(glmm.control$solver, " not recognised - must be HE, HE-NNLS or Fisher")
     }
@@ -260,7 +264,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         final.list <- tryCatch(fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                          curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                          curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                         curr_disp=dispersion, REML=TRUE, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
+                                         curr_disp=dispersion, REML=REML, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
                                error=function(err){
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,

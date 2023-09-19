@@ -98,19 +98,15 @@ arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W){
 
 arma::mat computePREML (arma::mat Vsinv, arma::mat X){
     int n = Vsinv.n_cols;
-    // arma::mat P(n, n);
-    // sparsify this for speed-up
-    arma::sp_mat sP(n, n);
-    arma::sp_mat spvsinv(Vsinv);
-    arma::sp_mat spX(X);
-    arma::sp_mat spXt(X.t());
-    arma::sp_mat sinternal(spXt * spvsinv * spX);
-    arma::mat _toinvert(sinternal);
-    arma::sp_mat _sintP(inv(_toinvert));
 
-    sP = spvsinv - (spvsinv * spX * _sintP * spXt * spvsinv);
-    arma::mat P(sP);
-    // P = Vsinv - (Vsinv * X * inv(X.t() * Vsinv * X) * X.t() * Vsinv); // also slow with all these multiplications
+    arma::mat P(n, n);
+    arma::mat spvsinv(Vsinv);
+    arma::mat sinternal(X.t() * Vsinv * X);
+    arma::mat _toinvert(sinternal);
+    arma::mat _sintP(inv(_toinvert));
+
+    P = Vsinv - (Vsinv * X * _sintP * X.t() * Vsinv); // dense matrix version is faster than sparse here ¯\_(ツ)_/¯
+
     return P;
 }
 
