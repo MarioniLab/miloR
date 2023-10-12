@@ -18,7 +18,9 @@ hypothesis. \code{default=0}.}
 a \code{ggplot} object
 }
 \description{
-Visualize DA results as an MAplot
+Make an MAplot to visualise the relationship between DA log fold changes and neighbourhood abundance. This
+is a useful way to diagnose issues with the DA testing, such as large compositional biases and/or issues
+relating to large imbalances in numbers of cells between condition labels/levels.
 }
 \details{
 MA plots provide a useful means to evaluate the distribution of log fold changes after differential

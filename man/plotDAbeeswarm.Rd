@@ -23,7 +23,8 @@ If \code{da.res[,group.by]} is a character or a numeric, the function will coerc
 a \code{ggplot} object
 }
 \description{
-Visualize DA results as a beeswarm plot
+This function constructs a beeswarm plot using the ggplot engine to visualise the distribution of
+log fold changes across neighbourhood annotations.
 }
 \details{
 The group.by variable will be coerced to a factor. If you want the variables in group.by to be

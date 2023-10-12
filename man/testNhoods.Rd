@@ -16,11 +16,17 @@ argument}
 \item{design.df}{A \code{data.frame} containing meta-data to which \code{design}
 refers to}
 
+\item{kinship}{(optional) An n X n \code{matrix} containing pair-wise relationships between
+observations, such as expected relationships or computed from SNPs/SNVs/other genetic variants.
+Row names and column names should correspond to the column names of \code{nhoods(x)} and rownames
+of \code{design.df}.}
+
 \item{min.mean}{A scalar used to threshold neighbourhoods on the minimum
 average cell counts across samples.}
 
 \item{model.contrasts}{A string vector that defines the contrasts used to perform
-DA testing.}
+DA testing. For a specific comparison we recommend a single contrast be passed to
+\code{testNhoods}. More details can be found in the vignette \code{milo_contrasts}.}
 
 \item{fdr.weighting}{The spatial FDR weighting scheme to use. Choice from max,
 neighbour-distance, graph-overlap or k-distance (default). If \code{none} is passed no
@@ -38,8 +44,39 @@ method by Anders & Huber, 2010, to compute normalisation factors relative to a r
 the geometric mean across samples.  The latter methods provides a degree of robustness against false positives
 when there are very large compositional differences between samples.}
 
+\item{cell.sizes}{A named numeric vector of cell numbers per experimental samples. Names should correspond
+to the columns of \code{nhoodCounts}. This can be used to define the model normalisation factors based on
+a set of numbers instead of the \code{colSums(nhoodCounts(x))}. The example use-case is when performing an
+analysis of a subset of nhoods while retaining the need to normalisation based on the numbers of cells
+collected for each experimental sample to avoid compositional biases. Infinite or NA values will give an error.}
+
 \item{reduced.dim}{A character scalar referring to the reduced dimensional slot used to compute distances for
 the spatial FDR. This should be the same as used for graph building.}
+
+\item{REML}{A logical scalar that controls the variance component behaviour to use either restricted maximum
+likelihood (REML) or maximum likelihood (ML). The former is recommened to account for the bias in the ML
+variance estimates.}
+
+\item{glmm.solver}{A character scalar that determines which GLMM solver is applied. Must be one of: Fisher, HE
+or HE-NNLS. HE or HE-NNLS are recommended when supplying a user-defined covariance matrix.}
+
+\item{max.iters}{A scalar that determines the maximum number of iterations to run the GLMM solver if it does
+not reach the convergence tolerance threshold.}
+
+\item{max.tol}{A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
+this number small to provide some confidence that the parameter estimates are at least in a feasible region
+and close to a \emph{local} optimum}
+
+\item{subset.nhoods}{A character, numeric or logical vector that will subset the analysis to the specific nhoods. If
+a character vector these should correspond to row names of \code{nhoodCounts}. If a logical vector then
+these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
+to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
+an error will be produced.}
+
+\item{fail.on.error}{A logical scalar the determines the behaviour of the error reporting. Used for debugging only.}
+
+\item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
+this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -73,6 +110,15 @@ function sets the \code{lib.sizes} to the colSums(x), and uses the
 Quasi-Likelihood F-test in \code{glmQLFTest} for DA testing. FDR correction
 is performed separately as the default multiple-testing correction is
 inappropriate for neighbourhoods with overlapping cells.
+The GLMM testing cannot be performed using \code{edgeR}, however, a separate
+function \code{fitGLMM} can be used to fit a mixed effect model to each
+nhood (see \code{fitGLMM} docs for details).
+
+Parallelisation is currently only enabled for the NB-LMM and uses the BiocParallel paradigm. In
+general the GLM implementation in \code{glmQLFit} is sufficiently fast that it does not require
+parallelisation. Parallelisation requires the user to pass a \linkS4class{BiocParallelParam} object
+with the parallelisation arguments contained therein. This relies on the user to specify how
+parallelisation - for details see the \code{BiocParallel} package.
 }
 \examples{
 library(SingleCellExperiment)

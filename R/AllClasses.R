@@ -1,4 +1,6 @@
-#' The Milo container class
+#' Milo
+#'
+#' The class definition container to hold the data structures required for the Milo workflow.
 #'
 #' @slot graph An igraph object that represents the kNN graph
 #' @slot nhoods A CxN binary sparse matrix mapping cells to the neighbourhoods they belong to

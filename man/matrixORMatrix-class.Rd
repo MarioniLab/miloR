@@ -3,9 +3,9 @@
 \docType{class}
 \name{matrixORMatrix-class}
 \alias{matrixORMatrix-class}
-\title{The Milo container class}
+\title{Milo}
 \description{
-The Milo container class
+The class definition container to hold the data structures required for the Milo workflow.
 }
 \section{Slots}{
 

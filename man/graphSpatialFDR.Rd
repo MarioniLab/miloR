@@ -46,7 +46,7 @@ Each neighbourhood is weighted according to the weighting scheme
 defined. k-distance uses the distance to the kth nearest neighbour
 of the index vertex, neighbour-distance uses the average within-neighbourhood
 Euclidean distance in reduced dimensional space, max uses the largest within-neighbourhood distance
-from the index vertex, and graph-overlap uses the total number of cells overlapping between 
+from the index vertex, and graph-overlap uses the total number of cells overlapping between
 neighborhoods (distance-independent measure). The frequency-weighted version of the
 BH method is then applied to the p-values, as in \code{cydar}.
 }
