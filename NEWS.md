@@ -1,3 +1,8 @@
+# 2.0.1 (2023-11-09)
++ Introduce NB-GLMM into Milo 2.0 for random effect variables and modelling dependencies between observations
++ Diagnostic function for checking model separation for experimental variables, i.e. splitting zero from non-zero counts perfectly
++ Vignette describing basic usage of GLMM functions in `testNhoods`
+
 # 1.7.1 (2023-02-15)
 + Patch to fix `NA` plotting in `plotDABeeswarm`
 
