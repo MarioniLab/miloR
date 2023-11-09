@@ -1,9 +1,10 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 1.99.1
+Version: 1.99.9
 Authors@R:
-    c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk"),
+    c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk",
+     comment=c(ORCID="0000-0003-0757-0711")),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Description: Milo performs single-cell differential abundance testing. Cell states are modelled 
     as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using either 

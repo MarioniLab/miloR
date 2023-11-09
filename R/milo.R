@@ -1,5 +1,7 @@
+#' @title
 #' The Milo constructor
 #'
+#' @description
 #' The Milo class extends the SingleCellExperiment class and is designed to
 #' work with neighbourhoods of cells. Therefore, it inherits from the
 #' \linkS4class{SingleCellExperiment} class and follows the same usage
@@ -33,7 +35,7 @@
 #' expression matrix. In this case it simply constructs a SingleCellExperiment
 #' and fills the relevant slots, such as reducedDims.
 #'
-#' @return a Milo object
+#' @returns a Milo object
 #'
 #' @author Mike Morgan
 #'

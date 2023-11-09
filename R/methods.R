@@ -1,6 +1,5 @@
 ######## getter/setter Methods ########
-#' @title
-#' Get and set methods for Milo objects
+#' @title Get and set methods for Milo objects
 #'
 #' @description
 #' Get and set methods for Milo object slots. Generally speaking these methods
@@ -63,6 +62,8 @@
 #' \describe{
 #' \item{\code{show(x)}:}{Prints information to the console regarding the \code{\linkS4class{Milo}} object.}
 #' }
+#'
+#' @return See individual methods for return values
 #'
 #' @author Mike Morgan
 #'
