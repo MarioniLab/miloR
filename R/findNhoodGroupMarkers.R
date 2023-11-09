@@ -52,6 +52,7 @@
 #'
 #'
 #' @examples
+#' NULL
 #'
 #' @name findNhoodGroupMarkers
 #' @export

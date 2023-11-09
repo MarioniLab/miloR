@@ -8,6 +8,7 @@ library(scater)
 library(irlba)
 library(MASS)
 library(mvtnorm)
+library(BiocParallel)
 
 set.seed(42)
 r.n <- 1000
@@ -236,4 +237,43 @@ test_that("Providing a subset model.matrix is reproducible", {
                                            design.df=sim1.meta[subset.samples, ]))
     expect_identical(kd.ref1, kd.ref2)
 })
+
+sim1.meta$Condition_num <- paste0("Condition_num", c(1, 1, 1, 0, 0, 0))
+sim1.meta$Replicate_num <- paste0("Replicate_num", c(1, 2, 3, 1, 2, 3))
+sim1.meta$Replicate2 <- paste0("Replicate2", c(1, 2, 1, 2, 1, 2))
+
+test_that("Singular Hessians are detectable and fail appropriately", {
+    set.seed(42)
+    # having a singular Hessian depends on some of the staring values <- this test needs to
+    # be reproducible and not depend on setting a specific seed. The easiest way might be to have
+    # a variance component that is effectively 0.
+
+    # collinear fixed and random effects
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
+                            design.df=sim1.meta, glmm.solver="Fisher", fail.on.error=TRUE)),
+                 "Coefficients Hessian is computationally singular")
+})
+
+test_that("Invalid formulae give expected errors", {
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (50|Condition),
+                                             design.df=sim1.meta, glmm.solver="Fisher")),
+                 "is an invalid formula for random effects")
+})
+
+test_that("NA or Inf cell sizes causes the expected errors", {
+    cell.sizes.na <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.na[1] <- NA
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.na)),
+                 "NA or Infinite values found in cell\\.sizes")
+
+    cell.sizes.inf <- colSums(nhoodCounts(sim1.mylo))
+    cell.sizes.inf[1] <- Inf
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition,
+                                             design.df=sim1.meta,
+                                             cell.sizes=cell.sizes.inf)),
+                                  "NA or Infinite values found in cell\\.sizes")
+})
+
 

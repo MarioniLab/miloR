@@ -8,4 +8,6 @@
 #' @author Mike Morgan & Emma Dann
 #'
 #' @name miloR-package
+#'
+#' @returns The miloR package
 NULL

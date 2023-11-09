@@ -1,4 +1,8 @@
-#' The Milo container class
+#' @title
+#' Milo class definition
+#'
+#' @description
+#' The class definition container to hold the data structures required for the Milo workflow.
 #'
 #' @slot graph An igraph object that represents the kNN graph
 #' @slot nhoods A CxN binary sparse matrix mapping cells to the neighbourhoods they belong to
@@ -14,14 +18,17 @@
 #' @slot nhoodGraph an igraph object that represents the graph of neighbourhoods
 #' @slot .k A hidden slot that stores the value of k used for graph building
 #'
+#' @returns A Milo class object - see object builder help pages for details
+#'
 #' @importClassesFrom Matrix dgCMatrix dsCMatrix dgTMatrix dgeMatrix ddiMatrix sparseMatrix
 setClassUnion("matrixORMatrix", c("matrix", "dgCMatrix", "dsCMatrix", "ddiMatrix",
-                                  "dgTMatrix", "dgeMatrix")) # is there a record for how long a virtual class can be?!
+                                  "dgTMatrix", "dgeMatrix"))
 setClassUnion("characterORNULL", c("character", "NULL"))
 setClassUnion("listORNULL", c("list", "NULL"))
 setClassUnion("numericORNULL", c("numeric", "NULL"))
 #' @aliases Milo
 #' @rdname Milo
+#'
 #' @export
 #' @importFrom SingleCellExperiment SingleCellExperiment
 #' @importFrom S4Vectors SimpleList

@@ -3,6 +3,9 @@
 \name{miloR-package}
 \alias{miloR-package}
 \title{The miloR package}
+\value{
+The miloR package
+}
 \description{
 The \pkg{miloR} package provides modular functions to perform differential
 abundance testing on replicated single-cell experiments. For details please

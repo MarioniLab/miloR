@@ -1,13 +1,15 @@
 context("Testing annotateNhoods function")
-library(miloR)
 
 ### Set up a mock data set using simulated data
-library(SingleCellExperiment)
-library(scran)
-library(scater)
-library(irlba)
-library(MASS)
-library(mvtnorm)
+suppressWarnings({
+    library(miloR)
+    library(SingleCellExperiment)
+    library(scran)
+    library(scater)
+    library(irlba)
+    library(MASS)
+    library(mvtnorm)
+})
 
 set.seed(42)
 r.n <- 1000
@@ -104,7 +106,7 @@ colData(sim1.mylo) <- DataFrame(meta.df)
 test_that("Wrong input gives errors", {
     # Subsetted da.res
     expect_error(annotateNhoods(sim1.mylo, da_df[1:10,], "Block"),
-                 "the number of rows in da.res does not match the number of neighbourhoods in nhoods(x). Are you sure da.res is the output of testNhoods(x)?",
+                 "the number of rows in da.res does not match the number of neighbourhoods in nhoods(x). Are you sure da.res is the output of testNhoods(x) or did you use subset.nhoods?",
                  fixed=TRUE
                  )
 
@@ -124,3 +126,4 @@ test_that("The fractions are right", {
     da_anno <- annotateNhoods(sim1.mylo, da_df, "Block")
     expect_true(all(da_anno[,"Block_fraction"] == 1 ))
 })
+

@@ -121,6 +121,24 @@ mod.constrast
 This shows the contrast matrix. If we want to test each of these comparisons then we need to pass them sequentially to `testNhoods`, then apply an additional 
 multiple testing correction to the spatial FDR values.
 
+```{r}
+contrast1.res <- testNhoods(thy.milo, design=~ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = mod.constrast)
+head(contrast1.res)
+```
+
+This matrix of contrasts will perform a quasi-likelihood F-test over all contrasts, hence a single p-value and spatial FDR are returned. Log fold changes are returned for 
+all contrasts on each level of the `Age` variable, which gives 20 log-fold change columns for each - this is the default behaviour of `glmQLFTest` in the `edgeR` package 
+which is what Milo uses for hypothesis testing. In general, and to avoid confusion, we recommend testing each pair of contrasts separately if these are the comparisons 
+of interest, as shown below.
+
+```{r}
+# compare weeks 4 and 16, with week 4 as the reference.
+cont.4vs16.res <- testNhoods(thy.milo, design=~ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = mod.constrast[c("Age4wk"), c("Age4wk - Age16wk")])
+head(cont.4vs16.res)
+```
+
+Now we have a single logFC which compares nhood abundance between week 4 and week 16.
+
 Contrasts are not limited to these simple pair-wise comparisons, we can also group levels together for comparisons. For instance, imagine we want to know 
 what the effect of the cell counts in the week 1 mice is _compared to all other time points_.
 
@@ -131,15 +149,15 @@ mod.constrast <- makeContrasts(contrasts=ave.contrast, levels=model)
 
 mod.constrast
 ```
-
 In this contrasts matrix we can see that we have taken the average effect over the other time points. Now running this using `testNhoods`
 
 ```{r}
 da_results <- testNhoods(thy.milo, design = ~ 0 + Age, design.df = thy.design, model.contrasts = ave.contrast, fdr.weighting="graph-overlap")
 table(da_results$SpatialFDR < 0.1)
+head(da_results)
 ```
 
-In this comparison there are `r sum(da_results$SpatialFDR < 0.1)` DA nhoods - which we can visualise on a superimposed single-cell UMAP.
+The results table In this comparison there are `r sum(da_results$SpatialFDR < 0.1)` DA nhoods - which we can visualise on a superimposed single-cell UMAP.
 
 ```{r, fig.width=10, fig.height=4.5}
 thy.milo <- buildNhoodGraph(thy.milo)

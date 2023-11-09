@@ -42,6 +42,9 @@
 \alias{show}
 \alias{show,Milo-method}
 \title{Get and set methods for Milo objects}
+\value{
+See individual methods for return values
+}
 \description{
 Get and set methods for Milo object slots. Generally speaking these methods
 are used internally, but they allow the user to assign their own externally computed

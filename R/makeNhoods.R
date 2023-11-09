@@ -57,10 +57,10 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     if(is(x, "Milo")){
         message("Checking valid object")
         # check that a graph has been built
-        if(!.valid_graph(graph(x))){
+        if(!.valid_graph(miloR::graph(x))){
             stop("Not a valid Milo object - graph is missing. Please run buildGraph() first.")
         }
-        graph <- graph(x)
+        x.graph <- miloR::graph(x)
 
         if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
             X_reduced_dims  <- reducedDim(x, reduced_dims)
@@ -76,13 +76,14 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
                 stop("Rownames of reduced dimensions do not match cell IDs")
             }
         }
+
     } else if(is(x, "igraph")){
 
         if(isTRUE(refined) & refinement_scheme == "reduced_dim" & !is.matrix(reduced_dims)) {
             stop("No reduced dimensions matrix provided - required for refined sampling with refinement_scheme = reduced_dim.")
         }
 
-        graph <- x
+        x.graph <- x
 
         if(isTRUE(refined) & refinement_scheme == "reduced_dim"){
             X_reduced_dims  <- reduced_dims
@@ -100,7 +101,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         stop("Data format: ", class(x), " not recognised. Should be Milo or igraph.")
     }
 
-    random_vertices <- .sample_vertices(graph, prop, return.vertices = TRUE)
+    random_vertices <- .sample_vertices(x.graph, prop, return.vertices = TRUE)
 
     if (isFALSE(refined)) {
         sampled_vertices <- random_vertices
@@ -108,7 +109,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         if(refinement_scheme == "reduced_dim"){
             sampled_vertices <- .refined_sampling(random_vertices, X_reduced_dims, k)
         } else if (refinement_scheme == "graph") {
-            sampled_vertices <- .graph_refined_sampling(random_vertices, graph)
+            sampled_vertices <- .graph_refined_sampling(random_vertices, x.graph)
         } else {
             stop("When refined == TRUE, refinement_scheme must be one of \"reduced_dim\" or \"graph\".")
         }
@@ -125,7 +126,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     }
     # Is there an alternative to using a for loop to populate the sparseMatrix here?
     # if vertex names are set (as can happen with graphs from 3rd party tools), then set rownames of nh_mat
-    v.class <- V(graph)$name
+    v.class <- V(x.graph)$name
 
     if(is(x, "Milo")){
         rownames(nh_mat) <- colnames(x)
@@ -133,12 +134,12 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         if(is.null(v.class) & refinement_scheme == "reduced_dim"){
             rownames(nh_mat) <- rownames(X_reduced_dims)
         } else if(!is.null(v.class)){
-            rownames(nh_mat) <- V(graph)$name
+            rownames(nh_mat) <- V(x.graph)$name
         }
     }
 
     for (X in seq_len(length(sampled_vertices))){
-        nh_mat[unlist(neighborhood(graph, order = 1, nodes = sampled_vertices[X])), X] <- 1 #changed to include index cells
+        nh_mat[unlist(neighborhood(x.graph, order = 1, nodes = sampled_vertices[X])), X] <- 1 #changed to include index cells
     }
 
     # need to add the index cells.
@@ -151,6 +152,7 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
         return(nh_mat)
     }
 }
+
 
 #' @importFrom BiocNeighbors findKNN
 #' @importFrom matrixStats colMedians
