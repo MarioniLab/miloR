@@ -84,7 +84,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' \code{\linkS4class{Milo}} object to use for layout (default: 'UMAP') (b) an igraph layout object
 #' @param colour_by this can be a data.frame of milo results or a character corresponding to a column in colData
 #' @param subset.nhoods A logical, integer or character vector indicating a subset of nhoods to show in plot
-#' (default: NULL, no subsetting)
+#' (default: NULL, no subsetting). This is necessary if \code{testNhoods} was run using \code{subset.nhoods=...}.
 #' @param size_range a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
 #' in the graph)
 #' @param node_stroke a numeric indicating the desired thickness of the border around each node
@@ -139,11 +139,19 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   ## Define node color
   if (!is.na(colour_by)) {
     if (colour_by %in% colnames(colData(x))) {
-
-      col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
-      if (!is.numeric(col_vals)) {
-        col_vals <- as.character(col_vals)
+        if(is.factor(colData(x)[, colour_by])){
+            col_levels <- levels(colData(x)[, colour_by])
+            col_vals <- as.character(colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by])
+            col_vals <- factor(col_vals, levels=col_levels)
+        } else{
+            col_vals <- colData(x)[as.numeric(vertex_attr(nh_graph)$name), colour_by]
         }
+
+      if(!is.factor(col_vals)){
+          if(!is.numeric(col_vals)) {
+              col_vals <- as.character(col_vals)
+          }
+      }
       V(nh_graph)$colour_by <- col_vals
     } else {
       stop(colour_by, "is not a column in colData(x)")
@@ -181,10 +189,14 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   if (is.numeric(V(nh_graph)$colour_by)) {
     pl <- pl + scale_fill_gradient2(name=colour_by)
   } else {
-    mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
-    pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
+      if(is.factor(V(nh_graph)$colour_by)){
+          mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
+          } else{
+              mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(unique(V(nh_graph)$colour_by)))
+          }
+      pl <- pl + scale_fill_manual(values=mycolors, name=colour_by, na.value="white")
   }
-  pl
+  return(pl)
   }
 
 #' Plot Milo results on graph of neighbourhood
@@ -222,7 +234,16 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   signif_res <- milo_res
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
-  colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+
+  # this needs to handle nhood subsetting.
+  if(any(names(list(...)) %in% c("subset.nhoods"))){
+      subset.nhoods <- list(...)$subset.nhoods
+      sub.indices <- nhoodIndex(x)[subset.nhoods]
+      colData(x)[unlist(sub.indices[signif_res$Nhood]), res_column] <- signif_res[,res_column]
+  } else{
+      colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
+  }
+
 
   ## Plot logFC
   plotNhoodGraph(x, colour_by = res_column, ... )
@@ -246,7 +267,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
 #' NULL
 #'
 #' @export
-#' @rdname plotNhoodGraphDA
+#' @rdname plotNhoodGroups
 #' @import igraph
 plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   if(!.valid_graph(nhoodGraph(x))){
@@ -275,7 +296,18 @@ plotNhoodGroups <- function(x, milo_res, show_groups=NULL, ... ){
   colData(x)[unlist(nhoodIndex(x)[groups_res$Nhood]),"NhoodGroup"] <- groups_res$NhoodGroup
 
   ## Plot logFC
-  plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  # allow override of colour_by aesthetic
+  if(length(list(...))){
+      if(any(names(list(...)) %in% c("colour_by"))){
+          pl <- plotNhoodGraph(x, ... )
+      } else{
+          pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+          }
+  } else{
+      pl <- plotNhoodGraph(x, colour_by = "NhoodGroup", ... )
+  }
+
+  return(pl)
 }
 
 #' Visualize gene expression in neighbourhoods
@@ -398,7 +430,8 @@ plotNhoodExpressionDA <- function(x, da.res, features, alpha=0.1,
   if (!is.null(highlight_features)) {
     if (!all(highlight_features %in% pl_df$feature)){
       missing <- highlight_features[which(!highlight_features %in% pl_df$feature)]
-      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ', paste(missing, collapse = ', ') )
+      warning('Some elements of highlight_features are not in features and will not be highlighted. \nMissing features: ',
+              paste(missing, collapse = ', ') )
     }
     pl_df <- pl_df %>%
       mutate(label=ifelse(feature %in% highlight_features, as.character(feature), NA))
@@ -607,6 +640,8 @@ plotNhoodExpressionGroups <- function(x, da.res, features, alpha=0.1,
 
 #' Visualize DA results as a beeswarm plot
 #'
+#' This function constructs a beeswarm plot using the ggplot engine to visualise the distribution of
+#' log fold changes across neighbourhood annotations.
 #' @param da.res a data.frame of DA testing results
 #' @param group.by a character scalar determining which column of \code{da.res} to use for grouping.
 #' This can be a column added to the DA testing results using the `annotateNhoods` function.
@@ -693,6 +728,9 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
 
 #' Visualize DA results as an MAplot
 #'
+#' Make an MAplot to visualise the relationship between DA log fold changes and neighbourhood abundance. This
+#' is a useful way to diagnose issues with the DA testing, such as large compositional biases and/or issues
+#' relating to large imbalances in numbers of cells between condition labels/levels.
 #' @param da.res A data.frame of DA testing results
 #' @param null.mean A numeric scalar determining the expected value of the log fold change under the null
 #' hypothesis. \code{default=0}.
@@ -843,7 +881,6 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
     stop("Condition of interest has to be a column in the design matrix")
   }
 
-
   nhood.counts.df <- data.frame(as.matrix(nhoodCounts(x)[subset.nhoods, , drop=FALSE]))
   nhood.counts.df <- rownames_to_column(nhood.counts.df, "subset.nhoods.id")
   nhood.counts.df.long <- pivot_longer(nhood.counts.df,
@@ -851,19 +888,22 @@ plotNhoodCounts <- function(x, subset.nhoods, design.df, condition, n_col=3){
                                        names_to = "experiment",
                                        values_to = "values")
 
-  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment",condition)]
+  tmp.desgin <- rownames_to_column(design.df, "experiment")[,c("experiment", condition)]
+  colnames(tmp.desgin) <- c("experiment", "cond")
+
   nhood.counts.df.long <- left_join(nhood.counts.df.long,
                                     tmp.desgin,
                                     by="experiment")
   nhood.counts.df.long$subset.nhoods.id <- paste("Nhood:", nhood.counts.df.long$subset.nhoods.id)
 
-  p <- ggplot(nhood.counts.df.long, aes(x=condition, y=values))+
-    geom_point()+
+  p <- ggplot(nhood.counts.df.long, aes(x=cond, y=values)) +
+      geom_point()+
     stat_summary(fun="mean", geom="crossbar",
-                 mapping=aes(ymin=..y.., ymax=..y..), width=0.22,
-                 position=position_dodge(),show.legend = FALSE, color="red")+
+                 mapping=aes(ymin=after_stat(y), ymax=after_stat(y)), width=0.22,
+                 position=position_dodge(), show.legend = FALSE, color="red")+
     facet_wrap(~subset.nhoods.id, ncol = n_col)+
-    ylab("# cells in neighbourhood")
+    labs(x=condition, y="# cells in neighbourhood") +
+      NULL
 
   return(p)
 }

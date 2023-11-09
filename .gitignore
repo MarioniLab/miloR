@@ -10,3 +10,5 @@ Meta
 docs
 .Rproj.user
 *yml
+*.o
+*~

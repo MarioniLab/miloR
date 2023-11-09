@@ -1,30 +1,36 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 1.11.0
+Version: 1.99.9
 Authors@R:
-    c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk"),
+    c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk",
+     comment=c(ORCID="0000-0003-0757-0711")),
     person("Emma", "Dann", role=c("aut", "ctb"), email="ed6@sanger.ac.uk"))
 Description: Milo performs single-cell differential abundance testing. Cell states are modelled 
-    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a 
-    negative bionomial generalized linear model.
+    as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using either 
+    a negative bionomial generalized linear model or negative binomial generalized linear mixed model.
 License: GPL-3 + file LICENSE
 Encoding: UTF-8
 URL: https://marionilab.github.io/miloR
 BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
+LinkingTo: Rcpp,
+           RcppArmadillo,
+           RcppEigen
 Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,
          BiocGenerics,
          SingleCellExperiment,
          Matrix (>= 1.3-0),
+         MatrixGenerics,
          S4Vectors,
          stats,
          stringr,
          methods,
          igraph,
          irlba,
+         utils,
          cowplot,
          BiocParallel,
          BiocSingular,
@@ -41,10 +47,11 @@ Imports: BiocNeighbors,
          ggrepel,
          ggbeeswarm,
          RColorBrewer,
-         grDevices
+         grDevices,
+         Rcpp,
+         numDeriv
 Suggests: 
     testthat,
-    MASS,
     mvtnorm,
     scater,
     scran,
@@ -58,7 +65,9 @@ Suggests:
     MouseThymusAgeing,
     magick,
     RCurl,
+    MASS,
     curl,
+    scRNAseq,
     graphics
 RoxygenNote: 7.2.3
 NeedsCompilation: no
@@ -70,15 +79,19 @@ Collate:
     'buildGraph.R'
     'calcNhoodExpression.R'
     'calcNhoodDistance.R'
+    'checkSeparation.R'
     'countCells.R'
     'findNhoodMarkers.R'
     'graphSpatialFDR.R'
+    'glmm.R'
     'makeNhoods.R'
     'milo.R'
     'miloR-package.R'
     'methods.R'
     'plotNhoods.R'
     'sim_discrete.R'
+    'sim_family.R'
+    'sim_nbglmm.R'
     'sim_trajectory.R'
     'testNhoods.R'
     'testDiffExp.R'
@@ -87,4 +100,6 @@ Collate:
     'annotateNhoods.R'
     'groupNhoods.R'
     'findNhoodGroupMarkers.R'
+    'RcppExports.R'
+    'miloR.R'
 VignetteBuilder: knitr

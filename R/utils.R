@@ -63,6 +63,52 @@
     x
 }
 
+
+# parse design formula
+#' @export
+.parse_formula <- function(in.form, design.df, vtype=c("re", "fe")){
+    ## parse the formula and return the X and Z matrices
+    # need to decide on how to handle intercept terms - i.e. FE or RE
+    sp.form <- unlist(strsplit(as.character(in.form),
+                               split="+", fixed=TRUE))
+
+    if(vtype %in% c("re")){
+        v.terms <- unlist(lapply(sp.form, FUN=function(sp) {
+            return(ifelse(grepl(trimws(sp), pattern="\\|"), .rEParse(trimws(sp)), NA))
+            }))
+        v.terms <- v.terms[!is.na(v.terms)]
+        d.mat <- as.matrix(design.df[, trimws(v.terms)])
+        if (is.character(d.mat)) {
+            d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE],
+                                          function(x) as.integer(factor(x)))), ncol = length(v.terms))
+        }
+        colnames(d.mat) <- trimws(v.terms)
+    } else if(vtype %in% c("fe")){
+        v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
+        if(length(v.terms) > 1){
+            v.terms <- paste(v.terms, collapse=" + ")
+        }
+
+        d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
+        d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
+    } else{
+        stop("vtype ", vtype, " not recognised")
+    }
+
+    return(d.mat)
+}
+
+
+#' @export
+.rEParse <- function(re.form) {
+
+    .x <- gsub(unlist(strsplit(re.form, split="|", fixed=TRUE)),
+               pattern="\\)", replacement="")
+
+    return(.x[length(.x)])
+}
+
+
 ######################################
 ## neighbourhood grouping functions
 ######################################

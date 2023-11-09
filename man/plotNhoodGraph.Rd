@@ -23,7 +23,7 @@ plotNhoodGraph(
 \item{colour_by}{this can be a data.frame of milo results or a character corresponding to a column in colData}
 
 \item{subset.nhoods}{A logical, integer or character vector indicating a subset of nhoods to show in plot
-(default: NULL, no subsetting)}
+(default: NULL, no subsetting). This is necessary if \code{testNhoods} was run using \code{subset.nhoods=...}.}
 
 \item{size_range}{a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
 in the graph)}
