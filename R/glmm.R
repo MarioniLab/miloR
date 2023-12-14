@@ -71,7 +71,7 @@
 #' @name fitGLMM
 #'
 #' @importMethodsFrom Matrix %*%
-#' @importFrom Matrix Matrix solve crossprod
+#' @importFrom Matrix Matrix solve crossprod kronecker
 #' @importFrom stats runif var
 #' @export
 fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
@@ -126,8 +126,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
-
-        # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
             curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         } else{
@@ -137,7 +135,34 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # compute sample variances of the us
         if(is.null(glmm.control[["init.sigma"]])){
-            curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
+            # based on Demidenko (2013):
+            # Dk = (Z_ij^T Z_ij *kron* Z_ij^T Z_ij)^-1 X vec(sum(Z_ij^T (e0 e0^t)/sigma_0 - In)Z_ij)
+            # e_0 = Y- X\beta
+            # Z_ij are the j columns of random effect variable i
+
+            e0 <- log(y+1) - (X %*% curr_beta)
+            sig0 <- ((t(e0) %*% e0)/nrow(X))[1, 1] # this should be a scalar
+            eyeN <- matrix(0L, ncol=nrow(X), nrow=nrow(X))
+            diag(eyeN) <- 1
+            errMat <- (e0 %*% t(e0))/sig0 - eyeN
+
+            curr_sigma.vec <- sapply(random.levels, FUN=function(lvls, bigZ, errVec){
+                ijZ <- bigZ[, lvls]
+                lhs <- c()
+                rhs <- c()
+                for(q in seq_len(ncol(ijZ))){
+                    # this is a 1x1 matrix
+                    lhs <- c(lhs, (1/(kronecker((t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]),
+                                                (t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]))))[1, 1])
+                    rhs <- c(rhs, (t(ijZ[, q, drop=FALSE]) %*% errVec %*% ijZ[, q, drop=FALSE])[1, 1])
+                }
+
+                return(sum(lhs) * sum(rhs))
+            }, bigZ=full.Z, errVec=errMat)
+
+            curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
+
+            # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
             # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
@@ -186,7 +211,34 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # compute sample variances of the us
         if(is.null(glmm.control[["init.sigma"]])){
-            curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), length(random.levels)), ncol=1, sparse=TRUE) # split evenly
+            # based on Demidenko (2013):
+            # Dk = (Z_ij^T Z_ij *kron* Z_ij^T Z_ij)^-1 X vec(sum(Z_ij^T (e0 e0^t)/sigma_0 - In)Z_ij)
+            # e_0 = Y- X\beta
+            # Z_ij are the j columns of random effect variable i
+
+            e0 <- log(y+1) - (X %*% curr_beta)
+            sig0 <- ((t(e0) %*% e0)/nrow(X))[1, 1] # this should be a scalar
+            eyeN <- matrix(0L, ncol=nrow(X), nrow=nrow(X))
+            diag(eyeN) <- 1
+            errMat <- (e0 %*% t(e0))/sig0 - eyeN
+
+            # only one random effect in this
+            curr_sigma.vec <- sapply(random.levels, FUN=function(lvls, bigZ, errVec){
+                ijZ <- bigZ[, lvls]
+                lhs <- c()
+                rhs <- c()
+                for(q in seq_len(ncol(ijZ))){
+                    # this is a 1x1 matrix
+                    lhs <- c(lhs, (1/(kronecker((t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]),
+                                                (t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]))))[1, 1])
+                    rhs <- c(rhs, (t(ijZ[, q, drop=FALSE]) %*% errVec %*% ijZ[, q, drop=FALSE])[1, 1])
+                }
+
+                return(sum(lhs) * sum(rhs))
+            }, bigZ=full.Z, errVec=errMat)
+
+            curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
+            # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), length(random.levels)), ncol=1, sparse=TRUE) # split evenly
             # curr_sigma <- Matrix(runif(length(random.levels), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
@@ -211,7 +263,33 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         # compute sample variances of the us
         if(is.null(glmm.control[["init.sigma"]])){
             # random sigma or split variance across them?
-            curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
+            # based on Demidenko (2013):
+            # Dk = (Z_ij^T Z_ij *kron* Z_ij^T Z_ij)^-1 X vec(sum(Z_ij^T (e0 e0^t)/sigma_0 - In)Z_ij)
+            # e_0 = Y- X\beta
+            # Z_ij are the j columns of random effect variable i
+
+            e0 <- log(y+1) - (X %*% curr_beta)
+            sig0 <- ((t(e0) %*% e0)/nrow(X))[1, 1] # this should be a scalar
+            eyeN <- matrix(0L, ncol=nrow(X), nrow=nrow(X))
+            diag(eyeN) <- 1
+            errMat <- (e0 %*% t(e0))/sig0 - eyeN
+
+            curr_sigma.vec <- sapply(random.levels, FUN=function(lvls, bigZ, errVec){
+                ijZ <- bigZ[, lvls]
+                lhs <- c()
+                rhs <- c()
+                for(q in seq_len(ncol(ijZ))){
+                    # this is a 1x1 matrix
+                    lhs <- c(lhs, (1/(kronecker((t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]),
+                                                (t(ijZ[, q, drop=FALSE]) %*% ijZ[, q, drop=FALSE]))))[1, 1])
+                    rhs <- c(rhs, (t(ijZ[, q, drop=FALSE]) %*% errVec %*% ijZ[, q, drop=FALSE])[1, 1])
+                }
+
+                return(sum(lhs) * sum(rhs))
+            }, bigZ=full.Z, errVec=errMat)
+
+            curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
+            # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
             # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)

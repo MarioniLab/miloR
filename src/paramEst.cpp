@@ -10,17 +10,22 @@
 
 // All functions used in parameter estimation
 
-arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar, const arma::mat& P){
+arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar,
+                               const arma::mat& P, const arma::vec& curr_beta,
+                               const arma::mat& X, const arma::mat& Vstarinv){
     // Armadillo implementation
     // sparsifying doesn't speed up - overhead is too high
     const int& c = pvstar_i.size();
+    const int& n = X.n_rows;
     arma::vec reml_score(c);
+    arma::vec ystarminx(n);
+    ystarminx = ystar - (X * curr_beta);
 
     for(int i=0; i < c; i++){
         const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
         double lhs = -0.5 * arma::trace(P_pvi);
         arma::mat mid1(1, 1);
-        mid1 = arma::trans(ystar) * P_pvi * P * ystar;
+        mid1 = arma::trans(ystarminx) * P_pvi * Vstarinv * ystarminx;
         double rhs = 0.5 * mid1[0, 0];
 
         reml_score[i] = lhs + rhs;
@@ -477,16 +482,14 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
 
-    // sparsify just the multiplication steps.
+    // sparsification doesn't seem to help much
     // arma::mat Ycovar(n, n);
-    arma::sp_mat sYcovar(n, n);
-    arma::sp_mat sP(PREML);
-    arma::sp_mat YT(ystar * ystar.t());
+    arma::mat Ycovar(n, n);
+    arma::mat YT(ystar * ystar.t());
 
-    sYcovar = sP * YT * sP; // project onto REML P matrix
+    Ycovar = PREML * YT * PREML; // project onto REML P matrix
     // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
     // select the upper triangular elements, including the diagonal
-    arma::mat Ycovar(sYcovar);
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
 
@@ -794,7 +797,7 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
         _subZ = Z.cols(qmin-1, qmax-1);
 
         arma::mat _ZZT(n, n);
-        _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection
+        _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection is v.slow
 
         // vectorise
         arma::vec _vecZ = _ZZT(upper_indices);
@@ -995,14 +998,14 @@ double phiMME(const arma::vec& y, const arma::vec& curr_sigma){
     double ps_bar = arma::var(y);
     double y_bar = arma::mean(y);
     double sigma_sum = arma::sum(y);
-    double denom = 0.0;
-    double disp_mme = 0.0;
+    double denom = 1e-2;
+    double disp_mme = 1e-2;
 
     denom = ps_bar - y_bar - sigma_sum;
     // check for near zero denom that could blow
     // up the estimate
-    if(denom < 1e-3){
-        disp_mme = 0;
+    if(denom < 1e-2){
+        disp_mme = 1e-2;
     } else{
         disp_mme = 1/denom;
     }
