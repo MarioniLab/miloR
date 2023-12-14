@@ -114,7 +114,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     double constval = 0.0; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
     double delta_up = 2.0 * curr_disp;
-    double delta_lo = 0.0;
+    double delta_lo = 1e-2;
     double update_disp = 0.0;
     double disp_diff = 0.0;
 
@@ -139,6 +139,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     V_partial = pseudovarPartial_G(Z, K, u_indices);
     // compute outside the loop
     List VP_partial(c);
+    List VS_partial(c);
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
@@ -203,13 +204,14 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                                   muvec, G_inv, pi,
                                   curr_u, curr_sigma, y);
     disp_diff = abs(curr_disp - update_disp);
-    curr_disp = update_disp;
+    // curr_disp = update_disp;
     // make the upper and lower bounds based on the current value,
     // but 0 < lo < up < 1.0
-    delta_lo = std::max(0.0, curr_disp - (curr_disp*0.5));
-    delta_up = std::max(0.0, curr_disp);
+    delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
+    delta_up = std::max(1e-2, update_disp);
 
     while(!meet_cond){
+        curr_disp = update_disp;
         D.diag() = muvec; // data space
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
@@ -225,8 +227,10 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             P = computePREML(V_star_inv, X);
             // take the partial derivative outside the while loop, just keep the P*\dVar\dSigma
             VP_partial = pseudovarPartial_P(V_partial, P);
+            VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
 
-            score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P);
+            score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
+                                              curr_beta, X, V_star_inv);
             information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
             List VP_partial = V_partial;
@@ -281,7 +285,22 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
 
         // Update the dispersion with the new variances
-        update_disp = phiMME(y_star, curr_sigma);
+        // only update if diff is > 1e-2
+        if(disp_diff > 1e-2){
+            update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                          muvec, G_inv, pi,
+                                          curr_u, curr_sigma, y);
+
+            disp_diff = abs(curr_disp - update_disp);
+            // curr_disp = update_disp;
+            // make the upper and lower bounds based on the current value,
+            // but 0 < lo < up < ??
+            delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
+            delta_up = std::max(1e-2, update_disp);
+        }
+
+        // update_disp = phiMME(y_star, curr_sigma);
+        disp_diff = abs(curr_disp - update_disp);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
