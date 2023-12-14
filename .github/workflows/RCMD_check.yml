@@ -75,7 +75,7 @@ jobs:
 
       - name: Build Matrix
         run: |
-	  remotes::install_cran(c("Matrix"), build=TRUE, force=TRUE)
+	  remotes::install_version(c("Matrix"), version="1.6-4", build=TRUE, force=TRUE)
 	shell: Rscript {0}
 
       - name: Check
