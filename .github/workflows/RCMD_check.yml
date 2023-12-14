@@ -26,11 +26,8 @@ jobs:
       matrix:
         config:
           - {os: windows-latest, r: 'release'}
-#          - {os: windows-latest, r: 'devel', rspm: "https://packagemanager.rstudio.com/cran/__windows__/focal/latest"}
           - {os: macOS-latest, r: 'release'}
-#          - {os: macOS-latest, r: 'devel', rspm: "https://packagemanager.rstudio.com/cran/__macos__/focal/latest"}
           - {os: ubuntu-20.04, r: 'release', rspm: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"}
-#          - {os: ubuntu-20.04, r: 'devel', rspm: "https://packagemanager.rstudio.com/cran/__linux__/focal/latest"}
 
     env:
       R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
@@ -73,9 +70,13 @@ jobs:
         run: |
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran(c("rcmdcheck", "XML", "RCurl"))
-	  remotes::install_cran(c("Matrix"), build=TRUE, force=TRUE)
           BiocManager::install(c("MouseGastrulationData", "MouseThymusAgeing", "scRNAseq"))
         shell: Rscript {0}
+
+      - name: Build Matrix
+        run: |
+	  remotes::install_cran(c("Matrix"), build=TRUE, force=TRUE)
+	shell: Rscript {0}
 
       - name: Check
         env:
