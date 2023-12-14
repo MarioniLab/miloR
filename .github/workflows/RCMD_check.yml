@@ -73,7 +73,7 @@ jobs:
         run: |
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran(c("rcmdcheck", "XML", "RCurl"))
-	  install.packages("Matrix", repos=NULL, type="source")
+	  remotes::install_cran("Matrix", repos=NULL, build=TRUE, force=TRUE)
           BiocManager::install(c("MouseGastrulationData", "MouseThymusAgeing", "scRNAseq"))
         shell: Rscript {0}
 
