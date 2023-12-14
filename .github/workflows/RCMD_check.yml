@@ -70,7 +70,6 @@ jobs:
         run: |
           remotes::install_deps(dependencies = TRUE)
           remotes::install_cran(c("rcmdcheck", "XML", "RCurl"))
-	  install.packages("irlba", type="source")
           BiocManager::install(c("MouseGastrulationData", "MouseThymusAgeing", "scRNAseq"))
         shell: Rscript {0}
 
