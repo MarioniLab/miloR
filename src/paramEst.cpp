@@ -145,26 +145,6 @@ arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat
     int c = Z.n_cols;
     int m = X.n_cols;
 
-    // arma::sp_mat ul(m, m);
-    // arma::sp_mat ur(m, c);
-    // arma::sp_mat ll(c, m);
-    // arma::sp_mat lr(c, c);
-    //
-    // arma::sp_mat lhs_top(m, m+c);
-    // arma::sp_mat lhs_bot(c, m+c);
-    //
-    // arma::sp_mat res(m+c, m+c);
-    //
-    // arma::sp_mat sX(X);
-    // arma::sp_mat sZ(Z);
-    // arma::sp_mat sW(Winv);
-    // arma::sp_mat sG(Ginv);
-    //
-    // ul = sX.t() * sW * sX;
-    // ur = sX.t() * sW * sZ;
-    // ll = sZ.t() * sW * sX;
-    // lr = (sZ.t() * sW * sZ) + sG;
-
     arma::mat ul(m, m);
     arma::mat ur(m, c);
     arma::mat ll(c, m);
@@ -410,15 +390,13 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcp
 
     // sparsify just the multiplication steps.
     // arma::mat Ycovar(n, n);
-    arma::sp_mat sYcovar(n, n);
-    arma::sp_mat sP(PREML);
-    arma::sp_mat YT(ystar * ystar.t());
+    arma::mat Ycovar(n, n);
+    arma::mat YT(ystar * ystar.t());
 
-    sYcovar = sP * YT * sP; // project onto REML P matrix
+    Ycovar = PREML * YT * PREML; // project onto REML P matrix
     // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
 
     // select the upper triangular elements, including the diagonal
-    arma::mat Ycovar(sYcovar);
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
 
