@@ -145,26 +145,6 @@ arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat
     int c = Z.n_cols;
     int m = X.n_cols;
 
-    // arma::sp_mat ul(m, m);
-    // arma::sp_mat ur(m, c);
-    // arma::sp_mat ll(c, m);
-    // arma::sp_mat lr(c, c);
-    //
-    // arma::sp_mat lhs_top(m, m+c);
-    // arma::sp_mat lhs_bot(c, m+c);
-    //
-    // arma::sp_mat res(m+c, m+c);
-    //
-    // arma::sp_mat sX(X);
-    // arma::sp_mat sZ(Z);
-    // arma::sp_mat sW(Winv);
-    // arma::sp_mat sG(Ginv);
-    //
-    // ul = sX.t() * sW * sX;
-    // ur = sX.t() * sW * sZ;
-    // ll = sZ.t() * sW * sX;
-    // lr = (sZ.t() * sW * sZ) + sG;
-
     arma::mat ul(m, m);
     arma::mat ur(m, c);
     arma::mat ll(c, m);
@@ -259,114 +239,6 @@ arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rc
 }
 
 
-// arma::vec solveEquationsPCG (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
-//                           arma::mat coeffmat, arma::vec curr_theta, const arma::vec& ystar, const double& conv_tol){
-//     // solve the mixed model equations with a preconditioned conjugate gradient
-//     // A = coeffmat
-//     // x = theta
-//     // b = rhs
-//
-//     arma::vec rhs_beta(m);
-//     arma::vec rhs_u(c);
-//     arma::mat rhs(m+c, 1);
-//
-//     arma::vec theta_up(m+c, arma::fill::zeros);
-//
-//     rhs_beta.col(0) = Xt * Winv * ystar;
-//     rhs_u.col(0) = Zt * Winv * ystar;
-//
-//     rhs = arma::join_cols(rhs_beta, rhs_u);
-//
-//     // I'll assume any preconditioning has already been applied
-//     // need a check for singular hessian here
-//     try{
-//         double _rcond = arma::rcond(coeffmat);
-//         bool is_singular;
-//         is_singular = _rcond < 1e-9;
-//
-//         // check for singular condition
-//         if(is_singular){
-//             Rcpp::stop("Coefficients Hessian is computationally singular");
-//         }
-//
-//         // can we just use solve here instead?
-//         // if the coefficient matrix is singular then do we resort to pinv?
-//         // is it worth doing a quick analysis of the eigen values of coeff?
-//         // the _rcond might be sufficient to tell us if the matrix is ill-conditioned
-//         // do we need to know a priori if we have a few large eigenvalues??
-//         // maybe this could be tweaked by setting the convergence criterai to > 0?
-//         theta_up = conjugateGradient(coeffmat, curr_theta, rhs, conv_tol);
-//         // theta_up = arma::solve(coeffmat, rhs);
-//
-//     } catch(std::exception &ex){
-//         forward_exception_to_r(ex);
-//     } catch(...){
-//         Rf_error("c++ exception (unknown reason)");
-//     }
-//
-//     return theta_up;
-// }
-
-
-// arma::vec conjugateGradient(arma::mat A, arma::vec x, arma::vec b, double conv_tol){
-//     // use conjugate gradients to solve the system of linear equations
-//     // Ax = b
-//     // Algorithm:
-//     // r_0 <- Ax_0 - b, p_0 <- -r_0, k <- 0
-//     // while r_k != 0:
-//     // alpha_k <- (rk^T * rk)/(pk^T * A * pk)
-//     // x_k+1 <- xk + alpha_k * pK
-//     // r_k+1 <- rk + alpha_k * A * pK
-//     // beta_k+1 <- r rk+1 + beta_k+1 * pk
-//     // pk+1 <- -r_k+1 + beta_k+1 * pk
-//     // k++
-//
-//     // need to generate x_0 from the current estimates: [beta u]
-//     const unsigned int m = A.n_cols;
-//     const unsigned int n = b.size();
-//
-//     arma::dcolvec xk(m);
-//     xk = x; // use current estimates as x0
-//     arma::vec xk_update(m);
-//     xk_update = arma::dcolvec(m);
-//     // x0.randu(); // initial x values
-//
-//     double alpha_k = 0.0;
-//     double beta_k = 0.0;
-//
-//     arma::dcolvec rk(n);
-//     arma::dcolvec rk_update(n);
-//     arma::dcolvec pk(m);
-//     arma::dcolvec pk_update(m);
-//
-//     rk = (A * xk) - b;
-//     pk = -rk;
-//     unsigned int k = 0;
-//
-//     Rcpp::LogicalVector _check_rzero = check_tol_arma_numeric(rk, conv_tol);
-//     bool _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
-//
-//     while(_all_rk_zero){ // evaluates true until all rk are zero
-//         alpha_k = (rk.t() * rk).eval()(0,0)/(pk.t() * A * pk).eval()(0, 0); // needed to convert vector inner product to scalar
-//         xk_update = xk + alpha_k * pk;
-//         rk_update = rk + alpha_k * A * pk;
-//         beta_k = (rk_update.t() * rk_update).eval()(0, 0)/(rk.t() * rk).eval()(0, 0); // needed to convert vector inner product to scalar
-//         pk_update = -rk_update + beta_k * pk;
-//
-//         rk = rk_update;
-//         pk = pk_update;
-//         xk = xk_update;
-//
-//         _check_rzero = check_tol_arma_numeric(rk, conv_tol);
-//         _all_rk_zero = Rcpp::all(_check_rzero).is_false(); // .is_false() required for proper type casting to bool
-//         k++;
-//     }
-//
-//     Rprintf("CG completed in %u iterations\n", k);
-//     return xk_update;
-// }
-
-
 arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
                                   const Rcpp::List& u_indices, const arma::vec& ystar, const arma::mat& Kin){
     // use HasemanElston regression to estimate variance components
@@ -410,15 +282,13 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcp
 
     // sparsify just the multiplication steps.
     // arma::mat Ycovar(n, n);
-    arma::sp_mat sYcovar(n, n);
-    arma::sp_mat sP(PREML);
-    arma::sp_mat YT(ystar * ystar.t());
+    arma::mat Ycovar(n, n);
+    arma::mat YT(ystar * ystar.t());
 
-    sYcovar = sP * YT * sP; // project onto REML P matrix
+    Ycovar = PREML * YT * PREML; // project onto REML P matrix
     // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
 
     // select the upper triangular elements, including the diagonal
-    arma::mat Ycovar(sYcovar);
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
 
