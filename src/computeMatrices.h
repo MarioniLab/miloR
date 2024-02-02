@@ -13,7 +13,7 @@ arma::mat computeW (double disp, arma::mat Dinv, std::string vardist);
 arma::mat computeWNB(double disp, arma::mat Dinv);
 arma::mat computeWPoisson(arma::mat Dinv);
 arma::mat computeVStar (arma::mat Z, arma::mat G, arma::mat W);
-arma::mat computePREML (arma::mat Vsinv, arma::mat X);
+arma::mat computePREML (const arma::mat& Vsinv, const arma::mat& X);
 arma::mat initialiseG (Rcpp::List rlevels, arma::vec sigmas);
 arma::mat initialiseG_G (Rcpp::List u_indices, arma::vec sigmas, arma::mat Kin);
 arma::mat invGmat (Rcpp::List rlevels, arma::vec sigmas);

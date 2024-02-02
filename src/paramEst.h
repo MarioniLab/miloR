@@ -2,9 +2,8 @@
 #define PARAMEST_H
 
 #include<RcppArmadillo.h>
-#include<RcppEigen.h>
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(RcppEigen)]]
+// [[Rcpp::plugins(openmp)]]
 
 arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar,
                                const arma::mat& P, const arma::vec& curr_beta,

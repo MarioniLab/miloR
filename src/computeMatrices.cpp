@@ -3,6 +3,7 @@
 #include<Rcpp.h>
 #include "utils.h"
 // [[Rcpp::depends(RcppArmadillo)]]
+// [[Rcpp::plugins(openmp)]]
 using namespace Rcpp;
 
 arma::vec computeYStar(arma::mat X, arma::vec curr_beta, arma::mat Z, arma::mat Dinv, arma::vec curr_u, arma::vec y,
@@ -96,7 +97,7 @@ arma::mat computeVStar(arma::mat Z, arma::mat G, arma::mat W){
 }
 
 
-arma::mat computePREML (arma::mat Vsinv, arma::mat X){
+arma::mat computePREML (const arma::mat& Vsinv, const arma::mat& X){
     int n = Vsinv.n_cols;
 
     arma::mat P(n, n);

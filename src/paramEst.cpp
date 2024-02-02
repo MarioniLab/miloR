@@ -2,10 +2,10 @@
 #include "computeMatrices.h"
 #include "utils.h"
 #include<RcppArmadillo.h>
-#include<RcppEigen.h>
 #include<cmath>
+
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(RcppEigen)]]
+// [[Rcpp::plugins(openmp)]]
 // using namespace Rcpp;
 
 // All functions used in parameter estimation
@@ -43,9 +43,11 @@ arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P){
 
     // this is a symmetric matrix so only need to fill the upper or
     // lower triangle to make it O(n^2/2) rather than O(n^2)
+    #pragma omp parallel for
     for(int i=0; i < c; i++){
         const arma::mat& _ipP = pvstari[i]; // this is P * \d Var/ \dsigma
 
+        #pragma omp parallel for
         for(int j=i; j < c; j++){
             const arma::mat& P_jp = pvstari[j]; // this is P * \d Var/ \dsigma
             arma::mat a_ij(_ipP * P_jp); // this is the biggest bottleneck - it takes >2s!
@@ -247,9 +249,19 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
     unsigned int n = ystar.size();
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
-
+    unsigned int i, j;      // Declare loop variables i and j for OpenMP
+    double _ycovij; // Declare temp_value
     arma::mat Ycovar(n, n);
-    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+
+    // direct computation of Ycovar with OpenMP?
+    #pragma omp parallel for private(i, j, _ycovij)
+    for (int i = 0; i < n; i++) {
+        for (int j = i; j < n; j++) {
+            arma::mat _tmpMat = arma::trans(PREML.row(j)) % (ystar * ystar(j));
+            double _ycovij = arma::dot(PREML.row(i), _tmpMat);
+            Ycovar(i, j) = _ycovij;
+        }
+    }
 
     // select the upper triangular elements, including the diagonal
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
@@ -279,14 +291,21 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcp
     unsigned int n = ystar.size();
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+    unsigned int i, j;      // Declare loop variables i and j for OpenMP
+    double _ycovij; // Declare temp_value
 
     // sparsify just the multiplication steps.
-    // arma::mat Ycovar(n, n);
     arma::mat Ycovar(n, n);
-    arma::mat YT(ystar * ystar.t());
 
-    Ycovar = PREML * YT * PREML; // project onto REML P matrix
-    // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+    // direct computation of Ycovar with OpenMP?
+    #pragma omp parallel for private(i, j, _ycovij)
+    for (int i = 0; i < n; i++) {
+        for (int j = i; j < n; j++) {
+            arma::mat _tmpMat = arma::trans(PREML.row(j)) % (ystar * ystar(j));
+            double _ycovij = arma::dot(PREML.row(i), _tmpMat);
+            Ycovar(i, j) = _ycovij;
+        }
+    }
 
     // select the upper triangular elements, including the diagonal
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
@@ -351,14 +370,22 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     unsigned int n = ystar.size();
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+    unsigned int i, j;      // Declare loop variables i and j for OpenMP
+    double _ycovij; // Declare temp_value
 
     // sparsification doesn't seem to help much
-    // arma::mat Ycovar(n, n);
     arma::mat Ycovar(n, n);
-    arma::mat YT(ystar * ystar.t());
 
-    Ycovar = PREML * YT * PREML; // project onto REML P matrix
-    // Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+    // direct computation of Ycovar with OpenMP?
+    #pragma omp parallel for private(i, j, _ycovij)
+    for (int i = 0; i < n; i++) {
+        for (int j = i; j < n; j++) {
+            arma::mat _tmpMat = arma::trans(PREML.row(j)) % (ystar * ystar(j));
+            double _ycovij = arma::dot(PREML.row(i), _tmpMat);
+            Ycovar(i, j) = _ycovij;
+        }
+    }
+
     // select the upper triangular elements, including the diagonal
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
     arma::vec Ybig = Ycovar(upper_indices);
@@ -454,9 +481,19 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
     unsigned int n = ystar.size();
     unsigned int c = u_indices.size(); // number of variance components
     unsigned long nsq = n * (n + 1)/2; //size of vectorised components using just upper or lower triangle of covariance matrix
+    unsigned int i, j;      // Declare loop variables i and j for OpenMP
+    double _ycovij; // Declare temp_value
 
     arma::mat Ycovar(n, n);
-    Ycovar = PREML * (ystar * ystar.t()) * PREML; // project onto REML P matrix
+    // direct computation of Ycovar with OpenMP?
+    #pragma omp parallel for private(i, j, _ycovij)
+    for (int i = 0; i < n; i++) {
+        for (int j = i; j < n; j++) {
+            arma::mat _tmpMat = arma::trans(PREML.row(j)) % (ystar * ystar(j));
+            double _ycovij = arma::dot(PREML.row(i), _tmpMat);
+            Ycovar(i, j) = _ycovij;
+        }
+    }
 
     // select the upper triangular elements, including the diagonal
     arma::uvec upper_indices = trimatu_ind(arma::size(Ycovar));
@@ -648,6 +685,8 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
     int c = u_indices.size();
     int n = Z.n_rows;
     unsigned long nsq = n * (n + 1)/2;
+    int j, k, l, a;
+    double temp_value;
 
     Rcpp::List _Zelements(1);
     arma::mat bigI(n, n, arma::fill::eye); // this should be the identity which we vectorise
@@ -665,10 +704,40 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
         unsigned int qmin = arma::min(u_idx);
         unsigned int qmax = arma::max(u_idx);
         _subZ = Z.cols(qmin-1, qmax-1);
+        arma::mat _subZT = _subZ * _subZ.t();
 
         arma::mat _ZZT(n, n);
-        _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection is v.slow
+        arma::mat _pZZT(n, n);
+        // Can we turn this into a for loop and use OpenMP?
+        for (int j = 0; j < n; j++) {
+            // j = rows of P
+            #pragma omp parallel for reduction(+:temp_value)
+            for (int k = 0; k < n; k++) {
+                // k = columns of P
+                temp_value = 0.0;
+                for(int a=0; a < n; a++){
+                    temp_value += P(j, a) * _subZT(a, k);
+                }
+            _pZZT(j, k) = temp_value; // Apply P again for symmetry
+            }
 
+        }
+
+        // another loop?
+        for (int j = 0; j < n; j++) {
+            // j = rows of P
+            #pragma omp parallel for reduction(+:temp_value)
+            for (int k = 0; k < n; k++) {
+                // k = columns of P
+                temp_value = 0.0;
+                for(int a=0; a < n; a++){
+                    temp_value += _pZZT(j, a) * P(a, k);
+                }
+                _ZZT(j, k) = temp_value; // Apply P again for symmetry
+            }
+
+        }
+        // _ZZT = _pZZT * P; // REML projection is v.slow
         // vectorise
         arma::vec _vecZ = _ZZT(upper_indices);
         arma::mat _vecZZT = _Zelements(0);

@@ -1,8 +1,6 @@
 #include<RcppArmadillo.h>
-#include<RcppEigen.h>
 #include<string>
 // [[Rcpp::depends(RcppArmadillo)]]
-// [[Rcpp::depends(RcppEigen)]]
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "invertPseudoVar.h"
