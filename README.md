@@ -78,3 +78,11 @@ We welcome contributions and suggestions from the community (though we may not t
 don't be offended). Please submit the initial idea as an issue, which we will discuss and ask for refinements/clarifications. If we approve the idea, then 
 please open a pull request onto the __devel__ branch, from which we will begin a review process. To smooth the process, please note that code changes must be 
 backwards compatible, and must include all relevant unit tests.
+
+### Reporting issues
+
+Milo is under (semi)continuous development, but it has also been around for a couple of years. That means (hopefully) most of the common bugs have been 
+identified. If you have an error or issue to raise, first make sure you are using the most up to date version, either via Bioconductor, or from the Main 
+branch of the repo. Please also make sure to check if your problem has arisen before by looking at both the open _and closed_ issues. If neither of these 
+solve your problem, then please open a new issue describing the problem in full, with code and a minimally reproducible example. Don't forget to include 
+the output of your `sessionInfo()` as well. Thanks.
