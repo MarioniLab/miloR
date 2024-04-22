@@ -58,6 +58,10 @@ responders.
 We will use the `KotliarovPBMCData` data set as there are multiple groups that we can compare.
 
 ```{r}
+bpparam <- MulticoreParam(workers=4)
+# bpparam <- SerialParam()
+register(bpparam)
+
 pbmc.sce <- KotliarovPBMCData(mode="rna", ensembl=TRUE) # download the PBMC data from Kotliarov _et al._
 pbmc.sce
 ```
@@ -67,12 +71,13 @@ pbmc.sce
 set.seed(42)
 # remove sparser cells
 drop.cells <- colSums(counts(pbmc.sce)) < 1000
-pbmc.sce <- computeSumFactors(pbmc.sce[, !drop.cells])
+pbmc.sce <- computePooledFactors(pbmc.sce[, !drop.cells], BPPARAM=bpparam)
 pbmc.sce <- logNormCounts(pbmc.sce)
 
 pbmc.hvg <- modelGeneVar(pbmc.sce)
 pbmc.hvg$FDR[is.na(pbmc.hvg$FDR)] <- 1
-reducedDim(pbmc.sce, "PCA") <- prcomp_irlba(t(logcounts(pbmc.sce[pbmc.hvg$FDR < 0.1, ])), n=50, center=TRUE, scale.=TRUE)$x
+
+runPCA(pbmc.sce, subset_row=rownames(pbmc.sce)[pbmc.hvg$FDR < 0.1], scale=TRUE, ncomponents=50, assay.type="logcounts", name="PCA", BPPARAM=bpparam)
 pbmc.sce
 ```
 
@@ -80,7 +85,7 @@ pbmc.sce
 
 ```{r, fig.height=4.1, fig.width=10.5}
 set.seed(42)
-pbmc.sce <- runUMAP(pbmc.sce, n_neighbors=30, pca=50) # add a UMAP for plotting results later
+pbmc.sce <- runUMAP(pbmc.sce, n_neighbors=30, pca=50, BPPARAM=bpparam) # add a UMAP for plotting results later
 
 pbmc.milo <- Milo(pbmc.sce) # from the SCE object
 reducedDim(pbmc.milo, "UMAP") <- reducedDim(pbmc.sce, "UMAP")
@@ -135,8 +140,6 @@ matrix inversion steps that don't scale very nicely. While we have made every ef
 ```{r}
 set.seed(42)
 rownames(pbmc.design) <- pbmc.design$ObsID
-bpparam <- SerialParam()
-register(bpparam)
 
 da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
                          glmm.solver="HE-NNLS", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
