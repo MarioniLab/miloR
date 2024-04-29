@@ -4,7 +4,7 @@
 #' as representative neighbourhoods on a nearest neighbour graph. Hypothesis testing is performed using a
 #' negative bionomial generalized linear model.
 #'
-#' @docType package
+#' @aliases miloR-package
 #' @importFrom Rcpp evalCpp
 #' @useDynLib miloR
 #' @name miloR

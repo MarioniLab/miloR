@@ -65,10 +65,17 @@ register(bpparam)
 
 pbmc.sce <- KotliarovPBMCData(mode="rna", ensembl=TRUE) # download the PBMC data from Kotliarov _et al._
 
+# downsample cells to reduce compute time
+prop.cells <- 0.75
+n.cells <- floor(ncol(pbmc.sce) * prop.cells)
+set.seed(42)
+keep.cells <- sample(colnames(pbmc.sce), size=n.cells)
+pbmc.sce <- pbmc.sce[, colnames(pbmc.sce) %in% keep.cells]
+
+
 # downsample the number of samples
 colData(pbmc.sce)$ObsID <- paste(colData(pbmc.sce)$tenx_lane, colData(pbmc.sce)$sampleid, sep="_")
-n.samps <- 90
-set.seed(42)
+n.samps <- 80
 keep.samps <- sample(unique(colData(pbmc.sce)$ObsID), size=n.samps)
 keep.cells <- rownames(colData(pbmc.sce))[colData(pbmc.sce)$ObsID %in% keep.samps]
 pbmc.sce <- pbmc.sce[, colnames(pbmc.sce) %in% keep.cells]

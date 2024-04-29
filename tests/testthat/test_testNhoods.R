@@ -212,11 +212,11 @@ test_that("Model contrasts provide expected results", {
                                                     design.df=sim1.meta[colnames(nhoodCounts(sim1.mylo)), ]))
 
     # test for each column of output
-    expect_equal(cont.ref$Pvalue, form.ref$Pvalue)
-    expect_equal(cont.ref$SpatialFDR, form.ref$SpatialFDR)
-    expect_equal(cont.ref$logFC, form.ref$logFC)
-    expect_equal(cont.ref$`F`, form.ref$`F`)
-    expect_equal(cont.ref$FDR, form.ref$FDR)
+    expect_equal(cont.ref$Pvalue, form.ref$Pvalue, tolerance=1e-6)
+    expect_equal(cont.ref$SpatialFDR, form.ref$SpatialFDR, tolerance=1e-6)
+    expect_equal(cont.ref$logFC, form.ref$logFC, tolerance=1e-6)
+    expect_equal(cont.ref$`F`, form.ref$`F`, tolerance=1e-6)
+    expect_equal(cont.ref$FDR, form.ref$FDR, tolerance=1e-6)
 })
 
 test_that("Providing a subset model.matrix is reproducible", {

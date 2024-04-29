@@ -21,7 +21,7 @@
 #'
 #' NULL
 #'
-#' @importFrom igraph graph.adjacency set_vertex_attr vertex.attributes
+#' @importFrom igraph graph_from_adjacency_matrix set_vertex_attr vertex.attributes
 #' @export
 #' @rdname buildNhoodGraph
 buildNhoodGraph <- function(x, overlap=1){
@@ -42,7 +42,7 @@ buildNhoodGraph <- function(x, overlap=1){
     nhoodAdjacency(x) <- nh_intersect_mat
 
     ## Make igraph object
-    ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
+    ig <- graph_from_adjacency_matrix(nh_intersect_mat, mode="undirected", weighted=TRUE)
     nhood_sizes <- colSums(nhoods(x))
     ig <- set_vertex_attr(ig, name = 'size', value = nhood_sizes[vertex.attributes(ig)$name])
     ## Add to nhoodGraph slot in milo object

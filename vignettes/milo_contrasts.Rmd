@@ -65,11 +65,16 @@ we build the KNN graph and define neighbourhoods to quantify cell abundance acro
 
 ```{r}
 # we build KNN graph
-thy.milo <- buildGraph(thy.milo, k = 10, d = 30)
-thy.milo <- makeNhoods(thy.milo, prop = 0.1, k = 10, d=30, refined = TRUE, refinement_scheme="graph") # make nhoods using graph-only as this is faster
+thy.milo <- buildGraph(thy.milo, k = 11, d = 40)
+thy.milo <- makeNhoods(thy.milo, prop = 0.2, k = 11, d=40, refined = TRUE, refinement_scheme="graph") # make nhoods using graph-only as this is faster
 colData(thy.milo)$Sample <- paste(colData(thy.milo)$SortDay, colData(thy.milo)$Age, sep="_")
 thy.milo <- countCells(thy.milo, meta.data = data.frame(colData(thy.milo)), samples="Sample") # make the nhood X sample counts matrix
 ``` 
+
+
+```{r}
+plotNhoodSizeHist(thy.milo)
+```
 
 # Differential abundance testing with contrasts
 
@@ -93,7 +98,8 @@ rownames(thy.design) <- thy.design$Sample
 contrast.1 <- c("Age1wk - Age4wk") # the syntax is <VariableName><ConditionLevel> - <VariableName><ControlLevel>
 
 # we need to use the ~ 0 + Variable expression here so that we have all of the levels of our variable as separate columns in our model matrix
-da_results <- testNhoods(thy.milo, design = ~ 0 + Age, design.df = thy.design, model.contrasts = contrast.1, fdr.weighting="graph-overlap")
+da_results <- testNhoods(thy.milo, design = ~ 0 + Age, design.df = thy.design, model.contrasts = contrast.1,
+                         fdr.weighting="graph-overlap")
 table(da_results$SpatialFDR < 0.1)
 ```
 
