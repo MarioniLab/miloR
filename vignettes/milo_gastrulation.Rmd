@@ -328,7 +328,7 @@ In these examples we settle for `overlap=5` and `max.lfc.delta=5`, as we need at
 
 ```{r, dev="jpeg"}
 set.seed(42)
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 1, overlap=3)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 10, overlap=1)
 plotNhoodGroups(embryo_milo, da_results, layout="umap")
 plotDAbeeswarm(da_results, group.by = "NhoodGroup")
 ```
