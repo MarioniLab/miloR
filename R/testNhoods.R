@@ -526,8 +526,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         rownames(res) <- 1:length(fit)
         colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
     } else {
-
-        fit <- glmQLFit(dge, x.model, robust=robust)
+        # need to use legacy=TRUE to maintain original edgeR behaviour
+        fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)
         if(!is.null(model.contrasts)){
             mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)
             res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),

@@ -45,12 +45,29 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes
     // don't be tempted to sparsify this - the overhead of casting is too expensive
     unsigned int items = V_partial.size();
+    unsigned int n = P.n_cols;
     List outlist(items);
+    double temp_value;
 
     for(unsigned int i = 0; i < items; i++){
         // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
         arma::mat _omat = V_partial(i);
-        arma::mat omat(P * _omat);
+        arma::mat omat(n, n);
+
+        // Can we turn this into a for loop and use OpenMP?
+        for (int j = 0; j < n; j++) {
+            // j = rows of P
+            #pragma omp parallel for reduction(+:temp_value)
+            for (int k = 0; k < n; k++) {
+                // k = columns of P
+                temp_value = 0.0;
+                for(int a=0; a < n; a++){
+                    temp_value += P(j, a) * _omat(a, k);
+                }
+                omat(j, k) = temp_value; // Apply P again for symmetry
+            }
+        }
+
         outlist[i] = omat;
     }
 

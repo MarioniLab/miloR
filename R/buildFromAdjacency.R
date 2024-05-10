@@ -70,11 +70,11 @@ buildFromAdjacency <- function(x, k=NULL, is.binary=NULL, ...){
     if(is.square){
         if(!is.binary){
             bin.x <- as(matrix(as.numeric(x > 0), nrow=nrow(x)), "dgCMatrix")
-            nn.graph <- graph_from_adjacency_matrix(bin.x, mode="undirected",
+            nn.graph <- graph_from_adjacency_matrix(bin.x, mode="max",
                                                     weighted=NULL,
                                                     diag=FALSE)
         } else{
-            nn.graph <- graph_from_adjacency_matrix(x, mode="undirected",
+            nn.graph <- graph_from_adjacency_matrix(x, mode="max",
                                                     weighted=NULL,
                                                     diag=FALSE)
         }

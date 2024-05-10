@@ -55,7 +55,7 @@ test_that("Code produced identical output", {
     rownames(nh_intersect_mat) <- colnames(nhoods)
     colnames(nh_intersect_mat) <- colnames(nhoods)
 
-    ig <- graph.adjacency(nh_intersect_mat, mode="undirected", weighted=TRUE)
+    ig <- graph_from_adjacency_matrix(nh_intersect_mat, mode="undirected", weighted=TRUE)
     nhood_sizes <- sapply(nhoods(traj_milo), length)
     ig <- set_vertex_attr(ig, name = 'size', value = nhood_sizes[vertex.attributes(ig)$name])
 

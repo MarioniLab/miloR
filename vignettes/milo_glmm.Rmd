@@ -58,7 +58,28 @@ responders.
 We will use the `KotliarovPBMCData` data set as there are multiple groups that we can compare.
 
 ```{r}
+# uncomment the row below to allow multi-processing and comment out the SerialParam line.
+# bpparam <- MulticoreParam(workers=4)
+bpparam <- SerialParam()
+register(bpparam)
+
 pbmc.sce <- KotliarovPBMCData(mode="rna", ensembl=TRUE) # download the PBMC data from Kotliarov _et al._
+
+# downsample cells to reduce compute time
+prop.cells <- 0.75
+n.cells <- floor(ncol(pbmc.sce) * prop.cells)
+set.seed(42)
+keep.cells <- sample(colnames(pbmc.sce), size=n.cells)
+pbmc.sce <- pbmc.sce[, colnames(pbmc.sce) %in% keep.cells]
+
+
+# downsample the number of samples
+colData(pbmc.sce)$ObsID <- paste(colData(pbmc.sce)$tenx_lane, colData(pbmc.sce)$sampleid, sep="_")
+n.samps <- 80
+keep.samps <- sample(unique(colData(pbmc.sce)$ObsID), size=n.samps)
+keep.cells <- rownames(colData(pbmc.sce))[colData(pbmc.sce)$ObsID %in% keep.samps]
+pbmc.sce <- pbmc.sce[, colnames(pbmc.sce) %in% keep.cells]
+
 pbmc.sce
 ```
 # Data processing and normalisation
@@ -67,12 +88,13 @@ pbmc.sce
 set.seed(42)
 # remove sparser cells
 drop.cells <- colSums(counts(pbmc.sce)) < 1000
-pbmc.sce <- computeSumFactors(pbmc.sce[, !drop.cells])
+pbmc.sce <- computePooledFactors(pbmc.sce[, !drop.cells], BPPARAM=bpparam)
 pbmc.sce <- logNormCounts(pbmc.sce)
 
 pbmc.hvg <- modelGeneVar(pbmc.sce)
 pbmc.hvg$FDR[is.na(pbmc.hvg$FDR)] <- 1
-reducedDim(pbmc.sce, "PCA") <- prcomp_irlba(t(logcounts(pbmc.sce[pbmc.hvg$FDR < 0.1, ])), n=50, center=TRUE, scale.=TRUE)$x
+
+pbmc.sce <- runPCA(pbmc.sce, subset_row=rownames(pbmc.sce)[pbmc.hvg$FDR < 0.1], scale=TRUE, ncomponents=50, assay.type="logcounts", name="PCA", BPPARAM=bpparam)
 pbmc.sce
 ```
 
@@ -80,7 +102,7 @@ pbmc.sce
 
 ```{r, fig.height=4.1, fig.width=10.5}
 set.seed(42)
-pbmc.sce <- runUMAP(pbmc.sce, n_neighbors=30, pca=50) # add a UMAP for plotting results later
+pbmc.sce <- runUMAP(pbmc.sce, n_neighbors=30, pca=50, BPPARAM=bpparam) # add a UMAP for plotting results later
 
 pbmc.milo <- Milo(pbmc.sce) # from the SCE object
 reducedDim(pbmc.milo, "UMAP") <- reducedDim(pbmc.sce, "UMAP")
@@ -135,8 +157,6 @@ matrix inversion steps that don't scale very nicely. While we have made every ef
 ```{r}
 set.seed(42)
 rownames(pbmc.design) <- pbmc.design$ObsID
-bpparam <- SerialParam()
-register(bpparam)
 
 da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
                          glmm.solver="HE-NNLS", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
@@ -158,14 +178,14 @@ values in the testing variables of interest. If any nhoods have perfect separati
 analysis.
 
 ```{r}
-which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=3))
+which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5))
 ```
 
-Here we can see that nhood 1632 can be separated into counts >= 2 and < 2 on our test variable `adjmfc.time` - this is the same nhood that encounters a model failure in our GLMM. We 
+Here we can see that nhood `r which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5))` can be separated into counts >= 5 and < 5 on our test variable `adjmfc.time` - this is the same nhood that encounters a model failure in our GLMM. We 
 can also visualise the count distribution to confirm this using `plotNhoodCounts` (kindly contributed by Nick Hirschmüller).
 
 ```{r}
-plotNhoodCounts(pbmc.milo, which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=3)), 
+plotNhoodCounts(pbmc.milo, which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5)), 
                 design.df=pbmc.design, condition="adjmfc.time")
 ```
 

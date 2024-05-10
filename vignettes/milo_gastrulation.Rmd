@@ -328,7 +328,7 @@ In these examples we settle for `overlap=5` and `max.lfc.delta=5`, as we need at
 
 ```{r, dev="jpeg"}
 set.seed(42)
-da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 5, overlap=5)
+da_results <- groupNhoods(embryo_milo, da_results, max.lfc.delta = 10, overlap=1)
 plotNhoodGroups(embryo_milo, da_results, layout="umap")
 plotDAbeeswarm(da_results, group.by = "NhoodGroup")
 ```
@@ -348,6 +348,14 @@ embryo_milo <- embryo_milo[keep.rows, ]
 set.seed(101)
 dec <- modelGeneVar(embryo_milo)
 hvgs <- getTopHVGs(dec, n=2000)
+
+# this vignette randomly fails to identify HVGs for some reason
+if(!length(hvgs)){
+    set.seed(42)
+    dec <- modelGeneVar(embryo_milo)
+    hvgs <- getTopHVGs(dec, n=2000)
+}
+
 head(hvgs)
 ```
 

@@ -1,7 +1,7 @@
 Package: miloR
 Type: Package
 Title: Differential neighbourhood abundance testing on a graph
-Version: 1.99.9
+Version: 1.99.16
 Authors@R:
     c(person("Mike", "Morgan", role=c("aut", "cre"), email="michael.morgan@abdn.ac.uk",
      comment=c(ORCID="0000-0003-0757-0711")),
@@ -15,8 +15,7 @@ URL: https://marionilab.github.io/miloR
 BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 LinkingTo: Rcpp,
-           RcppArmadillo,
-           RcppEigen
+           RcppArmadillo
 Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,
@@ -69,7 +68,7 @@ Suggests:
     curl,
     scRNAseq,
     graphics
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 NeedsCompilation: no
 Packaged: 2020-07-31 14:15:28 UTC; morgan02
 Collate: 
