@@ -73,6 +73,7 @@
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod kronecker
 #' @importFrom stats runif var
+#' @importFrom BiocParallel bpstopOnError
 #' @export
 fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
