@@ -68,9 +68,10 @@ head(milo.res)
 
 ### Support
 
-For any question, feature request or bug report please create a new issue in this repository. If you have an error or code-based query, please provide 
+For any feature request or bug report please create a new issue in this repository. If you have an error or code-based query, please provide 
 the executed code and the preceding code from the point of constructing the `Milo` object, along with the output of your `sessionInfo()` - this will help 
-us immeasurably to diagnose the issue.
+us immeasurably to diagnose the issue. If you are seeking general advice on Milo, differential abundance testing, etc, then please create a new post on 
+the [Bioconductor forum](https://support.bioconductor.org/).
 
 ### Contributions
 
