@@ -419,6 +419,13 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
         # I think these need to be logged
         offsets <- log(dge$samples$norm.factors)
+
+        # if glmm.solver isn't set but is running GLMM
+        if(is.null(glmm.solver) & isTRUE(is.lmm)){
+            warning("NULL value for glmm.solver - setting to Fisher. Please set glmm.solver")
+            glmm.solver <- "Fisher"
+        }
+
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
