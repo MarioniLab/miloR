@@ -1,4 +1,8 @@
-# 2.0.1 (2023-11-09)
+# 2.0.X (2024-10-30)
++ Warning on GLMM if glmm.solver not set
++ Bug fix in model contrasts vignette with multiple contrasts
+
+# 2.0.1 (2024-04-30)
 + Introduce NB-GLMM into Milo 2.0 for random effect variables and modelling dependencies between observations
 + Diagnostic function for checking model separation for experimental variables, i.e. splitting zero from non-zero counts perfectly
 + Vignette describing basic usage of GLMM functions in `testNhoods`

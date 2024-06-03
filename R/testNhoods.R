@@ -542,10 +542,12 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)
+        message("Running with model contrasts")
         if(!is.null(model.contrasts)){
             mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)
-            res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
-                                         sort.by='none', n=Inf))
+            pre.res <- topTags(glmQLFTest(fit, contrast=mod.constrast),
+                               sort.by='none', n=Inf)
+            res <- as.data.frame(pre.res)
         } else{
             n.coef <- ncol(x.model)
             res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
@@ -554,7 +556,6 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
     res$Nhood <- as.numeric(rownames(res))
     message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
-    # res1 <- na.omit(res)
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,
