@@ -112,6 +112,16 @@ arma::mat computePREML (const arma::mat& Vsinv, const arma::mat& X){
 }
 
 
+arma::mat computeBupdate(const arma::mat& Gdiff, const arma::mat& Z, const arma::mat& Wdiff){
+    // compute the update matrix B used for the rank-one updates of the pseudo-covariance
+    // B = Z * G_diff * Z^T + W_diff
+    // G_diff = G_i-1 - G_i
+    // W_diff = W_i-1 - W_i
+
+    return ((Z * Gdiff) * Z.t()) + Wdiff;
+    }
+
+
 arma::mat initialiseG (List u_indices, arma::vec sigmas){
     // construct the correct size of G given the random effects and variance components
     // the independent sigmas go on the diagonal and the off-diagonal are the crossed/interactions

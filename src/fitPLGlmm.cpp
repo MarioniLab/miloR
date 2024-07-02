@@ -110,19 +110,14 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     double disp_diff = 0.0;
 
     // setup matrices
-    arma::mat D(n, n);
-    D.zeros();
-    arma::mat Dinv(n, n);
-    Dinv.zeros();
+    arma::mat D(n, n, arma::fill::zeros);
+    arma::mat Dinv(n, n, arma::fill::zeros);
 
     arma::vec y_star(n);
 
-    arma::mat Vmu(n, n);
-    Vmu.zeros();
-    arma::mat W(n, n);
-    W.zeros();
-    arma::mat Winv(n, n);
-    Winv.zeros();
+    arma::mat Vmu(n, n, arma::fill::zeros);
+    arma::mat W(n, n, arma::fill::zeros);
+    arma::mat Winv(n, n, arma::fill::zeros);
 
     arma::mat V_star(n, n);
     V_star.zeros();
@@ -131,8 +126,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat P(n, n);
     P.zeros();
 
-    arma::mat coeff_mat(m+c, m+c);
-    coeff_mat.zeros();
+    arma::mat coeff_mat(m+c, m+c, arma::fill::zeros);
     List V_partial(c);
     V_partial = pseudovarPartial_C(Z, u_indices);
     // compute outside the loop
@@ -146,8 +140,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
-    arma::mat G_inv(stot, stot);
-    G_inv.zeros();
+    arma::mat G_inv(stot, stot, arma::fill::zeros);
 
     arma::vec theta_update(m+stot);
     arma::vec theta_diff(theta_update.size());
@@ -281,6 +274,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         }
 
         // update sigma, G, and G_inv
+        sigma_diff = sigma_update - curr_sigma;
         curr_sigma = sigma_update;
         curr_G = initialiseG(u_indices, curr_sigma);
         G_inv = invGmat(u_indices, curr_sigma);
@@ -299,8 +293,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
             delta_up = std::max(1e-2, update_disp);
         }
-
-        // update_disp = phiMME(y_star, curr_sigma);
         disp_diff = abs(curr_disp - update_disp);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
@@ -316,6 +308,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // need to check for infinite and NA values here...
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+
         LogicalVector _check_mu = check_na_arma_numeric(muvec);
         bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
 
@@ -336,7 +329,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         _thconv = all(theta_diff < theta_conv);
 
         bool _siconv = false;
-        _siconv = all(sigma_diff < theta_conv);
+        _siconv = all(abs(sigma_diff) < theta_conv);
 
         bool _ithit = false;
         _ithit = iters > maxit;
@@ -354,7 +347,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         double loglihood = nbLogLik(muvec, curr_disp, y) - normLogLik(c, G_inv, littleG, curr_u, pi);
 
         List this_conv(7);
-        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=abs(sigma_diff), _["beta"]=curr_beta,
                                  _["u"]=curr_u, _["sigma"]=curr_sigma, _["disp"]=curr_disp, _["PhiDiff"]=disp_diff,
                                  _["LOGLIHOOD"]=loglihood);
         conv_list(iters-1) = this_conv;
