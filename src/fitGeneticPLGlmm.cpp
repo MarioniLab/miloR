@@ -137,6 +137,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     V_partial = pseudovarPartial_G(Z, K, u_indices);
     // compute outside the loop
     List VP_partial(c);
+    List precomp_list(2);
+    List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
     List VS_partial(c);
 
     arma::vec score_sigma(c);
@@ -224,17 +226,17 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         if(REML){
             P = computePREML(V_star_inv, X);
             // take the partial derivative outside the while loop, just keep the P*\dVar\dSigma
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
-
-            score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
-                                              curr_beta, X, V_star_inv);
-            information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
-            List VP_partial = V_partial;
-            score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
-            information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            P = arma::eye(n, n);
         };
+
+        // pre-compute matrics: P*Z, X^T * W^-1, Z^T * W^-1
+        arma::mat PZ = P * Z;
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwin = Z.t() * Winv;
+
+        // pre-compute P*Z(j) * Z(j)^T
+        precomp_list = computePZList_G(u_indices, PZ, P, Z, solver, K);
 
         // choose between HE regression and Fisher scoring for variance components
         // sigma_update is always 1 element longer than the others with HE, but we need to keep track of this
@@ -256,6 +258,20 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             sigma_update = sigma_update.tail(c);
 
         }else if(solver == "Fisher"){
+            if(REML){
+                // VP_partial = pseudovarPartial_P(V_partial, P);
+                VP_partial = precomp_list["PZZt"];
+                VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
+
+                score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
+                                                  curr_beta, X, V_star_inv,
+                                                  VP_partial);
+                information_sigma = sigmaInfoREML_arma(VP_partial, P);
+            } else{
+                List VP_partial = V_partial;
+                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         }
 

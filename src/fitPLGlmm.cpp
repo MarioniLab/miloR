@@ -119,19 +119,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat W(n, n, arma::fill::zeros);
     arma::mat Winv(n, n, arma::fill::zeros);
 
-    arma::mat V_star(n, n);
-    V_star.zeros();
-    arma::mat V_star_inv(n, n);
-    V_star_inv.zeros();
-    arma::mat P(n, n);
-    P.zeros();
+    arma::mat V_star(n, n, arma::fill::zeros);
+    arma::mat V_star_inv(n, n, arma::fill::zeros);
+    arma::mat P(n, n, arma::fill::zeros);
 
     arma::mat coeff_mat(m+c, m+c, arma::fill::zeros);
     List V_partial(c);
     V_partial = pseudovarPartial_C(Z, u_indices);
     // compute outside the loop
-    List VP_partial(c);
-    List VS_partial(c);
+    List VP_partial(c); // P * Z(j) * Z(j)^T
+    List VS_partial(c); // Vstar * Z(j) * Z(j)^T
+    List precomp_list(2);
+    List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
@@ -206,22 +205,17 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         if(REML){
             P = computePREML(V_star_inv, X);
             // take the partial derivative outside the while loop, just keep the P*\dVar\dSigma
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
-
-            score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
-                                              curr_beta, X, V_star_inv);
-            information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
-            // theres a strange bug that means assigning V_partial to VP_partial
-            // doesn't copy over the contents of the list - perhaps it needs to
-            // be a pointer? Crude solve is to just to pre-multiply by I
             P = arma::eye(n, n);
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            // List VP_partial = V_partial;
-            score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
-            information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
+
+        // pre-compute matrics: P*Z, X^T * W^-1, Z^T * W^-1
+        arma::mat PZ = P * Z;
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwinv = Z.t() * Winv;
+
+        // pre-compute P*Z(j) * Z(j)^T
+        precomp_list = computePZList(u_indices, PZ, P, Z, solver);
 
         // choose between HE regression and Fisher scoring for variance components
         // would a hybrid approach work here? If any HE estimates are zero switch
@@ -250,6 +244,24 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
             }
         }else if(solver == "Fisher"){
+            if(REML){
+                // VP_partial = pseudovarPartial_P(V_partial, P);
+                VP_partial = precomp_list["PZZt"];
+                VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
+
+                score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
+                                                  curr_beta, X, V_star_inv,
+                                                  VP_partial);
+                information_sigma = sigmaInfoREML_arma(VP_partial, P);
+            } else{
+                // theres a strange bug that means assigning V_partial to VP_partial
+                // doesn't copy over the contents of the list - perhaps it needs to
+                // be a pointer? Crude solve is to just to pre-multiply by I
+                // VP_partial = pseudovarPartial_P(V_partial, P);
+                VP_partial = precomp_list["PZZt"];
+                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         }
 

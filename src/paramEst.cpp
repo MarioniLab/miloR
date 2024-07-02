@@ -12,7 +12,8 @@
 
 arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar,
                                const arma::mat& P, const arma::vec& curr_beta,
-                               const arma::mat& X, const arma::mat& Vstarinv){
+                               const arma::mat& X, const arma::mat& Vstarinv,
+                               const Rcpp::List& remldiffV){
     // Armadillo implementation
     // sparsifying doesn't speed up - overhead is too high
     const int& c = pvstar_i.size();
@@ -22,8 +23,9 @@ arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ysta
     ystarminx = ystar - (X * curr_beta);
 
     for(int i=0; i < c; i++){
-        const arma::mat& P_pvi = pvstar_i(i); // this is P * partial derivative
-        double lhs = -0.5 * arma::trace(P_pvi);
+        const arma::mat& P_pvi = pvstar_i(i); // this is Vstar_inv * partial derivative
+        const arma::mat& Pdifi = remldiffV(i);
+        double lhs = -0.5 * arma::trace(Pdifi);
         arma::mat mid1(1, 1);
         mid1 = arma::trans(ystarminx) * P_pvi * Vstarinv * ystarminx;
         double rhs = 0.5 * mid1[0, 0];
@@ -381,7 +383,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     for (int i = 0; i < n; i++) {
         for (int j = i; j < n; j++) {
             arma::mat _tmpMat = arma::trans(PREML.row(j)) % (ystar * ystar(j));
-            double _ycovij = arma::dot(PREML.row(i), _tmpMat);
+            double _ycovij = arma::dot(_tmpMat, PREML.row(i));
             Ycovar(i, j) = _ycovij;
         }
     }

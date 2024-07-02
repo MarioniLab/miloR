@@ -7,7 +7,8 @@
 
 arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar,
                                const arma::mat& P, const arma::vec& curr_beta,
-                               const arma::mat& X, const arma::mat& Vstarinv);
+                               const arma::mat& X, const arma::mat& Vstarinv,
+                               const Rcpp::List& remldiffV);
 arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P);
 arma::vec sigmaScore (arma::vec ystar, arma::vec beta, arma::mat X, Rcpp::List V_partial, arma::mat V_star_inv);
 arma::mat sigmaInformation (arma::mat V_star_inv, Rcpp::List V_partial);

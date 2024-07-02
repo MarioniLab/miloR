@@ -41,6 +41,55 @@ List pseudovarPartial_C(arma::mat Z, List u_indices){
 }
 
 
+List computePZList(const List& u_indices, const arma::mat& PZ, const arma::mat& P,
+                   const arma::mat& Z, const std::string& solver){
+    // compute the PZ(j) * Z(j)^T * P^T and intermediates
+    unsigned int c = u_indices.size();
+    List pzz_list(c);
+    List pzzp_list(c);
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int i=0; i < c; i++){
+        arma::uvec u_idx = u_indices[i];
+        arma::mat _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+        pzz_list[i] = _pzz;
+        if(solver == "HE" || solver == "HE-NNLS"){
+            pzzp_list[i] = _pzz * P.t();
+        }
+    }
+
+    return List::create(Named("PZZt") = pzz_list,
+                        Named("PZZtP") = pzzp_list);
+}
+
+
+List computePZList_G(const List& u_indices, const arma::mat& PZ, const arma::mat& P,
+                     const arma::mat& Z, const std::string& solver, const arma::mat& K){
+    // compute the PZ(j) * Z(j)^T * P^T and intermediates
+    unsigned int c = u_indices.size();
+    List pzz_list(c);
+    List pzzp_list(c);
+
+    #pragma omp parallel for schedule(dynamic)
+    for(int i=0; i < c; i++){
+        arma::uvec u_idx = u_indices[i];
+        if(i == c - 1){
+            arma::mat _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+        } else{
+            arma::mat _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+        }
+
+        pzz_list[i] = _pzz;
+        if(solver == "HE" || solver == "HE-NNLS"){
+            pzzp_list[i] = _pzz * P.t();
+        }
+    }
+
+    return List::create(Named("PZZt") = pzz_list,
+                        Named("PZZtP") = pzzp_list);
+}
+
+
 List pseudovarPartial_P(List V_partial, const arma::mat& P){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes
     // don't be tempted to sparsify this - the overhead of casting is too expensive
