@@ -67,16 +67,19 @@ List computePZList_G(const List& u_indices, const arma::mat& PZ, const arma::mat
                      const arma::mat& Z, const std::string& solver, const arma::mat& K){
     // compute the PZ(j) * Z(j)^T * P^T and intermediates
     unsigned int c = u_indices.size();
+    unsigned int n = Z.n_rows;
     List pzz_list(c);
     List pzzp_list(c);
 
     #pragma omp parallel for schedule(dynamic)
     for(int i=0; i < c; i++){
         arma::uvec u_idx = u_indices[i];
+        arma::mat _pzz(n, n);
+
         if(i == c - 1){
-            arma::mat _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+            _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
         } else{
-            arma::mat _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+            _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
         }
 
         pzz_list[i] = _pzz;
