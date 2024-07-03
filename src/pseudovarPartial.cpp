@@ -48,7 +48,6 @@ List computePZList(const List& u_indices, const arma::mat& PZ, const arma::mat& 
     List pzz_list(c);
     List pzzp_list(c);
 
-    #pragma omp parallel for schedule(dynamic)
     for(int i=0; i < c; i++){
         arma::uvec u_idx = u_indices[i];
         arma::mat _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
@@ -71,7 +70,6 @@ List computePZList_G(const List& u_indices, const arma::mat& PZ, const arma::mat
     List pzz_list(c);
     List pzzp_list(c);
 
-    #pragma omp parallel for schedule(dynamic)
     for(int i=0; i < c; i++){
         arma::uvec u_idx = u_indices[i];
         arma::mat _pzz(n, n);
@@ -109,7 +107,6 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
         // Can we turn this into a for loop and use OpenMP?
         for (int j = 0; j < n; j++) {
             // j = rows of P
-            #pragma omp parallel for reduction(+:temp_value)
             for (int k = 0; k < n; k++) {
                 // k = columns of P
                 temp_value = 0.0;

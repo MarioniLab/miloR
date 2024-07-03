@@ -231,15 +231,15 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             }
 
         } else if(solver == "HE-NNLS"){
-            // for the first iteration use the current non-zero estimate
-            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma[0] = _intercept;
-            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            // // for the first iteration use the current non-zero estimate
+            // arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            // _curr_sigma[0] = _intercept;
+            // _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, curr_sigma, iters, PZ);
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, curr_sigma, iters);
             }
         }else if(solver == "Fisher"){
             if(REML){
@@ -267,15 +267,15 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         if(any(sigma_update < 0.0)){
             warning("Negative variance components - re-running with NNLS");
             solver = "HE-NNLS";
-            // for the first iteration use the current non-zero estimate
-            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
-            _curr_sigma.elem(_sigma_index) = curr_sigma;
+            // // for the first iteration use the current non-zero estimate
+            // arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            // _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
+            // _curr_sigma.elem(_sigma_index) = curr_sigma;
 
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, curr_sigma, iters, PZ);
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, curr_sigma, iters);
             }
         }
 
