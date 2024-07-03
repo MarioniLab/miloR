@@ -128,22 +128,52 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
 }
 
 
-List pseudovarPartial_V(List V_partial, const arma::mat& V_star_inv){
+List pseudovarPartial_V(const List& u_indices, const arma::mat& Z, const arma::mat& VstarZ){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes
     // don't be tempted to sparsify this - the overhead of casting is too expensive
-    unsigned int items = V_partial.size();
+    unsigned int items = u_indices.size();
     List outlist(items);
 
     for(unsigned int i = 0; i < items; i++){
         // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
-        arma::mat _omat = V_partial(i);
-        arma::mat omat(V_star_inv * _omat);
+        arma::uvec u_idx = u_indices[i];
+        arma::mat omat = VstarZ.cols(u_idx-1) * Z.cols(u_idx-1).t();
         outlist[i] = omat;
     }
 
     return outlist;
 
 }
+
+
+List pseudovarPartial_VG(const List& u_indices, const arma::mat& Z, const arma::mat& VstarZ,
+                         const arma::mat& K){
+    // A Rcpp specific implementation that uses positional indexing rather than character indexes
+    // don't be tempted to sparsify this - the overhead of casting is too expensive
+    unsigned int c = u_indices.size();
+    unsigned int n = Z.n_rows;
+    List outlist(c);
+
+    for(unsigned int i = 0; i < c; i++){
+        // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
+        arma::uvec u_idx = u_indices[i];
+        arma::mat omat(n , n);
+
+        if(i == c - 1){
+            omat = VstarZ.cols(u_idx-1) * K * Z.cols(u_idx-1);
+        } else{
+            omat = VstarZ.cols(u_idx-1) * Z.cols(u_idx-1);
+        }
+
+
+
+        outlist[i] = omat;
+    }
+
+    return outlist;
+
+}
+
 
 List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes

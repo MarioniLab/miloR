@@ -3,17 +3,18 @@
 #include "invertPseudoVar.h"
 using namespace Rcpp;
 
-arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
+arma::mat invertPseudoVar(const arma::mat& A, const arma::mat& B, const arma::mat& Z,
+                          const arma::mat& ZtA){
     int c = B.n_cols;
     int n = A.n_cols;
 
     arma::mat I = arma::eye(c, c); // create the cxc identity matrix
     arma::mat omt(n, n);
     arma::mat mid(c, c);
-    arma::mat AZB(A.n_rows, B.n_cols);
+    arma::mat ZB(Z.n_rows, B.n_cols);
 
-    AZB = A * Z * B;
-    mid = I + (Z.t() * AZB); // If we know the structure in B can we simplify this more???
+    ZB = Z * B;
+    mid = I + (ZtA * ZB); // If we know the structure in B can we simplify this more???
 
     try{
         // double _rcond = arma::rcond(mid);
@@ -27,7 +28,7 @@ arma::mat invertPseudoVar(arma::mat A, arma::mat B, arma::mat Z){
         }
 
         arma::mat midinv = mid.i();
-        omt = A - (AZB * midinv * Z.t() * A); // stack multiplications like this appear to be slow
+        omt = A - (A * ZB * midinv * ZtA); // stack multiplications like this appear to be slow
 
         return omt;
     } catch(std::exception &ex){

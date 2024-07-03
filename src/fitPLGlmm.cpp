@@ -199,8 +199,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
+        // pre-compute matrics: X^T * W^-1, Z^T * W^-1
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwinv = Z.t() * Winv;
+
         V_star = computeVStar(Z, curr_G, W);
-        V_star_inv = invertPseudoVar(Winv, curr_G, Z);
+        V_star_inv = invertPseudoVar(Winv, curr_G, Z, zTwinv);
 
         if(REML){
             P = computePREML(V_star_inv, X);
@@ -209,10 +213,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             P = arma::eye(n, n);
         };
 
-        // pre-compute matrics: P*Z, X^T * W^-1, Z^T * W^-1
+        // pre-compute matrics: P*Z and Vstar * Z
         arma::mat PZ = P * Z;
-        arma::mat xTwinv = X.t() * Winv;
-        arma::mat zTwinv = Z.t() * Winv;
 
         // pre-compute P*Z(j) * Z(j)^T
         precomp_list = computePZList(u_indices, PZ, P, Z, solver);
@@ -245,9 +247,9 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             }
         }else if(solver == "Fisher"){
             if(REML){
-                // VP_partial = pseudovarPartial_P(V_partial, P);
+                arma::mat VstarZ = V_star_inv * Z;
                 VP_partial = precomp_list["PZZt"];
-                VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
+                VS_partial = pseudovarPartial_V(u_indices, Z, VstarZ);
 
                 score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
                                                   curr_beta, X, V_star_inv,
@@ -309,8 +311,9 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
-        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
+
+        coeff_mat = coeffMatrix(X, xTwinv, zTwinv, Z, G_inv);
+        theta_update = solveEquations(stot, m, zTwinv, xTwinv, coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
         // inference
@@ -367,6 +370,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
+
+    // VP_partial is empty for HE/HE-NNLS so needs to be populated
+    if(solver != "Fisher"){
+        VP_partial = precomp_list["PZZt"];
+    }
+
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
     // return the variance of the pseudo-variable - this is used to compute the proportion of
     // variance explained - is this on the correct scale though?

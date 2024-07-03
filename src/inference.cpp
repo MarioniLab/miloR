@@ -80,14 +80,22 @@ arma::vec computeTScore(const arma::vec& curr_beta, const arma::vec& SE){
 
 arma::mat varCovar(const Rcpp::List& psvari, const int& c){
     arma::mat Va(c, c);
+    // trace can be computed as sum of dot products of rows and columns
+
     for(int i=0; i < c; i++){
-        arma::mat _ips = psvari(i); // why isn't this
+        arma::mat _ips = psvari[i]; // why isn't this
         for(int j=i; j < c; j++){
             arma::mat _jps = psvari(j);
-            arma::mat _ij(_ips * _jps);
-            Va(i, j) = 2 * (1/(arma::trace(_ij)));
+
+            // Compute trace directly
+            double trace = 0.0;
+            for(arma::uword k = 0; k < _ips.n_rows; ++k) {
+                trace += arma::dot(_ips.row(k), _jps.col(k));
+            }
+
+            Va(i, j) = 2 * (1/trace);
             if(i != j){
-                Va(j, i) = 2 * (1/(arma::trace(_ij)));
+                Va(j, i) = 2 * (1/trace);
             }
         }
     }

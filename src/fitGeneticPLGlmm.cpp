@@ -219,9 +219,12 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
+        // pre-compute matrics: X^T * W^-1, Z^T * W^-1
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwin = Z.t() * Winv;
 
         V_star = computeVStar(Z, curr_G, W); // K is implicitly included in curr_G
-        V_star_inv = invertPseudoVar(Winv, curr_G, Z);
+        V_star_inv = invertPseudoVar(Winv, curr_G, Z, zTwin);
 
         if(REML){
             P = computePREML(V_star_inv, X);
@@ -230,10 +233,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             P = arma::eye(n, n);
         };
 
-        // pre-compute matrics: P*Z, X^T * W^-1, Z^T * W^-1
+        // pre-compute matrics: P*Z
         arma::mat PZ = P * Z;
-        arma::mat xTwinv = X.t() * Winv;
-        arma::mat zTwin = Z.t() * Winv;
 
         // pre-compute P*Z(j) * Z(j)^T
         precomp_list = computePZList_G(u_indices, PZ, P, Z, solver, K);
@@ -260,8 +261,9 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         }else if(solver == "Fisher"){
             if(REML){
                 // VP_partial = pseudovarPartial_P(V_partial, P);
+                arma::mat VstarZ = V_star_inv * Z;
                 VP_partial = precomp_list["PZZt"];
-                VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
+                VS_partial = pseudovarPartial_VG(u_indices, Z,  VstarZ, K);
 
                 score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
                                                   curr_beta, X, V_star_inv,
@@ -318,8 +320,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
-        theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
+        coeff_mat = coeffMatrix(X, xTwinv, zTwin, Z, G_inv); //model space
+        theta_update = solveEquations(stot, m, zTwin, xTwinv, coeff_mat, curr_beta, curr_u, y_star); //model space
 
         LogicalVector _check_theta = check_na_arma_numeric(theta_update);
         bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool
@@ -387,6 +389,12 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // inference
     arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
+
+    // VP_partial is empty for HE/HE-NNLS so needs to be populated
+    if(solver != "Fisher"){
+        VP_partial = precomp_list["PZZt"];
+    }
+
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
 
     // compute the variance of the pseudovariable

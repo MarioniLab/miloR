@@ -52,12 +52,16 @@ arma::mat sigmaInfoREML_arma (const Rcpp::List& pvstari, const arma::mat& P){
         #pragma omp parallel for
         for(int j=i; j < c; j++){
             const arma::mat& P_jp = pvstari[j]; // this is P * \d Var/ \dsigma
-            arma::mat a_ij(_ipP * P_jp); // this is the biggest bottleneck - it takes >2s!
-            double _artr = arma::trace(a_ij);
 
-            sinfo(i, j) = 0.5 * _artr;
+            // Compute trace directly
+            double trace = 0.0;
+            for(arma::uword k = 0; k < _ipP.n_rows; ++k) {
+                trace += arma::dot(_ipP.row(k), P_jp.col(k));
+            }
+
+            sinfo(i, j) = 0.5 * trace;
             if(i != j){
-                sinfo(j, i) = 0.5 * _artr;
+                sinfo(j, i) = 0.5 * trace;
             }
 
         }
@@ -142,39 +146,25 @@ arma::vec fisherScore (const arma::mat& hess, const arma::vec& score_vec, const 
 }
 
 
-arma::mat coeffMatrix(const arma::mat& X, const arma::mat& Winv, const arma::mat& Z, const arma::mat& Ginv){
+arma::mat coeffMatrix(const arma::mat& X, const arma::mat& XtWinv, const arma::mat& ZtWinv,
+                      const arma::mat& Z, const arma::mat& Ginv){
     // compute the components of the coefficient matrix for the MMEs
     // sparsification _does_ help here, despite the added overhead
     // unsparsify
     int c = Z.n_cols;
     int m = X.n_cols;
-
-    arma::mat ul(m, m);
-    arma::mat ur(m, c);
-    arma::mat ll(c, m);
-    arma::mat lr(c, c);
-
-    arma::mat lhs_top(m, m+c);
-    arma::mat lhs_bot(c, m+c);
-
     arma::mat lhs(m+c, m+c);
 
-    ul = X.t() * Winv * X;
-    ur = X.t() * Winv * Z;
-    ll = Z.t() * Winv * X;
-    lr = (Z.t() * Winv * Z) + Ginv;
+    lhs(arma::span(0, m-1), arma::span(0, m-1)) = XtWinv * X;
+    lhs(arma::span(0, m-1), arma::span(m, m+c-1)) = XtWinv * Z;
+    lhs(arma::span(m, m+c-1), arma::span(0, m-1)) = ZtWinv * X;
+    lhs(arma::span(m, m+c-1), arma::span(m, m+c-1)) = ZtWinv * Z + Ginv;
 
-    lhs_top = arma::join_rows(ul, ur); // join_rows matches the rows i.e. glue columns together
-    lhs_bot = arma::join_rows(ll, lr);
-
-    lhs = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
-    // res = arma::join_cols(lhs_top, lhs_bot); // join_cols matches the cols, i.e. glue rows together
-    // arma::mat lhs(res);
     return lhs;
 }
 
 
-arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, const arma::mat& Zt, const arma::mat& Xt,
+arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, const arma::mat& XtWinv,
                           const arma::mat& coeffmat, const arma::vec& beta, const arma::vec& u, const arma::vec& ystar){
     // solve the mixed model equations
     arma::vec rhs_beta(m);
@@ -183,8 +173,8 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 
     arma::vec theta_up(m+c, arma::fill::zeros);
 
-    rhs_beta.col(0) = Xt * Winv * ystar;
-    rhs_u.col(0) = Zt * Winv * ystar;
+    rhs_beta.col(0) = XtWinv * ystar;
+    rhs_u.col(0) = ZtWinv * ystar;
 
     rhs = arma::join_cols(rhs_beta, rhs_u);
 
@@ -204,7 +194,7 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& Winv, con
 
         // can we just use solve here instead?
         // if the coefficient matrix is singular then do we resort to pinv?
-        theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx);
+        theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx + arma::solve_opts::fast);
     } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){
@@ -279,7 +269,7 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
     arma::vec he_update(c);
 
     // use OSL here for starters
-    _he_update = arma::solve(vecZ, Ybig);
+    _he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
     he_update = _he_update.tail(c);
 
     return he_update;
@@ -400,25 +390,17 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     // solve by linear least squares
     arma::vec _he_update(c+1);
 
-    // first check if we can get a non-negative OLS estimate
-    arma::dvec _ols = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    if(any(_ols < 1e-8)){
-        // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
-        // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
-        bool _ispd;
-        _ispd = check_pd_matrix(vecZ);
+    bool _ispd;
+    _ispd = check_pd_matrix(vecZ);
 
-        if(_ispd){
-            // use the FAST NNLS solver
-            _he_update = fastNnlsSolve(vecZ, Ybig);
-        } else{
-            // have to use slower implementation from Lawson and Hanson
-            _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
-        }
-        he_update = _he_update.tail(c);
+    if(_ispd){
+        // use the FAST NNLS solver
+        _he_update = fastNnlsSolve(vecZ, Ybig);
     } else{
-        he_update = _ols.tail(c);
+        // have to use slower implementation from Lawson and Hanson
+        _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
     }
+    he_update = _he_update.tail(c);
 
     return he_update;
 }
@@ -449,25 +431,19 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
     // solve by linear least squares
     arma::vec _he_update(c+1);
 
-    // first check if we can get a non-negative OLS estimate
-    arma::dvec _ols = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    if(any(_ols < 1e-8)){
-        // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
-        // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
-        bool _ispd;
-        _ispd = check_pd_matrix(vecZ);
+    // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
+    // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
+    bool _ispd;
+    _ispd = check_pd_matrix(vecZ);
 
-        if(_ispd){
-            // use the FAST NNLS solver
-            _he_update = fastNnlsSolve(vecZ, Ybig);
-        } else{
-            // have to use slower implementation from Lawson and Hanson
-            _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
-        }
-        he_update = _he_update.tail(c);
+    if(_ispd){
+        // use the FAST NNLS solver
+        _he_update = fastNnlsSolve(vecZ, Ybig);
     } else{
-        he_update = _ols.tail(c);
+        // have to use slower implementation from Lawson and Hanson
+        _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
     }
+    he_update = _he_update.tail(c);
 
     return he_update;
 }
@@ -508,25 +484,19 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
 
     arma::vec _he_update(c+1);
 
-    // first check if we can get a non-negative OLS estimate
-    arma::dvec _ols = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    if(any(_ols < 1e-8)){
-        // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
-        // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
-        bool _ispd;
-        _ispd = check_pd_matrix(vecZ);
+    // use NNLS here - Lawson and Hanson algorithm or FAST-NNLS
+    // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
+    bool _ispd;
+    _ispd = check_pd_matrix(vecZ);
 
-        if(_ispd){
-            // use the FAST NNLS solver
-            _he_update = fastNnlsSolve(vecZ, Ybig);
-        } else{
-            // have to use slower implementation from Lawson and Hanson
-            _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
-        }
-        he_update = _he_update.tail(c);
+    if(_ispd){
+        // use the FAST NNLS solver
+        _he_update = fastNnlsSolve(vecZ, Ybig);
     } else{
-        he_update = _ols.tail(c);
+        // have to use slower implementation from Lawson and Hanson
+        _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
     }
+    he_update = _he_update.tail(c);
 
     return he_update;
 }
@@ -599,7 +569,7 @@ arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_up
         arma::uvec select_P = find(P > 0);
         arma::vec s_all(m);
         s_all.fill(constval);
-        s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y); // is this faster?
+        s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y, arma::solve_opts::fast); // is this faster?
 
         double min_sp = s_all.elem(select_P).min();
         double alpha; // the step size
@@ -636,7 +606,7 @@ arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_up
 
             // update the elements of S
             s_all.fill(constval);
-            s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y);
+            s_all.elem(select_P) = arma::solve(vecZ.cols(select_P), Y, arma::solve_opts::fast);
             min_sp = s_all.elem(select_P).min();
             // inner_count++;
         }
