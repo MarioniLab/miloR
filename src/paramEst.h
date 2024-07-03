@@ -26,7 +26,7 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
                            const arma::mat& PZ);
 arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices,
                              const arma::vec& ystar);
-arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
+arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
                                   const Rcpp::List& u_indices, const arma::vec& ystar,
                                   const arma::mat& Kin);
 arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
@@ -34,7 +34,8 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
                                       const arma::mat& PZ);
 arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_indices,
                                         const arma::vec& ystar, arma::vec he_update, const int& Iters);
-arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
+arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
+                                             const Rcpp::List& u_indices,
                                              const arma::vec& ystar, const arma::mat& Kin, arma::vec he_update,
                                              const int& Iters);
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters);
@@ -43,7 +44,7 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
                      const arma::mat& PZ);
 arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices);
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
-                            const arma::mat& P, const arma::mat& Kin);
+                            const arma::mat& P, const arma::mat& PZ, const arma::mat& Kin);
 double phiLineSearch(double disp, double lower, double upper, const int& c,
                      const arma::vec& mu, const arma::mat& Ginv, double pi,
                      const arma::vec& curr_u, const arma::vec& sigma,

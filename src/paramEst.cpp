@@ -233,7 +233,7 @@ arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rc
 }
 
 
-arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
+arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
                                   const Rcpp::List& u_indices, const arma::vec& ystar, const arma::mat& Kin){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
@@ -262,7 +262,7 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZGenetic(Z, u_indices, PREML, Kin); // projection already applied
+    vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
@@ -453,6 +453,7 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
 
 
 arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML,
+                                             const arma::mat& PZ,
                                              const Rcpp::List& u_indices,
                                              const arma::vec& ystar, const arma::mat& Kin,
                                              arma::vec he_update, const int& Iters){
@@ -483,7 +484,7 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZGenetic(Z, u_indices, PREML, Kin); // projection already applied
+    vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
 
     arma::vec _he_update(c+1);
 
@@ -709,7 +710,8 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
 
 
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
-                            const arma::mat& P, const arma::mat& Kin){
+                            const arma::mat& P, const arma::mat& PZ,
+                            const arma::mat& Kin){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     // this needs to use PZ

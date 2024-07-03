@@ -243,7 +243,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         // sigma_update is always 1 element longer than the others with HE, but we need to keep track of this
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
-            sigma_update = estHasemanElstonGenetic(Z, P, u_indices, y_star, K);
+            sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star, K);
         } else if (solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1);
@@ -254,7 +254,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                 _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
             }
 
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
+            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
             _intercept = sigma_update[0];
             sigma_update = sigma_update.tail(c);
 
@@ -290,7 +290,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
                 _curr_sigma[0] = _intercept;
                 _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
             }
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
+            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
         }
 
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
