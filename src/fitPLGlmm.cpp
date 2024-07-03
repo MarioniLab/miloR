@@ -303,8 +303,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
-
         coeff_mat = coeffMatrix(X, xTwinv, zTwinv, Z, G_inv);
+
         theta_update = solveEquations(stot, m, zTwinv, xTwinv, coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 

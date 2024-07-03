@@ -643,6 +643,7 @@ computePvalue <- function(Zscore, df) {
 
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
+#' @importFrom pracma pinv
 ###---- first calculate g = derivative of C with respect to sigma ----
 function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     UpperLeft <- coeff.mat[c(1:mint), c(1:mint)]
@@ -652,7 +653,18 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
-    C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+
+    # check for singularity
+    tosolve.mat <- UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft
+    rcond.val <- rcond(tosolve.mat)
+    if(rcond.val <= 1e-9){
+        warning("Coefficient matrix is nearly singular - using pseudoinverse")
+        C <- pinv(tosolve.mat)
+    } else{
+        C <- solve(tosolve.mat)
+    }
+
+    return(C)
 }
 
 
@@ -685,6 +697,7 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
+#' @importFrom pracma pinv
 #' @export
 Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
 

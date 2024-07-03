@@ -1,3 +1,4 @@
+#define ARMA_WARN_LEVEL 1
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "utils.h"
@@ -125,23 +126,14 @@ arma::vec fisherScore (const arma::mat& hess, const arma::vec& score_vec, const 
     arma::mat hessinv(hess.n_rows, hess.n_cols);
 
     // will need a check here for singular hessians...
-    try{
-        double _rcond = arma::rcond(hess);
-        bool is_singular;
-        is_singular = _rcond < 1e-9;
-
-        // check for singular condition
-        if(is_singular){
-            Rcpp::stop("Variance Component Hessian is computationally singular");
-        }
-
+    double _rcond = arma::rcond(hess);
+    if(_rcond < 1e-9){
+        Rcpp::warning("Variance Component Hessian is computationally singular");
+        hessinv = arma::pinv(hess);
+    } else{
         hessinv = arma::inv(hess); // always use pinv? solve() and inv() are most sensitive than R versions
-        theta = theta_hat + (hessinv * score_vec);
-    } catch(std::exception const& ex){
-        forward_exception_to_r(ex);
-    } catch(...){
-        Rf_error("c++ exception (unknown reason)");
     }
+    theta = theta_hat + (hessinv * score_vec);
 
     return theta;
 }
@@ -182,20 +174,17 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
     // need a check for singular hessian here
     double _rcond = arma::rcond(coeffmat);
     try{
-        // double _rcond = arma::rcond(coeffmat);
-        bool is_singular;
-        is_singular = _rcond < 1e-9;
-
         // check for singular condition
-        if(is_singular){
+        if(_rcond < 1e-9){
             // this happens when G^-1 contains NaN values <- how does this happen
             // and how do we prevent it?
-            Rcpp::stop("Coefficients Hessian is computationally singular");
+            Rcpp::warning("Coefficients Hessian is computationally singular - using pseudoinverse");
+            theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::force_approx);
+        } else{
+            // can we just use solve here instead?
+            // if the coefficient matrix is singular then do we resort to pinv?
+            theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx + arma::solve_opts::fast);
         }
-
-        // can we just use solve here instead?
-        // if the coefficient matrix is singular then do we resort to pinv?
-        theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::no_approx + arma::solve_opts::fast);
     } catch(std::exception const& ex){
         forward_exception_to_r(ex);
     } catch(...){

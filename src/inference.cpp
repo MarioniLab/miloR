@@ -32,23 +32,14 @@ arma::vec computeSE(const int& m, const int& c, const arma::mat& coeff_mat) {
     arma::mat _se(ul - ur * lr.i() * ll); // m X m - (m X c X m) <- this should commute
     arma::vec se(m+c);
     // will need a check here for singular hessians...
-    try{
-        double _rcond = arma::rcond(_se);
-        bool is_singular;
-        is_singular = _rcond < 1e-12;
-
-        // check for singular condition
-        if(is_singular){
-            Rcpp::stop("Standard Error coefficient matrix is computationally singular");
-        }
-
-        arma::mat _seInv(_se.i());
-        // arma::vec se(arma::sqrt(_seInv.diag()));
+    double _rcond = arma::rcond(_se);
+    if(_rcond < 1e-12){
+        Rcpp::warning("Standard Error coefficient matrix is computationally singular - using pseudoinverse");
+        arma::mat _seInv = arma::pinv(_se);
         se = arma::sqrt(_seInv.diag());
-    } catch(std::exception &ex){
-        forward_exception_to_r(ex);
-    } catch(...){
-        Rf_error("c++ exception (unknown reason)");
+    } else{
+        arma::mat _seInv = arma::inv(_se);
+        se = arma::sqrt(_seInv.diag());
     }
 
     return se;
