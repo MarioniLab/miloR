@@ -689,39 +689,25 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
     int n = Z.n_rows;
     unsigned long nsq = n * (n + 1)/2;
 
-    Rcpp::List _Zelements(1);
-    arma::mat bigI(n, n, arma::fill::eye); // this should be the identity which we vectorise
-
     // select the upper triangular elements, including the diagonal
-    arma::uvec upper_indices = arma::trimatu_ind(arma::size(bigI));
-    arma::mat _vI = bigI(upper_indices);
-    _Zelements(0) = _vI;
+    arma::uvec upper_indices = arma::trimatu_ind(arma::size(n, n));
+    arma::mat vecMat(nsq, c+1);
+    vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
         arma::uvec u_idx = u_indices(i);
-        unsigned int q = u_idx.n_rows;
-        arma::mat _subZ(n, q);
-        unsigned int qmin = arma::min(u_idx);
-        unsigned int qmax = arma::max(u_idx);
-        _subZ = Z.cols(qmin-1, qmax-1);
 
-        arma::mat _ZZT(n, n);
-        _ZZT = (_subZ * _subZ.t());
+        _ZZT = (Z.cols(u_idx - 1) * Z.cols(u_idx - 1).t());
 
         // vectorise
         arma::vec _vecZ = _ZZT(upper_indices);
-        arma::mat _vecZZT = _Zelements(0);
-        unsigned long _zc = _vecZZT.n_cols;
-
-        arma::mat _vZ(nsq, _zc+1);
-        _vZ = arma::join_rows(_vecZZT, _vecZ);
-        _Zelements(0) = _vZ;
+        vecMat.col(i+1) = _vecZ
     }
 
-    arma::mat vecMat = _Zelements(0);
     return vecMat;
 }
+
 
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
                             const arma::mat& P, const arma::mat& Kin){
@@ -733,50 +719,30 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
     // unsigned long nsq = pow(static_cast<float>(n), 2);
     unsigned long nsq = n * (n + 1)/2;
 
-    Rcpp::List _Zelements(1);
-    // we don't need the vec(I) columns?
-    arma::mat bigI(n, n, arma::fill::ones); // should this be column of 1s
-
     // select the upper triangular elements, including the diagonal
-    arma::uvec upper_indices = arma::trimatu_ind(arma::size(bigI));
-    arma::mat _vI = bigI(upper_indices);
-    _Zelements(0) = _vI;
+    arma::uvec upper_indices = arma::trimatu_ind(arma::size(P));
+    arma::mat vecMat(nsq, c+1);
+    vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
         arma::uvec u_idx = u_indices(i);
-        unsigned int q = u_idx.n_rows;
-        arma::mat _subZ(n, q);
-        unsigned int qmin = arma::min(u_idx);
-        unsigned int qmax = arma::max(u_idx);
-        _subZ = Z.cols(qmin-1, qmax-1);
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
             arma::vec _vecZ = Kin(upper_indices);
-            arma::mat _vecZZT = _Zelements(0);
-            unsigned long _zc = _vecZZT.n_cols;
-
-            arma::mat _vZ(nsq, _zc+1);
-            _vZ = arma::join_rows(_vecZZT, _vecZ);
-            _Zelements(0) = _vZ;
+            vecMat.col(i+1) = _vecZ;
         } else{
             // compute Z_i Z_i^T
             arma::mat _ZZT(n, n);
-            _ZZT = P * (_subZ * _subZ.t()) * P; // REML projection
+            _ZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // REML projection
 
             // vectorise
             arma::vec _vecZ = _ZZT(upper_indices);
-            arma::mat _vecZZT = _Zelements(0);
-            unsigned long _zc = _vecZZT.n_cols;
-
-            arma::mat _vZ(nsq, _zc+1);
-            _vZ = arma::join_rows(_vecZZT, _vecZ);
-            _Zelements(0) = _vZ;
+            vecMat.col(i+1) = _vecZ;
         }
     }
 
-    arma::mat vecMat = _Zelements(0);
     return vecMat;
 }
 
