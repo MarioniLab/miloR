@@ -697,8 +697,7 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
         arma::uvec u_idx = u_indices(i);
-
-        _ZZT = (Z.cols(u_idx - 1) * Z.cols(u_idx - 1).t());
+        arma::mat _ZZT = (Z.cols(u_idx - 1) * Z.cols(u_idx - 1).t());
 
         // vectorise
         arma::vec _vecZ = _ZZT(upper_indices);
@@ -734,8 +733,7 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
             vecMat.col(i+1) = _vecZ;
         } else{
             // compute Z_i Z_i^T
-            arma::mat _ZZT(n, n);
-            _ZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // REML projection
+            arma::mat _ZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // REML projection
 
             // vectorise
             arma::vec _vecZ = _ZZT(upper_indices);
