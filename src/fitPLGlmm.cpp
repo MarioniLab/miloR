@@ -225,7 +225,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
             if(REML){
-                sigma_update = estHasemanElston(Z, P, u_indices, y_star);
+                sigma_update = estHasemanElston(Z, P, u_indices, y_star, PZ);
             } else{
                 sigma_update = estHasemanElstonML(Z, u_indices, y_star);
             }
@@ -233,15 +233,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         } else if(solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(constval);
+            _curr_sigma[0] = _intercept;
+            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
-            // if these are all zero then it can only be that they are initial estimates
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            }
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
             } else{
                 sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
             }
@@ -273,15 +269,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             solver = "HE-NNLS";
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(constval);
+            _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
+            _curr_sigma.elem(_sigma_index) = curr_sigma;
 
-            // if these are all zero then it can only be that they are initial estimates
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            }
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
             } else{
                 sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
             }

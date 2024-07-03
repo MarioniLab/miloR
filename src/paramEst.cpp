@@ -276,7 +276,9 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML,
 }
 
 
-arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices, const arma::vec& ystar){
+arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
+                           const Rcpp::List& u_indices, const arma::vec& ystar,
+                           const arma::mat& PZ){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -306,13 +308,12 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML, const Rcp
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZ(Z, u_indices, PREML); // projection already applied
+    vecZ = vectoriseZ(Z, u_indices, PREML, PZ); // projection already applied
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
     arma::vec he_update(c);
 
-    // use OSL here for starters
     _he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
     he_update = _he_update.tail(c);
 
@@ -354,7 +355,8 @@ arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, co
 
 
 arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
-                                      const arma::vec& ystar, arma::vec he_update, const int& Iters){
+                                      const arma::vec& ystar, arma::vec he_update, const int& Iters,
+                                      const arma::mat& PZ){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -385,7 +387,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZ(Z, u_indices, PREML); // projection already applied
+    vecZ = vectoriseZ(Z, u_indices, PREML, PZ); // projection already applied
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
@@ -401,6 +403,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
         _he_update = nnlsSolve(vecZ, Ybig, he_update, Iters);
     }
     he_update = _he_update.tail(c);
+    // he_update = _he_update;
 
     return he_update;
 }
@@ -651,76 +654,30 @@ arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y){
 }
 
 
-arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P){
+arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P,
+                     const arma::mat& PZ){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
+    // make use of pre-computed PZ
     int c = u_indices.size();
     int n = Z.n_rows;
     unsigned long nsq = n * (n + 1)/2;
-    int j, k, l, a;
-    double temp_value;
-
-    Rcpp::List _Zelements(1);
-    arma::mat bigI(n, n, arma::fill::eye); // this should be the identity which we vectorise
 
     // select the upper triangular elements, including the diagonal
-    arma::uvec upper_indices = arma::trimatu_ind(arma::size(bigI));
-    arma::mat _vI = bigI(upper_indices);
-    _Zelements(0) = _vI;
+    arma::uvec upper_indices = arma::trimatu_ind(arma::size(P));
+    arma::mat vecMat(nsq, c+1);
+    vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
 
+    #pragma omp parallel for schedule(dynamic)
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
         arma::uvec u_idx = u_indices(i);
-        unsigned int q = u_idx.n_rows;
-        arma::mat _subZ(n, q);
-        unsigned int qmin = arma::min(u_idx);
-        unsigned int qmax = arma::max(u_idx);
-        _subZ = Z.cols(qmin-1, qmax-1);
-        arma::mat _subZT = _subZ * _subZ.t();
+        arma::mat _pZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // this will be slow
 
-        arma::mat _ZZT(n, n);
-        arma::mat _pZZT(n, n);
-        // Can we turn this into a for loop and use OpenMP?
-        for (int j = 0; j < n; j++) {
-            // j = rows of P
-            #pragma omp parallel for reduction(+:temp_value)
-            for (int k = 0; k < n; k++) {
-                // k = columns of P
-                temp_value = 0.0;
-                for(int a=0; a < n; a++){
-                    temp_value += P(j, a) * _subZT(a, k);
-                }
-            _pZZT(j, k) = temp_value; // Apply P again for symmetry
-            }
-
-        }
-
-        // another loop?
-        for (int j = 0; j < n; j++) {
-            // j = rows of P
-            #pragma omp parallel for reduction(+:temp_value)
-            for (int k = 0; k < n; k++) {
-                // k = columns of P
-                temp_value = 0.0;
-                for(int a=0; a < n; a++){
-                    temp_value += _pZZT(j, a) * P(a, k);
-                }
-                _ZZT(j, k) = temp_value; // Apply P again for symmetry
-            }
-
-        }
-        // _ZZT = _pZZT * P; // REML projection is v.slow
-        // vectorise
-        arma::vec _vecZ = _ZZT(upper_indices);
-        arma::mat _vecZZT = _Zelements(0);
-        unsigned long _zc = _vecZZT.n_cols;
-
-        arma::mat _vZ(nsq, _zc+1);
-        _vZ = arma::join_rows(_vecZZT, _vecZ);
-        _Zelements(0) = _vZ;
+        arma::vec _vZ = _pZZT(upper_indices);
+        vecMat.col(i+1) = _vZ;
     }
 
-    arma::mat vecMat = _Zelements(0);
     return vecMat;
 }
 
@@ -770,12 +727,14 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
                             const arma::mat& P, const arma::mat& Kin){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
+    // this needs to use PZ
     int c = u_indices.size();
     int n = Z.n_rows;
     // unsigned long nsq = pow(static_cast<float>(n), 2);
     unsigned long nsq = n * (n + 1)/2;
 
     Rcpp::List _Zelements(1);
+    // we don't need the vec(I) columns?
     arma::mat bigI(n, n, arma::fill::ones); // should this be column of 1s
 
     // select the upper triangular elements, including the diagonal
