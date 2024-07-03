@@ -701,7 +701,7 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
 
         // vectorise
         arma::vec _vecZ = _ZZT(upper_indices);
-        vecMat.col(i+1) = _vecZ
+        vecMat.col(i+1) = _vecZ;
     }
 
     return vecMat;
