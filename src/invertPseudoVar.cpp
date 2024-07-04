@@ -31,12 +31,14 @@ arma::mat invertPseudoVar(const arma::mat& A, const arma::mat& B, const arma::ma
 
     double _rcond = arma::rcond(mid);
     if (_rcond < 1e-12) {
-        Rcpp::stop("Pseudovariance component matrix is computationally singular");
+        Rcpp::warning("Pseudovariance component matrix is computationally singular");
+        arma::mat midinv = arma::pinv(mid); // no guarantee on PD - use pseudoinverse
+        omt = A - A * ZB * (midinv * ZtA); // stack multiplications like this appear to be slow
+    } else{
+        arma::mat midinv = arma::inv(mid); // no guarantee on PD.
+        // this is hard to speed up - main bottleneck
+        omt = A - A * ZB * (midinv * ZtA);
     }
-
-    arma::mat midinv = arma::inv(mid); // no guarantee on PD.
-    // this is hard to speed up - main bottleneck
-    omt = A - A * ZB * (midinv * ZtA); // stack multiplications like this appear to be slow
 
     return omt;
 }

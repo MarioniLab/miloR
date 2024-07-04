@@ -144,6 +144,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
     arma::vec sigma_update(c);
+    arma::vec _sigma_update(c+1);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
@@ -245,18 +246,14 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             // try Haseman-Elston regression instead of Fisher scoring
             sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star, K);
         } else if (solver == "HE-NNLS"){
-            // // for the first iteration use the current non-zero estimate
-            // arma::dvec _curr_sigma(c+1);
-            // _curr_sigma.fill(constval);
-            //
-            // if(iters > 0){
-            //     _curr_sigma[0] = _intercept;
-            //     _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            // }
+            // for the first iteration use the current non-zero estimate
+            arma::dvec _curr_sigma(c+1);
+            _curr_sigma[0] = _intercept;
+            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, curr_sigma, iters);
-            _intercept = sigma_update[0];
-            sigma_update = sigma_update.tail(c);
+            _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+            _intercept = _sigma_update[0];
+            sigma_update = _sigma_update.tail(c);
 
         }else if(solver == "Fisher"){
             if(REML){
@@ -282,16 +279,13 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             warning("Negative variance components - re-running with NNLS");
             solver = "HE-NNLS";
             // for the first iteration use the current non-zero estimate
-            // arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            // _curr_sigma.fill(constval);
-            //
-            // // if these are all zero then it can only be that they are initial estimates
-            // if(iters > 0){
-            //     _curr_sigma[0] = _intercept;
-            //     _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            // }
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma[0] = _intercept;
+            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, curr_sigma, iters);
+            _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+            _intercept = _sigma_update[0];
+            sigma_update = _sigma_update.tail(c);
         }
 
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value

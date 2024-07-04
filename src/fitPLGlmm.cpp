@@ -136,6 +136,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat information_sigma(c, c);
     information_sigma.zeros();
     arma::vec sigma_update(c);
+    arma::vec _sigma_update(c+1);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
@@ -232,14 +233,20 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         } else if(solver == "HE-NNLS"){
             // // for the first iteration use the current non-zero estimate
-            // arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            // _curr_sigma[0] = _intercept;
-            // _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma[0] = _intercept;
+            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
+            // currently the intercept is reset to _intercept at every iteration.
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, curr_sigma, iters, PZ);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                // _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                // _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
         }else if(solver == "Fisher"){
             if(REML){
@@ -268,14 +275,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             warning("Negative variance components - re-running with NNLS");
             solver = "HE-NNLS";
             // // for the first iteration use the current non-zero estimate
-            // arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            // _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
-            // _curr_sigma.elem(_sigma_index) = curr_sigma;
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+            _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
+            _curr_sigma.elem(_sigma_index) = curr_sigma;
 
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, curr_sigma, iters, PZ);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                // _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                // _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
         }
 

@@ -655,7 +655,16 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
 
     # check for singularity
-    tosolve.mat <- UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft
+    lr.tosolve <- LowerRight
+    lr.rcond <- rcond(lr.tosolve)
+    if(lr.rcond <= 1e-9){
+        warning("Coefficient submatrix is nearly singular - using pseudoinverse")
+        lr.inv <- pinv(LowerRight)
+    } else{
+        lr.inv <- solve(LowerRight)
+    }
+
+    tosolve.mat <- UpperLeft - UpperRight %*% lr.inv %*% LowerLeft
     rcond.val <- rcond(tosolve.mat)
     if(rcond.val <= 1e-9){
         warning("Coefficient matrix is nearly singular - using pseudoinverse")
