@@ -109,7 +109,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
-    double constval = 0.0; // value at which to constrain values
+    double constval = 1e-8; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
     double delta_up = 2.0 * curr_disp;
     double delta_lo = 1e-2;
@@ -247,17 +247,29 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star, K);
         } else if (solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
-            arma::dvec _curr_sigma(c+1);
-            _curr_sigma[0] = _intercept;
-            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
-            _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
-            _intercept = _sigma_update[0];
-            sigma_update = _sigma_update.tail(c);
+            if(REML){
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            } else{
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
 
         }else if(solver == "Fisher"){
             if(REML){
-                // VP_partial = pseudovarPartial_P(V_partial, P);
                 arma::mat VstarZ = V_star_inv * Z;
                 VP_partial = precomp_list["PZZt"];
                 VS_partial = pseudovarPartial_VG(u_indices, Z,  VstarZ, K);
@@ -280,12 +292,25 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             solver = "HE-NNLS";
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma[0] = _intercept;
-            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
-            _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
-            _intercept = _sigma_update[0];
-            sigma_update = _sigma_update.tail(c);
+            if(REML){
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            } else{
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
         }
 
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value

@@ -15,7 +15,9 @@ URL: https://marionilab.github.io/miloR
 BugReports: https://github.com/MarioniLab/miloR/issues
 biocViews: SingleCell, MultipleComparison, FunctionalGenomics, Software
 LinkingTo: Rcpp,
-           RcppArmadillo
+           RcppArmadillo,
+           RcppEigen,
+           RcppML
 Depends: R (>= 4.0.0),
          edgeR
 Imports: BiocNeighbors,

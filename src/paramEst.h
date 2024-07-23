@@ -38,6 +38,10 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
                                              const Rcpp::List& u_indices,
                                              const arma::vec& ystar, const arma::mat& Kin, arma::vec he_update,
                                              const int& Iters);
+arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
+                                               const Rcpp::List& u_indices,
+                                               const arma::vec& ystar, const arma::mat& Kin,
+                                               arma::vec he_update, const int& Iters);
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters);
 arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y);
 arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P,
@@ -45,6 +49,8 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
 arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices);
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
                             const arma::mat& P, const arma::mat& PZ, const arma::mat& Kin);
+arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
+                            const arma::mat& Kin);
 double phiLineSearch(double disp, double lower, double upper, const int& c,
                      const arma::vec& mu, const arma::mat& Ginv, double pi,
                      const arma::vec& curr_u, const arma::vec& sigma,

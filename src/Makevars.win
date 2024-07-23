@@ -1,2 +1,9 @@
 PKG_CXXFLAGS = -std=c++11
 PKG_LIBS = $(LAPACK_LIBS) $(BLAS_LIBS)
+
+#PKG_CPPFLAGS = -I../inst/include -I./OsqpEigen/include -I./osqp/include/public -I./osqp/include/private
+#OSQP_SRC = $(wildcard osqp/src/*.c)
+#OSQP_OBJ = $(OSQP_SRC:.c=.o)
+#OBJECTS = RcppExports.o your_cpp_files.o $(OSQP_OBJ)
+#all: $(SHLIB)
+#$(SHLIB): $(OBJECTS)

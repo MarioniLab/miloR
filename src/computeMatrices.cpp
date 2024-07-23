@@ -317,7 +317,7 @@ arma::mat invGmat (List u_indices, arma::vec sigmas){
     arma::vec lsigma(c);
 
     for(int k = 0; k < c; k++){
-        lsigma(k) = 1/sigmas(k);
+        lsigma(k) = 1/sigmas(k); // doesn't handle 0's
     }
 
     // sum total number of levels

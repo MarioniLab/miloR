@@ -103,7 +103,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     const int& n = X.n_rows;
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
-    double _intercept = constval; // intercept for HE regression
+    double _intercept = constval; // intercept for HE regression?? need a better estimate.
     double delta_up = 2.0 * curr_disp;
     double delta_lo = 1e-2; // this needs to be non-zero
     double update_disp = 0.0;
@@ -223,6 +223,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // choose between HE regression and Fisher scoring for variance components
         // would a hybrid approach work here? If any HE estimates are zero switch
         // to NNLS using these as the initial estimates?
+
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
             if(REML){
@@ -232,22 +233,28 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             }
 
         } else if(solver == "HE-NNLS"){
-            // // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma[0] = _intercept;
-            _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
 
-            // currently the intercept is reset to _intercept at every iteration.
             if(REML){
                 _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
-                // _intercept = _sigma_update[0];
+                _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
 
             } else{
                 _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
-                // _intercept = _sigma_update[0];
+                _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
+
         }else if(solver == "Fisher"){
             if(REML){
                 arma::mat VstarZ = V_star_inv * Z;
@@ -276,17 +283,24 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             solver = "HE-NNLS";
             // // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma[0] = _intercept; // what is the best way to select the intercept?
-            _curr_sigma.elem(_sigma_index) = curr_sigma;
 
             if(REML){
                 _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
-                // _intercept = _sigma_update[0];
+                _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             } else{
                 _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
-                // _intercept = _sigma_update[0];
+                _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
+            }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
             }
         }
 
