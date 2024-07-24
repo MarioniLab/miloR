@@ -251,7 +251,7 @@ test_that("Singular Hessians are detectable and fail appropriately", {
     # collinear fixed and random effects
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
                             design.df=sim1.meta, glmm.solver="Fisher", fail.on.error=TRUE)),
-                 "Coefficients Hessian is computationally singular")
+                 "matrix is singular")
 })
 
 test_that("Invalid formulae give expected errors", {
