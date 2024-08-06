@@ -109,6 +109,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     double update_disp = 0.0;
     double disp_diff = 0.0;
 
+
+    std::string user_solver = solver;
     // setup matrices
     arma::mat D(n, n, arma::fill::zeros);
     arma::mat Dinv(n, n, arma::fill::zeros);
@@ -302,11 +304,17 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                     }
                 }
             }
+        } else{
+            // switch back when positive var params
+            solver = user_solver;
         }
 
         // update sigma, G, and G_inv
+        // sigma update explodes for poorly conditioned system
+
         sigma_diff = sigma_update - curr_sigma;
         curr_sigma = sigma_update;
+
         curr_G = initialiseG(u_indices, curr_sigma);
         G_inv = invGmat(u_indices, curr_sigma);
 

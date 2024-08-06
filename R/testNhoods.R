@@ -538,7 +538,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
         rownames(res) <- 1:length(fit)
-        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance", sep="_")
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)

@@ -166,6 +166,13 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
     arma::mat rhs(m+c, 1);
 
     arma::vec theta_up(m+c, arma::fill::zeros);
+    arma::mat I = arma::eye(arma::size(coeffmat));
+    arma::mat lm_eye = arma::eye(arma::size(coeffmat));
+    arma::mat _coeff = coeffmat;
+    double lambda = 1e-1;
+    double lambda_step = 10;
+    double _illcond_eps = 1e-6;
+    double _lcond_target = 1e-5;
 
     rhs_beta.col(0) = XtWinv * ystar;
     rhs_u.col(0) = ZtWinv * ystar;
@@ -174,13 +181,30 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
 
     // need a check for singular hessian here
     double _rcond = arma::rcond(coeffmat);
+
     try{
         // check for singular condition
         if(_rcond < 1e-9){
-            // this happens when G^-1 contains NaN values <- how does this happen
-            // and how do we prevent it?
-            Rcpp::warning("Coefficients Hessian is computationally singular - using pseudoinverse");
-            theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::force_approx);
+            Rcpp::warning("Coefficients Hessian is computationally singular - regularising");
+            // poorly conditioned system - switch to regularisation to find a solution?
+            // add a small diagonal element to coeffmat
+            double _lcond = _rcond - 1;
+
+            while(_lcond < _lcond_target){
+                lm_eye = lambda * I;
+                _coeff = coeffmat + lm_eye;
+                _lcond = arma::rcond(_coeff);
+
+                std::cout << "condition: " << _lcond << "\n" << std::endl;
+
+                // update lambda as step size - try factor of 10 first
+                if(_lcond < _illcond_eps){
+                    lambda = lambda * lambda_step;
+                } else{
+                    lambda = lambda/lambda_step;
+                }
+            }
+            theta_up = arma::solve(_coeff, rhs, arma::solve_opts::fast);
         } else{
             // can we just use solve here instead?
             // if the coefficient matrix is singular then do we resort to pinv?
@@ -315,11 +339,9 @@ arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, co
 
     // solve by linear least squares
     arma::vec he_update(c+1);
-    // arma::vec he_update(c);
 
     // use OSL here for starters
     he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    // he_update = _he_update.tail(c);
 
     return he_update.tail(c);
 }
@@ -385,28 +407,6 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
     arma::vec _he_update(c+1);
     _he_update = solveQP(vecZ, Ybig, _he_update);
 
-    // // actually check if any varcomps < 0
-    // if(all(he_update > 0)){
-    //     _he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    // } else{
-    //     _he_update = he_update;
-    // }
-    //
-    // if(any(_he_update < 0)){
-    //     // use NNSL here - Lawson and Hanson algorithm or FAST-NNLS
-    //     // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
-    //     bool _ispd;
-    //     _ispd = check_pd_matrix(vecZ);
-    //
-    //     if(_ispd){
-    //         // use the FAST NNLS solver
-    //         _he_update = fastNnlsSolve(vecZ, Ybig);
-    //     } else{
-    //         // have to use slower implementation from Lawson and Hanson
-    //         _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
-    //     }
-    // }
-
     return _he_update;
 }
 
@@ -439,28 +439,6 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
 
     arma::vec _he_update(c+1);
     _he_update = solveQP(vecZ, Ybig, _he_update);
-
-    // // actually check if any varcomps < 0
-    // if(all(he_update > 0)){
-    //     _he_update = arma::solve(vecZ, Ybig, arma::solve_opts::fast);
-    // } else{
-    //     _he_update = he_update;
-    // }
-    //
-    // if(any(_he_update < 0)){
-    //     // use NNLS here - Lawson and Hanson algorithm or FAST-NNLS
-    //     // the latter is only applicable when vecZ is PD - need to check this with all positive eigenvalues
-    //     bool _ispd;
-    //     _ispd = check_pd_matrix(vecZ);
-    //
-    //     if(_ispd){
-    //         // use the FAST NNLS solver
-    //         _he_update = fastNnlsSolve(vecZ, Ybig);
-    //     } else{
-    //         // have to use slower implementation from Lawson and Hanson
-    //         _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
-    //     }
-    // }
 
     return _he_update;
 }

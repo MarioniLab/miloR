@@ -5,6 +5,7 @@
 #' negative bionomial generalized linear model.
 #'
 #' @aliases miloR
+#' @return NULL
 #' @importFrom Rcpp evalCpp
 #' @useDynLib miloR
 #' @name miloR
