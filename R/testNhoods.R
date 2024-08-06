@@ -58,6 +58,9 @@
 #' @param fail.on.error A logical scalar the determines the behaviour of the error reporting. Used for debugging only.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
 #' this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.
+#' @param force A logical scalar that overrides the default behaviour to nicely error when N < 50 and using a mixed
+#' effect model. This is because model parameter estimation may be unstable with these sample sizes, and hence the
+#' fixed effect GLM is recommended instead. If used with the LMM, a warning will be produced.
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -83,6 +86,14 @@
 #' need this to be the first variable. A future update will harmonise these behaviours for
 #' consistency. While it is strictly feasible to compute multiple contrasts at once, the
 #' recommendation, for ease of interpretability, is to compute one at a time.
+#'
+#' If using the GLMM option, i.e. including a random effect variable in the \code{design}
+#' formula, then \code{testNhoods} will check for the sample size of the analysis. If this is
+#' less than 60 it will stop and produce an error. It is \emph{strongly} recommended that
+#' the GLMM is not used with relatively small sample sizes, i.e. N<60, and even up to N~100
+#' may have unstable parameter estimates across nhoods. This behaviour can be overriden by
+#' setting \code{force=TRUE}, but also be aware that parameter estimates may not be
+#' accurate. A warning will be produced to alert you to this fact.
 #'
 #' @return A \code{data.frame} of model results, which contain:
 #' \describe{
@@ -152,7 +163,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), cell.sizes=NULL,
                        max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       subset.nhoods=NULL, fail.on.error=FALSE, BPPARAM=SerialParam()){
+                       subset.nhoods=NULL, fail.on.error=FALSE, BPPARAM=SerialParam(),
+                       force=FALSE){
     is.lmm <- FALSE
     geno.only <- FALSE
     if(is(design, "formula")){
@@ -221,6 +233,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         }
     } else{
         stop("design must be either a formula or model matrix")
+    }
+
+    check.n <- nrow(x.model) < 60
+
+    if(is.lmm & check.n & isFALSE(force)){
+        stop("You are attempting to use the GLMM with N=", nrow(x.model), ". It is ",
+             "strongly discouraged. To override this behaviour set force=TRUE")
+    } else if(is.lmm & check.n & force){
+        warning("Running GLMM with small sample size, N=", nrow(x.model), ". Model ",
+                "estimates may not be reliable")
     }
 
     if(!is(x, "Milo")){
