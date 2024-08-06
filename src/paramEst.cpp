@@ -183,28 +183,11 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
     double _rcond = arma::rcond(coeffmat);
 
     try{
-        // check for singular condition
         if(_rcond < 1e-9){
-            Rcpp::warning("Coefficients Hessian is computationally singular - regularising");
+            Rcpp::warning("Coefficients Hessian is computationally singular - trying pseudoinverse");
             // poorly conditioned system - switch to regularisation to find a solution?
             // add a small diagonal element to coeffmat
-            double _lcond = _rcond - 1;
-
-            while(_lcond < _lcond_target){
-                lm_eye = lambda * I;
-                _coeff = coeffmat + lm_eye;
-                _lcond = arma::rcond(_coeff);
-
-                std::cout << "condition: " << _lcond << "\n" << std::endl;
-
-                // update lambda as step size - try factor of 10 first
-                if(_lcond < _illcond_eps){
-                    lambda = lambda * lambda_step;
-                } else{
-                    lambda = lambda/lambda_step;
-                }
-            }
-            theta_up = arma::solve(_coeff, rhs, arma::solve_opts::fast);
+            theta_up = arma::solve(_coeff, rhs, arma::solve_opts::no_approx);
         } else{
             // can we just use solve here instead?
             // if the coefficient matrix is singular then do we resort to pinv?
