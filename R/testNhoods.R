@@ -201,7 +201,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 geno.only <- TRUE
             }
 
-            # this will always implicitly include an intercept term - perhaps
+            # this will always implicitly include a fixed intercept term - perhaps
             # this shouldn't be the case?
             x.model <- .parse_formula(design, design.df, vtype="fe")
             rownames(x.model) <- rownames(design.df)

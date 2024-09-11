@@ -113,7 +113,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     }
     rownames(curr_beta) <- colnames(X)
 
-
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
         if(nrow(Kin) != ncol(Kin)){
@@ -161,10 +160,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                 return(sum(lhs) * sum(rhs))
             }, bigZ=full.Z, errVec=errMat)
 
+
             curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
 
-            # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
-            # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
         }
@@ -275,7 +273,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             diag(eyeN) <- 1
             errMat <- (e0 %*% t(e0))/sig0 - eyeN
 
-            curr_sigma.vec <- sapply(random.levels, FUN=function(lvls, bigZ, errVec){
+            exp.levels <- random.levels
+            exp.levels <- exp.levels[!grepl(exp.levels, pattern="residual")]
+
+            curr_sigma.vec <- sapply(exp.levels, FUN=function(lvls, bigZ, errVec){
                 ijZ <- bigZ[, lvls]
                 lhs <- c()
                 rhs <- c()
@@ -289,6 +290,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                 return(sum(lhs) * sum(rhs))
             }, bigZ=full.Z, errVec=errMat)
 
+            # add the residual variance
+            res.var <- abs(sig0 - sum(curr_sigma.vec))
+            curr_sigma.vec <- c(curr_sigma.vec, res.var)
             curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
             # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
             # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)

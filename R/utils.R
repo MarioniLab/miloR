@@ -82,7 +82,11 @@
             d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE],
                                           function(x) as.integer(factor(x)))), ncol = length(v.terms))
         }
-        colnames(d.mat) <- trimws(v.terms)
+
+        # add the residual variance term
+        d.mat <- cbind(d.mat, matrix(data=1L, nrow=nrow(d.mat), ncol=1))
+        colnames(d.mat) <- c(trimws(v.terms), "residual")
+
     } else if(vtype %in% c("fe")){
         v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
         if(length(v.terms) > 1){
@@ -90,7 +94,7 @@
         }
 
         d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
-        d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
+        d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))] # drop the intercept term
     } else{
         stop("vtype ", vtype, " not recognised")
     }

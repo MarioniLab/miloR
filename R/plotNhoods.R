@@ -232,6 +232,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
 
   ## Add milo results to colData
   signif_res <- milo_res
+  signif_res$SpatialFDR[is.na(signif_res$SpatialFDR)] <- 1 # handle NAs
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
 
