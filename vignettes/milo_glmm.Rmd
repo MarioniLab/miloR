@@ -167,7 +167,7 @@ set.seed(42)
 rownames(pbmc.design) <- pbmc.design$ObsID
 
 da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
-                         glmm.solver="Fisher", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
+                         glmm.solver="Fisher", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE, intercept.type="fixed")
 table(da_results$SpatialFDR < 0.1)
 ```
 
@@ -219,7 +219,7 @@ the results table when using the GLM.
 We can inspect the distribution of the variance parameter estimates, and compare between the converged vs. not converged nhoods.
 
 ```{r}
-ggplot(da_results, aes(x=Converged, y=`tenx_lane variance`)) +
+ggplot(da_results, aes(x=Converged, y=`tenx_lane_variance`)) +
     geom_boxplot() + 
     scale_y_log10() +
     NULL

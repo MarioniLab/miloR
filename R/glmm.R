@@ -15,6 +15,11 @@
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #' @param solver a character value that determines which optimisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
+#' @param intercept.type A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
+#' intercept variable in the model. This only applies to the GLMM case where additional random effects variables are
+#' already included. Setting \code{intercept.type="fixed"} or \code{intercept.type="random"} will require the user to
+#' test their model for failures with each. In the case of using a kinship matrix, \code{intercept.type="fixed"} is
+#' set automatically.
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
@@ -81,6 +86,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL, solver=NULL),
                     dispersion = 1, geno.only=FALSE,
+                    intercept.type="fixed",
                     solver=NULL){
 
     if(!is.null(solver)){
@@ -273,8 +279,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             diag(eyeN) <- 1
             errMat <- (e0 %*% t(e0))/sig0 - eyeN
 
-            exp.levels <- random.levels
-            exp.levels <- exp.levels[!grepl(exp.levels, pattern="residual")]
+            if(intercept.type == "random"){
+                exp.levels <- random.levels
+                exp.levels <- exp.levels[!grepl(exp.levels, pattern="residual")]
+            } else{
+                exp.levels <- random.levels
+            }
 
             curr_sigma.vec <- sapply(exp.levels, FUN=function(lvls, bigZ, errVec){
                 ijZ <- bigZ[, lvls]
@@ -291,8 +301,11 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             }, bigZ=full.Z, errVec=errMat)
 
             # add the residual variance
-            res.var <- abs(sig0 - sum(curr_sigma.vec))
-            curr_sigma.vec <- c(curr_sigma.vec, res.var)
+            if(intercept.type == "random"){
+                res.var <- abs(sig0 - sum(curr_sigma.vec))
+                curr_sigma.vec <- c(curr_sigma.vec, res.var)
+            }
+
             curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
             # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
             # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
