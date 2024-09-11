@@ -167,7 +167,7 @@ set.seed(42)
 rownames(pbmc.design) <- pbmc.design$ObsID
 
 da_results <- testNhoods(pbmc.milo, design = ~ adjmfc.time + (1|tenx_lane), design.df = pbmc.design, fdr.weighting="graph-overlap",
-                         glmm.solver="Fisher", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE, intercept.type="fixed")
+                         glmm.solver="Fisher", REML=TRUE, norm.method="TMM", BPPARAM = bpparam, fail.on.error=FALSE)
 table(da_results$SpatialFDR < 0.1)
 ```
 
