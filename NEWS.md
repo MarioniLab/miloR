@@ -2,6 +2,7 @@
 + Warning on GLMM if glmm.solver not set
 + Bug fix in model contrasts vignette with multiple contrasts
 + testNhoods will error if N<60 and using GLMM - introduce force=TRUE to override (with a warning)
++ DA nhoods can be emphasised in plotNhoodGraphDA with `highlight.da`
 
 # 2.0.1 (2024-04-30)
 + Introduce NB-GLMM into Milo 2.0 for random effect variables and modelling dependencies between observations
