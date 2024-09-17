@@ -55,9 +55,17 @@
 #' these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. If numeric, then these are assumed
 #' to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 #' an error will be produced.
+#' @param intercept.type A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
+#' intercept variable in the model. This only applies to the GLMM case where additional random effects variables are
+#' already included. Setting \code{intercept.type="fixed"} or \code{intercept.type="random"} will require the user to
+#' test their model for failures with each. In the case of using a kinship matrix, \code{intercept.type="fixed"} is
+#' set automatically.
 #' @param fail.on.error A logical scalar the determines the behaviour of the error reporting. Used for debugging only.
 #' @param BPPARAM A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
 #' this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.
+#' @param force A logical scalar that overrides the default behaviour to nicely error when N < 50 and using a mixed
+#' effect model. This is because model parameter estimation may be unstable with these sample sizes, and hence the
+#' fixed effect GLM is recommended instead. If used with the LMM, a warning will be produced.
 #'
 #' @details
 #' This function wraps up several steps of differential abundance testing using
@@ -71,11 +79,26 @@
 #' function \code{fitGLMM} can be used to fit a mixed effect model to each
 #' nhood (see \code{fitGLMM} docs for details).
 #'
-#' Parallelisation is currently only enabled for the NB-LMM and uses the BiocParallel paradigm. In
-#' general the GLM implementation in \code{glmQLFit} is sufficiently fast that it does not require
+#' Parallelisation is currently only enabled for the NB-GLMM and uses the BiocParallel paradigm at
+#' the level of R, and OpenMP to allow multi-threading of RCpp code. In general the GLM implementation
+#' in \code{glmQLFit} is sufficiently fast that it does not require
 #' parallelisation. Parallelisation requires the user to pass a \linkS4class{BiocParallelParam} object
-#' with the parallelisation arguments contained therein. This relies on the user to specify how
-#' parallelisation - for details see the \code{BiocParallel} package.
+#' with the parallelisation arguments contained therein. This relies on the user specifying how to
+#' parallelise - for details see the \code{BiocParallel} package.
+#'
+#' \code{model.contrasts} are used to define specific comparisons for DA testing. Currently,
+#' \code{testNhoods} will take the last formula variable for comparisons, however, contrasts
+#' need this to be the first variable. A future update will harmonise these behaviours for
+#' consistency. While it is strictly feasible to compute multiple contrasts at once, the
+#' recommendation, for ease of interpretability, is to compute one at a time.
+#'
+#' If using the GLMM option, i.e. including a random effect variable in the \code{design}
+#' formula, then \code{testNhoods} will check for the sample size of the analysis. If this is
+#' less than 60 it will stop and produce an error. It is \emph{strongly} recommended that
+#' the GLMM is not used with relatively small sample sizes, i.e. N<60, and even up to N~100
+#' may have unstable parameter estimates across nhoods. This behaviour can be overriden by
+#' setting \code{force=TRUE}, but also be aware that parameter estimates may not be
+#' accurate. A warning will be produced to alert you to this fact.
 #'
 #' @return A \code{data.frame} of model results, which contain:
 #' \describe{
@@ -145,9 +168,15 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), cell.sizes=NULL,
                        max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
-                       subset.nhoods=NULL, fail.on.error=FALSE, BPPARAM=SerialParam()){
+                       subset.nhoods=NULL, intercept.type=c("fixed", "random"),
+                       fail.on.error=FALSE, BPPARAM=SerialParam(), force=FALSE){
     is.lmm <- FALSE
     geno.only <- FALSE
+
+    if(!any(intercept.type %in% c("fixed", "random"))){
+        stop("intercept.type: ", intercept.type, " not recognised, must be either 'fixed' or 'random'")
+    }
+
     if(is(design, "formula")){
         # parse to find random and fixed effects - need to double check the formula is valid
         parse <- unlist(strsplit(gsub(design, pattern="~", replacement=""), split= "+", fixed=TRUE))
@@ -166,14 +195,25 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             is.lmm <- TRUE
             if(find_re | is.null(kinship)){
                 # make model matrices for fixed and random effects
-                z.model <- .parse_formula(design, design.df, vtype="re")
+                if(length(intercept.type) > 1){
+                    intercept.type <- intercept.type[1]
+                }
+
+                if(intercept.type == "random"){
+                    rand.int <- TRUE
+                } else{
+                    rand.int <- FALSE
+                }
+
+                z.model <- .parse_formula(design, design.df, vtype="re", add.int=rand.int)
                 rownames(z.model) <- rownames(design.df)
             } else if(find_re & !is.null(kinship)){
                 if(!all(rownames(kinship) == rownames(design.df))){
                     stop("Genotype rownames do not match design.df rownames")
                 }
 
-                z.model <- .parse_formula(design, design.df, vtype="re")
+                # genetic model MUST have fixed intercept
+                z.model <- .parse_formula(design, design.df, vtype="re", add.int=FALSE)
                 rownames(z.model) <- rownames(design.df)
             } else if(!find_re & !is.null(kinship)){
                 z.model <- diag(nrow(kinship))
@@ -182,9 +222,15 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                 geno.only <- TRUE
             }
 
-            # this will always implicitly include an intercept term - perhaps
+            # this will always implicitly include a fixed intercept term - perhaps
             # this shouldn't be the case?
-            x.model <- .parse_formula(design, design.df, vtype="fe")
+            if(intercept.type == "fixed"){
+                fixed.int <- TRUE
+            } else{
+                fixed.int <- FALSE
+            }
+
+            x.model <- .parse_formula(design, design.df, vtype="fe", add.int=fixed.int)
             rownames(x.model) <- rownames(design.df)
             max.iters <- max.iters
 
@@ -214,6 +260,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         }
     } else{
         stop("design must be either a formula or model matrix")
+    }
+
+    check.n <- nrow(x.model) < 60
+
+    if(is.lmm & check.n & isFALSE(force)){
+        stop("You are attempting to use the GLMM with N=", nrow(x.model), ". It is ",
+             "strongly discouraged. To override this behaviour set force=TRUE")
+    } else if(is.lmm & check.n & force){
+        warning("Running GLMM with small sample size, N=", nrow(x.model), ". Model ",
+                "estimates may not be reliable")
     }
 
     if(!is(x, "Milo")){
@@ -419,26 +475,35 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
         # I think these need to be logged
         offsets <- log(dge$samples$norm.factors)
+
+        # if glmm.solver isn't set but is running GLMM
+        if(is.null(glmm.solver) & isTRUE(is.lmm)){
+            warning("NULL value for glmm.solver - setting to Fisher. Please set glmm.solver")
+            glmm.solver <- "Fisher"
+        }
+
         glmm.cont <- list(theta.tol=max.tol, max.iter=max.iters, solver=glmm.solver)
 
         #wrapper function is the same for all analyses
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels,
-                                reml, glmm.contr, genonly=FALSE, kin.ship=NULL,
+                                reml, glmm.contr, int.type, genonly=FALSE, kin.ship=NULL,
                                 BPPARAM=BPPARAM, error.fail=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
             bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = error.fail),
                                          FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                                       randlevels, disper, genonly,
-                                                      kin.ship, glmm.contr, reml){
+                                                      kin.ship, glmm.contr, reml, int.type){
                                              fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
                                                      random.levels=randlevels, REML = reml,
                                                      dispersion=disper[i], geno.only=genonly,
-                                                     Kin=kinship, glmm.control=glmm.contr)
+                                                     Kin=kinship, glmm.control=glmm.contr,
+                                                     intercept.type=int.type)
                                              }, BPPARAM=BPPARAM,
                                          Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                          randlevels=randlevels, disper=disper, genonly=genonly,
-                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml)
+                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml,
+                                       int.type=intercept.type)
                                 }) # need to handle this output which is a bplist_error object
 
             # parse the bplist_error object
@@ -476,25 +541,13 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             } else{
                 message("Running genetic model with ", nrow(z.model), " observations")
             }
-
-            if(geno.only){
-                fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
-                                   off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
-                                   genonly = geno.only, kin.ship=kinship,
-                                   BPPARAM=BPPARAM, error.fail=fail.on.error)
-            } else{
-                fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
-                                   off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
-                                   genonly = geno.only, kin.ship=kinship,
-                                   BPPARAM=BPPARAM, error.fail=fail.on.error)
-            }
-
-        } else{
-            fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
-                               off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
-                               genonly = geno.only, kin.ship=kinship,
-                               BPPARAM=BPPARAM, error.fail=fail.on.error)
         }
+
+        fit <- glmmWrapper(Y=dge$counts, disper = 1/dispersion, Xmodel=x.model, Zmodel=z.model,
+                           off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
+                           genonly = geno.only, kin.ship=kinship,
+                           BPPARAM=BPPARAM, error.fail=fail.on.error,
+                           int.type=intercept.type)
 
         # give warning about how many neighborhoods didn't converge and error if > 50% nhoods failed
         n.nhoods <- length(fit)
@@ -524,14 +577,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
         rownames(res) <- 1:length(fit)
-        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance")
+        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance", sep="_")
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)
+        message("Running with model contrasts")
         if(!is.null(model.contrasts)){
             mod.constrast <- makeContrasts(contrasts=model.contrasts, levels=x.model)
-            res <- as.data.frame(topTags(glmQLFTest(fit, contrast=mod.constrast),
-                                         sort.by='none', n=Inf))
+            pre.res <- topTags(glmQLFTest(fit, contrast=mod.constrast),
+                               sort.by='none', n=Inf)
+            res <- as.data.frame(pre.res)
         } else{
             n.coef <- ncol(x.model)
             res <- as.data.frame(topTags(glmQLFTest(fit, coef=n.coef), sort.by='none', n=Inf))
@@ -540,7 +595,6 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
     res$Nhood <- as.numeric(rownames(res))
     message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
-    # res1 <- na.omit(res)
     mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
                                       graph=graph(x),
                                       weighting=fdr.weighting,

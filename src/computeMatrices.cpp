@@ -101,15 +101,24 @@ arma::mat computePREML (const arma::mat& Vsinv, const arma::mat& X){
     int n = Vsinv.n_cols;
 
     arma::mat P(n, n);
-    arma::mat spvsinv(Vsinv);
-    arma::mat sinternal(X.t() * Vsinv * X);
-    arma::mat _toinvert(sinternal);
-    arma::mat _sintP(inv(_toinvert));
+    arma::mat XtVsinv = X.t() * Vsinv;
+    arma::mat sinternal = XtVsinv * X;
+    arma::mat _sintP = arma::inv(sinternal);
 
-    P = Vsinv - (Vsinv * X * _sintP * X.t() * Vsinv); // dense matrix version is faster than sparse here ¯\_(ツ)_/¯
+    P = Vsinv - (Vsinv * X * _sintP * XtVsinv); // dense matrix version is faster than sparse here ¯\_(ツ)_/¯
 
     return P;
 }
+
+
+arma::mat computeBupdate(const arma::mat& Gdiff, const arma::mat& Z, const arma::mat& Wdiff){
+    // compute the update matrix B used for the rank-one updates of the pseudo-covariance
+    // B = Z * G_diff * Z^T + W_diff
+    // G_diff = G_i-1 - G_i
+    // W_diff = W_i-1 - W_i
+
+    return ((Z * Gdiff) * Z.t()) + Wdiff;
+    }
 
 
 arma::mat initialiseG (List u_indices, arma::vec sigmas){
@@ -308,7 +317,7 @@ arma::mat invGmat (List u_indices, arma::vec sigmas){
     arma::vec lsigma(c);
 
     for(int k = 0; k < c; k++){
-        lsigma(k) = 1/sigmas(k);
+        lsigma(k) = 1/sigmas(k); // doesn't handle 0's
     }
 
     // sum total number of levels

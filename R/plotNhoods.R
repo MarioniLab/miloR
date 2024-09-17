@@ -88,6 +88,12 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @param size_range a numeric vector indicating the range of node sizes to use for plotting (to avoid overplotting
 #' in the graph)
 #' @param node_stroke a numeric indicating the desired thickness of the border around each node
+#' @param is.da logical scalar that tells plotNhoodGraph to order nhoods by |LFC| which can help to visually
+#' emphasise which nhoods are DA.
+#' @param highlight.da logical or numeric scalar that emphasises the DA nhoods in the layout by adjusting the transparency
+#' of the non-DA nhoods. Can only be used if \code{is.da=TRUE}, otherwise will give a warning. If highlight.da is a numeric
+#' then it explicitly sets the transparency level (must be between 0 and 1). If highlight.da is logical then the
+#' transparency is set to 0.1
 #' @param ... arguments to pass to \code{ggraph}
 #'
 #' @return a \code{ggplot-class} object
@@ -104,7 +110,7 @@ plotNhoodSizeHist <- function(milo, bins=50){
 #' @importFrom SummarizedExperiment colData<-
 #' @importFrom RColorBrewer brewer.pal
 plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, size_range=c(0.5,3),
-                           node_stroke= 0.3, ... ){
+                           node_stroke= 0.3, is.da=FALSE, highlight.da=FALSE, ... ){
   ## Check for valid nhoodGraph object
   if(!.valid_graph(nhoodGraph(x))){
     stop("Not a valid Milo object - neighbourhood graph is missing. Please run buildNhoodGraph() first.")
@@ -121,9 +127,16 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
     nh_graph <- igraph::induced_subgraph(nh_graph, vids = which(as.numeric(V(nh_graph)$name) %in% unlist(nhoodIndex(x)[subset.nhoods])))
   }
 
-
   ## Order vertex ids by size (so big nhoods are plotted first)
-  nh_graph <- permute(nh_graph, order(vertex_attr(nh_graph)$size, decreasing=TRUE))
+  if(isTRUE(is.da)){
+      nh_graph <- permute(nh_graph, order(abs(vertex_attr(nh_graph)[[colour_by]]), decreasing=TRUE))
+  } else {
+      nh_graph <- permute(nh_graph, order(vertex_attr(nh_graph)$size, decreasing=TRUE))
+  }
+
+  if(isTRUE(highlight.da) & isFALSE(is.da)){
+      warning("Ignoring highlight.da=TRUE because is.da=FALSE")
+  }
 
   ## Define layout
   if (is.character(layout)) {
@@ -161,29 +174,42 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
     colour_by <- "Nhood size"
   }
 
-  if(colour_by %in% c("logFC")){
-    plot.g <- simplify(nh_graph)
+  if(isTRUE(is.da)){
+      g.df <- create_layout(nh_graph, layout = layout)
+      g.df[, colour_by] <- vertex_attr(nh_graph)[[colour_by]]
 
-    pl <- ggraph(simplify(nh_graph), layout = layout) +
-      geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
-      geom_node_point(aes(fill = colour_by, size = size), shape=21, stroke=node_stroke) +
-      scale_size(range =size_range, name="Nhood size") +
-      scale_edge_width(range = c(0.2,3), name="overlap size") +
-      theme_classic(base_size=14) +
-      theme(axis.line = element_blank(), axis.text = element_blank(),
-            axis.ticks = element_blank(), axis.title = element_blank())
-    # theme_graph()
 
+      if(is.logical(highlight.da) & isTRUE(highlight.da)){
+          trans.lvl <- 0.1
+      } else if(is.numeric(highlight.da)){
+          if((highlight.da < 0) | (highlight.da > 1)){
+              stop("Illegal transparency level ", highlight.da, ", must >= 0 and <= 1")
+          }
+          trans.lvl <- highlight.da
+      } else{
+          trans.lvl <- 1.0
+      }
+
+      pl <- ggraph(simplify(nh_graph), layout = layout) +
+          geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
+          geom_node_point(aes(fill = colour_by, size = size), alpha=trans.lvl, shape=21, stroke=node_stroke) +
+          geom_node_point(data=g.df[abs(g.df[, colour_by]) > 0, , drop=FALSE],
+                          mapping=aes(fill=colour_by, size=size),
+                          shape=21, stroke=node_stroke) +
+          scale_size(range =size_range, name="Nhood size") +
+          scale_edge_width(range = c(0.2,3), name="overlap size") +
+          theme_classic(base_size=14) +
+          theme(axis.line = element_blank(), axis.text = element_blank(),
+                axis.ticks = element_blank(), axis.title = element_blank())
   } else{
-    pl <- ggraph(simplify(nh_graph), layout = layout) +
-      geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
-      geom_node_point(aes(fill = colour_by, size = size), shape=21, stroke=node_stroke) +
-      scale_size(range = size_range, name="Nhood size") +
-      scale_edge_width(range = c(0.2,3), name="overlap size") +
-      theme_classic(base_size=14) +
-      theme(axis.line = element_blank(), axis.text = element_blank(),
-            axis.ticks = element_blank(), axis.title = element_blank())
-      # theme_graph()
+      pl <- ggraph(simplify(nh_graph), layout = layout) +
+          geom_edge_link0(aes(width = weight), edge_colour = "grey66", edge_alpha=0.2) +
+          geom_node_point(aes(fill = colour_by, size = size), shape=21, stroke=node_stroke) +
+          scale_size(range =size_range, name="Nhood size") +
+          scale_edge_width(range = c(0.2,3), name="overlap size") +
+          theme_classic(base_size=14) +
+          theme(axis.line = element_blank(), axis.text = element_blank(),
+                axis.ticks = element_blank(), axis.title = element_blank())
   }
 
   if (is.numeric(V(nh_graph)$colour_by)) {
@@ -232,6 +258,7 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
 
   ## Add milo results to colData
   signif_res <- milo_res
+  signif_res$SpatialFDR[is.na(signif_res$SpatialFDR)] <- 1 # handle NAs
   signif_res[signif_res$SpatialFDR > alpha,res_column] <- 0
   colData(x)[res_column] <- NA
 
@@ -244,9 +271,15 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
       colData(x)[unlist(nhoodIndex(x)[signif_res$Nhood]),res_column] <- signif_res[,res_column]
   }
 
+  # check for res_column in graph vertex attributes
+  g_atts <- names(vertex_attr(nhoodGraph(x)))
+  if(isFALSE(res_column %in% g_atts)){
+      message("Adding nhood effect sizes to neighbourhood graph attributes")
+      nhoodGraph(x) <- set_vertex_attr(nhoodGraph(x), name = res_column, value = signif_res[, res_column])
+  }
 
   ## Plot logFC
-  plotNhoodGraph(x, colour_by = res_column, ... )
+  plotNhoodGraph(x, colour_by = res_column, is.da=TRUE, ... )
 }
 
 #' Plot graph of neighbourhoods coloring by nhoodGroups

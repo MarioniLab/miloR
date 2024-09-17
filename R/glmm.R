@@ -15,6 +15,11 @@
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
 #' @param solver a character value that determines which optimisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
+#' @param intercept.type A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
+#' intercept variable in the model. This only applies to the GLMM case where additional random effects variables are
+#' already included. Setting \code{intercept.type="fixed"} or \code{intercept.type="random"} will require the user to
+#' test their model for failures with each. In the case of using a kinship matrix, \code{intercept.type="fixed"} is
+#' set automatically.
 #'
 #' @details
 #' This function runs a negative binomial generalised linear mixed effects model. If mixed effects are detected in testNhoods,
@@ -73,6 +78,7 @@
 #' @importMethodsFrom Matrix %*%
 #' @importFrom Matrix Matrix solve crossprod kronecker
 #' @importFrom stats runif var
+#' @importFrom BiocParallel bpstopOnError
 #' @export
 fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                     random.levels=NULL, REML=FALSE,
@@ -80,6 +86,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                       init.sigma=NULL, init.beta=NULL,
                                       init.u=NULL, solver=NULL),
                     dispersion = 1, geno.only=FALSE,
+                    intercept.type="fixed",
                     solver=NULL){
 
     if(!is.null(solver)){
@@ -111,7 +118,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         curr_beta = matrix(glmm.control[["init.beta"]], ncol=1)
     }
     rownames(curr_beta) <- colnames(X)
-
 
     if(isFALSE(geno.only) & !is.null(Kin)){
         # Kin must be nXn
@@ -160,10 +166,9 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                 return(sum(lhs) * sum(rhs))
             }, bigZ=full.Z, errVec=errMat)
 
+
             curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
 
-            # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
-            # curr_sigma <- Matrix(runif(ncol(Z), 0, 1), ncol=1, sparse = TRUE)
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
         }
@@ -274,7 +279,14 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
             diag(eyeN) <- 1
             errMat <- (e0 %*% t(e0))/sig0 - eyeN
 
-            curr_sigma.vec <- sapply(random.levels, FUN=function(lvls, bigZ, errVec){
+            if(intercept.type == "random"){
+                exp.levels <- random.levels
+                exp.levels <- exp.levels[!grepl(exp.levels, pattern="residual")]
+            } else{
+                exp.levels <- random.levels
+            }
+
+            curr_sigma.vec <- sapply(exp.levels, FUN=function(lvls, bigZ, errVec){
                 ijZ <- bigZ[, lvls]
                 lhs <- c()
                 rhs <- c()
@@ -287,6 +299,12 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
                 return(sum(lhs) * sum(rhs))
             }, bigZ=full.Z, errVec=errMat)
+
+            # add the residual variance
+            if(intercept.type == "random"){
+                res.var <- abs(sig0 - sum(curr_sigma.vec))
+                curr_sigma.vec <- c(curr_sigma.vec, res.var)
+            }
 
             curr_sigma <- Matrix(abs(curr_sigma.vec), ncol=1, sparse=TRUE)
             # curr_sigma = Matrix(rep(var(y)/(ncol(Z) + 2), ncol(Z)), ncol=1, sparse=TRUE) # split evenly
@@ -642,6 +660,7 @@ computePvalue <- function(Zscore, df) {
 
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
+#' @importFrom pracma pinv
 ###---- first calculate g = derivative of C with respect to sigma ----
 function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     UpperLeft <- coeff.mat[c(1:mint), c(1:mint)]
@@ -651,7 +670,27 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 
     n <- length(random.levels)
     diag(LowerRight) <- diag(LowerRight) + rep(1/x, times=lengths(random.levels)) #when extending to random slopes, this needs to be changed to a matrix and added to LowerRight directly
-    C <- solve(UpperLeft - UpperRight %*% solve(LowerRight) %*% LowerLeft)
+
+    # check for singularity
+    lr.tosolve <- LowerRight
+    lr.rcond <- rcond(lr.tosolve)
+    if(lr.rcond <= 1e-9){
+        warning("Coefficient submatrix is nearly singular - using pseudoinverse")
+        lr.inv <- pinv(LowerRight)
+    } else{
+        lr.inv <- solve(LowerRight)
+    }
+
+    tosolve.mat <- UpperLeft - UpperRight %*% lr.inv %*% LowerLeft
+    rcond.val <- rcond(tosolve.mat)
+    if(rcond.val <= 1e-9){
+        warning("Coefficient matrix is nearly singular - using pseudoinverse")
+        C <- pinv(tosolve.mat)
+    } else{
+        C <- solve(tosolve.mat)
+    }
+
+    return(C)
 }
 
 
@@ -684,6 +723,7 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
 #' @importMethodsFrom Matrix %*% t
 #' @importFrom Matrix solve diag
 #' @importFrom numDeriv jacobian
+#' @importFrom pracma pinv
 #' @export
 Satterthwaite_df <- function(coeff.mat, mint, cint, SE, curr_sigma, curr_beta, V_partial, V_a, G_inv, random.levels) {
 

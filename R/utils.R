@@ -66,7 +66,7 @@
 
 # parse design formula
 #' @export
-.parse_formula <- function(in.form, design.df, vtype=c("re", "fe")){
+.parse_formula <- function(in.form, design.df, vtype=c("re", "fe"), add.int=FALSE){
     ## parse the formula and return the X and Z matrices
     # need to decide on how to handle intercept terms - i.e. FE or RE
     sp.form <- unlist(strsplit(as.character(in.form),
@@ -82,15 +82,30 @@
             d.mat <- matrix(unlist(lapply(data.frame(d.mat)[, , drop = FALSE],
                                           function(x) as.integer(factor(x)))), ncol = length(v.terms))
         }
-        colnames(d.mat) <- trimws(v.terms)
+
+        # add the residual variance term if appropriate
+        if(isTRUE(add.int)){
+            d.mat <- cbind(d.mat, matrix(data=1L, nrow=nrow(d.mat), ncol=1))
+            colnames(d.mat) <- c(trimws(v.terms), "residual")
+        } else{
+            colnames(d.mat) <- trimws(v.terms)
+        }
+
     } else if(vtype %in% c("fe")){
         v.terms <- trimws(unlist(sp.form[!grepl(trimws(sp.form), pattern="~|\\|")]))
         if(length(v.terms) > 1){
             v.terms <- paste(v.terms, collapse=" + ")
         }
 
+        # the intercept is a fixed effect in this model
         d.mat <- model.matrix(as.formula(paste("~ 1 +", v.terms)), data = design.df)
-        d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))]
+        d.mat <- d.mat[ ,!grepl("1*\\|", colnames(d.mat))] # drop the random terms
+
+        if(isFALSE(add.int)){
+            # drop the intercept term if required.
+            d.mat[, !grepl("Intercept", colnames(d.mat)), drop=FALSE]
+        }
+
     } else{
         stop("vtype ", vtype, " not recognised")
     }

@@ -103,51 +103,46 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     const int& n = X.n_rows;
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
-    double _intercept = constval; // intercept for HE regression
+    double _intercept = constval; // intercept for HE regression?? need a better estimate.
     double delta_up = 2.0 * curr_disp;
     double delta_lo = 1e-2; // this needs to be non-zero
     double update_disp = 0.0;
     double disp_diff = 0.0;
 
+
+    std::string user_solver = solver;
     // setup matrices
-    arma::mat D(n, n);
-    D.zeros();
-    arma::mat Dinv(n, n);
-    Dinv.zeros();
+    arma::mat D(n, n, arma::fill::zeros);
+    arma::mat Dinv(n, n, arma::fill::zeros);
 
     arma::vec y_star(n);
 
-    arma::mat Vmu(n, n);
-    Vmu.zeros();
-    arma::mat W(n, n);
-    W.zeros();
-    arma::mat Winv(n, n);
-    Winv.zeros();
+    arma::mat Vmu(n, n, arma::fill::zeros);
+    arma::mat W(n, n, arma::fill::zeros);
+    arma::mat Winv(n, n, arma::fill::zeros);
 
-    arma::mat V_star(n, n);
-    V_star.zeros();
-    arma::mat V_star_inv(n, n);
-    V_star_inv.zeros();
-    arma::mat P(n, n);
-    P.zeros();
+    arma::mat V_star(n, n, arma::fill::zeros);
+    arma::mat V_star_inv(n, n, arma::fill::zeros);
+    arma::mat P(n, n, arma::fill::zeros);
 
-    arma::mat coeff_mat(m+c, m+c);
-    coeff_mat.zeros();
+    arma::mat coeff_mat(m+c, m+c, arma::fill::zeros);
     List V_partial(c);
     V_partial = pseudovarPartial_C(Z, u_indices);
     // compute outside the loop
-    List VP_partial(c);
-    List VS_partial(c);
+    List VP_partial(c); // P * Z(j) * Z(j)^T
+    List VS_partial(c); // Vstar * Z(j) * Z(j)^T
+    List precomp_list(2);
+    List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
     information_sigma.zeros();
     arma::vec sigma_update(c);
+    arma::vec _sigma_update(c+1);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
-    arma::mat G_inv(stot, stot);
-    G_inv.zeros();
+    arma::mat G_inv(stot, stot, arma::fill::zeros);
 
     arma::vec theta_update(m+stot);
     arma::vec theta_diff(theta_update.size());
@@ -207,56 +202,80 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
+        // pre-compute matrics: X^T * W^-1, Z^T * W^-1
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwinv = Z.t() * Winv;
+
         V_star = computeVStar(Z, curr_G, W);
-        V_star_inv = invertPseudoVar(Winv, curr_G, Z);
+        V_star_inv = invertPseudoVar(Winv, curr_G, Z, zTwinv);
 
         if(REML){
             P = computePREML(V_star_inv, X);
             // take the partial derivative outside the while loop, just keep the P*\dVar\dSigma
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
-
-            score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
-                                              curr_beta, X, V_star_inv);
-            information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
-            // theres a strange bug that means assigning V_partial to VP_partial
-            // doesn't copy over the contents of the list - perhaps it needs to
-            // be a pointer? Crude solve is to just to pre-multiply by I
             P = arma::eye(n, n);
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            // List VP_partial = V_partial;
-            score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
-            information_sigma = sigmaInformation(V_star_inv, VP_partial);
         };
+
+        // pre-compute matrics: P*Z and Vstar * Z
+        arma::mat PZ = P * Z;
+
+        // pre-compute P*Z(j) * Z(j)^T
+        precomp_list = computePZList(u_indices, PZ, P, Z, solver);
 
         // choose between HE regression and Fisher scoring for variance components
         // would a hybrid approach work here? If any HE estimates are zero switch
         // to NNLS using these as the initial estimates?
+
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
             if(REML){
-                sigma_update = estHasemanElston(Z, P, u_indices, y_star);
+                sigma_update = estHasemanElston(Z, P, u_indices, y_star, PZ);
             } else{
                 sigma_update = estHasemanElstonML(Z, u_indices, y_star);
             }
 
         } else if(solver == "HE-NNLS"){
-            // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(constval);
 
-            // if these are all zero then it can only be that they are initial estimates
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            }
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
+
         }else if(solver == "Fisher"){
+            if(REML){
+                arma::mat VstarZ = V_star_inv * Z;
+                VP_partial = precomp_list["PZZt"];
+                VS_partial = pseudovarPartial_V(u_indices, Z, VstarZ);
+
+                score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
+                                                  curr_beta, X, V_star_inv,
+                                                  VP_partial);
+                information_sigma = sigmaInfoREML_arma(VP_partial, P);
+            } else{
+                // theres a strange bug that means assigning V_partial to VP_partial
+                // doesn't copy over the contents of the list - perhaps it needs to
+                // be a pointer? Crude solve is to just to pre-multiply by I
+                // VP_partial = pseudovarPartial_P(V_partial, P);
+                VP_partial = precomp_list["PZZt"];
+                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         }
 
@@ -264,24 +283,38 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         if(any(sigma_update < 0.0)){
             warning("Negative variance components - re-running with NNLS");
             solver = "HE-NNLS";
-            // for the first iteration use the current non-zero estimate
+            // // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(constval);
 
-            // if these are all zero then it can only be that they are initial estimates
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
-            }
             if(REML){
-                sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             } else{
-                sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
+        } else{
+            // switch back when positive var params
+            solver = user_solver;
         }
 
         // update sigma, G, and G_inv
+        // sigma update explodes for poorly conditioned system
+
+        sigma_diff = sigma_update - curr_sigma;
         curr_sigma = sigma_update;
+
         curr_G = initialiseG(u_indices, curr_sigma);
         G_inv = invGmat(u_indices, curr_sigma);
 
@@ -299,14 +332,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
             delta_up = std::max(1e-2, update_disp);
         }
-
-        // update_disp = phiMME(y_star, curr_sigma);
         disp_diff = abs(curr_disp - update_disp);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv);
-        theta_update = solveEquations(stot, m, Winv, Z.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star);
+        coeff_mat = coeffMatrix(X, xTwinv, zTwinv, Z, G_inv);
+
+        theta_update = solveEquations(stot, m, zTwinv, xTwinv, coeff_mat, curr_beta, curr_u, y_star);
         theta_diff = abs(theta_update - curr_theta);
 
         // inference
@@ -316,6 +348,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         // need to check for infinite and NA values here...
         muvec = exp(offsets + (X * curr_beta) + (Z * curr_u));
+
         LogicalVector _check_mu = check_na_arma_numeric(muvec);
         bool _any_na = any(_check_mu).is_true(); // .is_true required for proper type casting to bool
 
@@ -336,7 +369,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         _thconv = all(theta_diff < theta_conv);
 
         bool _siconv = false;
-        _siconv = all(sigma_diff < theta_conv);
+        _siconv = all(abs(sigma_diff) < theta_conv);
 
         bool _ithit = false;
         _ithit = iters > maxit;
@@ -354,7 +387,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         double loglihood = nbLogLik(muvec, curr_disp, y) - normLogLik(c, G_inv, littleG, curr_u, pi);
 
         List this_conv(7);
-        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=sigma_diff, _["beta"]=curr_beta,
+        this_conv = List::create(_["ThetaDiff"]=theta_diff, _["SigmaDiff"]=abs(sigma_diff), _["beta"]=curr_beta,
                                  _["u"]=curr_u, _["sigma"]=curr_sigma, _["disp"]=curr_disp, _["PhiDiff"]=disp_diff,
                                  _["LOGLIHOOD"]=loglihood);
         conv_list(iters-1) = this_conv;
@@ -362,6 +395,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
+
+    // VP_partial is empty for HE/HE-NNLS so needs to be populated
+    if(solver != "Fisher"){
+        VP_partial = precomp_list["PZZt"];
+    }
+
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
     // return the variance of the pseudo-variable - this is used to compute the proportion of
     // variance explained - is this on the correct scale though?

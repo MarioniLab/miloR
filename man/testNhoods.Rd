@@ -114,11 +114,18 @@ The GLMM testing cannot be performed using \code{edgeR}, however, a separate
 function \code{fitGLMM} can be used to fit a mixed effect model to each
 nhood (see \code{fitGLMM} docs for details).
 
-Parallelisation is currently only enabled for the NB-LMM and uses the BiocParallel paradigm. In
-general the GLM implementation in \code{glmQLFit} is sufficiently fast that it does not require
+Parallelisation is currently only enabled for the NB-GLMM and uses the BiocParallel paradigm at
+the level of R, and OpenMP to allow multi-threading of RCpp code. In general the GLM implementation
+in \code{glmQLFit} is sufficiently fast that it does not require
 parallelisation. Parallelisation requires the user to pass a \linkS4class{BiocParallelParam} object
-with the parallelisation arguments contained therein. This relies on the user to specify how
-parallelisation - for details see the \code{BiocParallel} package.
+with the parallelisation arguments contained therein. This relies on the user specifying how to
+parallelise - for details see the \code{BiocParallel} package.
+
+\code{model.contrasts} are used to define specific comparisons for DA testing. Currently,
+\code{testNhoods} will take the last formula variable for comparisons, however, contrasts
+need this to be the first variable. A future update will harmonise these behaviours for
+consistency. While it is strictly feasible to compute multiple contrasts at once, the
+recommendation, for ease of interpretability, is to compute one at a time.
 }
 \examples{
 library(SingleCellExperiment)

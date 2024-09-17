@@ -32,7 +32,7 @@ devtools::install_github("MarioniLab/miloR", ref="devel")
 2. [Milo example on mouse gastrulation dataset](https://rawcdn.githack.com/MarioniLab/miloR/7c7f906b94a73e62e36e095ddb3e3567b414144e/vignettes/milo_gastrulation.html#5_Finding_markers_of_DA_populations): this includes a demo for downstream analysis functions.
 3. [Integrating miloR in scanpy/anndata workflow](https://github.com/MarioniLab/milo_analysis_2020/blob/main/notebooks/milo_in_python.ipynb) (see also [`milopy`](https://github.com/emdann/milopy) for a full workflow in python)
 4. [Specifying contrasts of interest for differential abundance testing with Milo](https://bioconductor.org/packages/release/bioc/vignettes/miloR/inst/doc/milo_contrasts.html)
-5. [Using a mixed effect model for dependendent samples](https://raw.githack.com/MarioniLab/miloR/devel/vignettes/milo_glmm.html)
+5. [Using a mixed effect model for dependendent samples](https://www.bioconductor.org/packages/release/bioc/vignettes/miloR/inst/doc/milo_glmm.html)
 
 ### Example work flow
 An example of the `Milo` work flow to get started:
@@ -68,9 +68,10 @@ head(milo.res)
 
 ### Support
 
-For any question, feature request or bug report please create a new issue in this repository. If you have an error or code-based query, please provide 
+For any feature request or bug report please create a new issue in this repository. If you have an error or code-based query, please provide 
 the executed code and the preceding code from the point of constructing the `Milo` object, along with the output of your `sessionInfo()` - this will help 
-us immeasurably to diagnose the issue.
+us immeasurably to diagnose the issue. If you are seeking general advice on Milo, differential abundance testing, etc, then please create a new post on 
+the [Bioconductor forum](https://support.bioconductor.org/).
 
 ### Contributions
 
@@ -78,3 +79,11 @@ We welcome contributions and suggestions from the community (though we may not t
 don't be offended). Please submit the initial idea as an issue, which we will discuss and ask for refinements/clarifications. If we approve the idea, then 
 please open a pull request onto the __devel__ branch, from which we will begin a review process. To smooth the process, please note that code changes must be 
 backwards compatible, and must include all relevant unit tests.
+
+### Reporting issues
+
+Milo is under (semi)continuous development, but it has also been around for a couple of years. That means (hopefully) most of the common bugs have been 
+identified. If you have an error or issue to raise, first make sure you are using the most up to date version, either via Bioconductor, or from the Main 
+branch of the repo. Please also make sure to check if your problem has arisen before by looking at both the open _and closed_ issues. If neither of these 
+solve your problem, then please open a new issue describing the problem in full, with code and a minimally reproducible example. Don't forget to include 
+the output of your `sessionInfo()` as well. Thanks.

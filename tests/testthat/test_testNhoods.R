@@ -250,14 +250,20 @@ test_that("Singular Hessians are detectable and fail appropriately", {
 
     # collinear fixed and random effects
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
-                            design.df=sim1.meta, glmm.solver="Fisher", fail.on.error=TRUE)),
-                 "Coefficients Hessian is computationally singular")
+                            design.df=sim1.meta, glmm.solver="Fisher", force=TRUE, fail.on.error=TRUE)),
+                 "Lowest traceback returned")
 })
 
 test_that("Invalid formulae give expected errors", {
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (50|Condition),
-                                             design.df=sim1.meta, glmm.solver="Fisher")),
+                                             design.df=sim1.meta, force=TRUE, glmm.solver="Fisher")),
                  "is an invalid formula for random effects")
+})
+
+test_that("Small sample sizes produce expected warnings and errors", {
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
+                                             design.df=sim1.meta, force=FALSE, glmm.solver="Fisher")),
+                 "You are attempting to use the GLMM with N")
 })
 
 test_that("NA or Inf cell sizes causes the expected errors", {

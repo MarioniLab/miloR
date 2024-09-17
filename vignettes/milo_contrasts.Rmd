@@ -116,6 +116,7 @@ how to use contrasts to compare multiple groups.
 
 ```{r}
 contrast.all <- c("Age1wk - Age4wk", "Age4wk - Age16wk", "Age16wk - Age32wk", "Age32wk - Age52wk")
+# contrast.all <- c("Age1wk - Age4wk", "Age16wk - Age32wk")
 
 # this is the edgeR code called by `testNhoods`
 model <- model.matrix(~ 0 + Age, data=thy.design)
@@ -128,22 +129,33 @@ This shows the contrast matrix. If we want to test each of these comparisons the
 multiple testing correction to the spatial FDR values.
 
 ```{r}
-contrast1.res <- testNhoods(thy.milo, design=~ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = mod.constrast)
+contrast1.res <- testNhoods(thy.milo, design=~0+ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = contrast.all)
 head(contrast1.res)
 ```
 
-This matrix of contrasts will perform a quasi-likelihood F-test over all contrasts, hence a single p-value and spatial FDR are returned. Log fold changes are returned for 
-all contrasts on each level of the `Age` variable, which gives 20 log-fold change columns for each - this is the default behaviour of `glmQLFTest` in the `edgeR` package 
+This matrix of contrasts will perform a quasi-likelihood F-test over all 5 contrasts, hence a single p-value and spatial FDR are returned. Log fold changes are returned for 
+each contrast of the `Age` variable, which gives 1 log-fold change column for each - this is the default behaviour of `glmQLFTest` in the `edgeR` package 
 which is what Milo uses for hypothesis testing. In general, and to avoid confusion, we recommend testing each pair of contrasts separately if these are the comparisons 
 of interest, as shown below.
 
 ```{r}
 # compare weeks 4 and 16, with week 4 as the reference.
-cont.4vs16.res <- testNhoods(thy.milo, design=~ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = mod.constrast[c("Age4wk"), c("Age4wk - Age16wk")])
+cont.4vs16.res <- testNhoods(thy.milo, design=~0+ Age, design.df=thy.design, fdr.weighting="graph-overlap", model.contrasts = c("Age4wk - Age16wk"))
 head(cont.4vs16.res)
 ```
 
-Now we have a single logFC which compares nhood abundance between week 4 and week 16.
+Now we have a single logFC which compares nhood abundance between week 4 and week 16 - as we can see the LFC estimates should be the same, but the SpatialFDR will be different.
+
+```{r, fig.height=4, fig.width=7.5}
+par(mfrow=c(1, 2))
+plot(contrast1.res$logFC.Age4wk...Age16wk, cont.4vs16.res$logFC,
+     xlab="4wk vs. 16wk LFC\nsingle contrast", ylab="4wk vs. 16wk LFC\nmultiple contrast")
+
+plot(contrast1.res$SpatialFDR, cont.4vs16.res$SpatialFDR,
+     xlab="Spatial FDR\nsingle contrast", ylab="Spatial FDR\nmultiple contrast")
+
+```
+
 
 Contrasts are not limited to these simple pair-wise comparisons, we can also group levels together for comparisons. For instance, imagine we want to know 
 what the effect of the cell counts in the week 1 mice is _compared to all other time points_.

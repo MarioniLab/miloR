@@ -109,7 +109,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     const int& m = X.n_cols;
     const int& n = X.n_rows;
     bool meet_cond = false;
-    double constval = 0.0; // value at which to constrain values
+    double constval = 1e-8; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
     double delta_up = 2.0 * curr_disp;
     double delta_lo = 1e-2;
@@ -137,11 +137,14 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     V_partial = pseudovarPartial_G(Z, K, u_indices);
     // compute outside the loop
     List VP_partial(c);
+    List precomp_list(2);
+    List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
     List VS_partial(c);
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
     arma::vec sigma_update(c);
+    arma::vec _sigma_update(c+1);
     arma::vec sigma_diff(sigma_update.size());
     sigma_diff.zeros();
 
@@ -217,45 +220,69 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
+        // pre-compute matrics: X^T * W^-1, Z^T * W^-1
+        arma::mat xTwinv = X.t() * Winv;
+        arma::mat zTwin = Z.t() * Winv;
 
         V_star = computeVStar(Z, curr_G, W); // K is implicitly included in curr_G
-        V_star_inv = invertPseudoVar(Winv, curr_G, Z);
+        V_star_inv = invertPseudoVar(Winv, curr_G, Z, zTwin);
 
         if(REML){
             P = computePREML(V_star_inv, X);
             // take the partial derivative outside the while loop, just keep the P*\dVar\dSigma
-            VP_partial = pseudovarPartial_P(V_partial, P);
-            VS_partial = pseudovarPartial_V(V_partial, V_star_inv);
-
-            score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
-                                              curr_beta, X, V_star_inv);
-            information_sigma = sigmaInfoREML_arma(VP_partial, P);
         } else{
-            List VP_partial = V_partial;
-            score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
-            information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            P = arma::eye(n, n);
         };
+
+        // pre-compute matrics: P*Z
+        arma::mat PZ = P * Z;
+
+        // pre-compute P*Z(j) * Z(j)^T
+        precomp_list = computePZList_G(u_indices, PZ, P, Z, solver, K);
 
         // choose between HE regression and Fisher scoring for variance components
         // sigma_update is always 1 element longer than the others with HE, but we need to keep track of this
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
-            sigma_update = estHasemanElstonGenetic(Z, P, u_indices, y_star, K);
+            sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star, K);
         } else if (solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
-            arma::dvec _curr_sigma(c+1);
-            _curr_sigma.fill(constval);
+            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            if(REML){
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            } else{
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
 
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
-            _intercept = sigma_update[0];
-            sigma_update = sigma_update.tail(c);
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
 
         }else if(solver == "Fisher"){
+            if(REML){
+                arma::mat VstarZ = V_star_inv * Z;
+                VP_partial = precomp_list["PZZt"];
+                VS_partial = pseudovarPartial_VG(u_indices, Z,  VstarZ, K);
+
+                score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
+                                                  curr_beta, X, V_star_inv,
+                                                  VP_partial);
+                information_sigma = sigmaInfoREML_arma(VP_partial, P);
+            } else{
+                List VP_partial = V_partial;
+                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                information_sigma = sigmaInformation(V_star_inv, VP_partial);
+            }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
         }
 
@@ -265,14 +292,25 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             solver = "HE-NNLS";
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-            _curr_sigma.fill(constval);
 
-            // if these are all zero then it can only be that they are initial estimates
-            if(iters > 0){
-                _curr_sigma[0] = _intercept;
-                _curr_sigma.elem(_sigma_index) = curr_sigma; // is this valid to set elements like this?
+            if(REML){
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
+            } else{
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _intercept = _sigma_update[0];
+                sigma_update = _sigma_update.tail(c);
             }
-            sigma_update = estHasemanElstonConstrainedGenetic(Z, P, u_indices, y_star, K, _curr_sigma, iters);
+
+            // set 0 values to minval to prevent 0 denominators later
+            if(any(sigma_update == 0.0)){
+                for(int i=0; i<c; i++){
+                    if(sigma_update[i] <= 0.0){
+                        sigma_update[i] = constval;
+                    }
+                }
+            }
         }
 
         sigma_diff = abs(sigma_update - curr_sigma); // needs to be an unsigned real value
@@ -302,8 +340,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
-        coeff_mat = coeffMatrix(X, Winv, Z, G_inv); //model space
-        theta_update = solveEquations(stot, m, Winv, Zstar.t(), X.t(), coeff_mat, curr_beta, curr_u, y_star); //model space
+        coeff_mat = coeffMatrix(X, xTwinv, zTwin, Z, G_inv); //model space
+        theta_update = solveEquations(stot, m, zTwin, xTwinv, coeff_mat, curr_beta, curr_u, y_star); //model space
 
         LogicalVector _check_theta = check_na_arma_numeric(theta_update);
         bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool
@@ -371,6 +409,12 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // inference
     arma::vec se(computeSE(m, stot, coeff_mat));
     arma::vec tscores(computeTScore(curr_beta, se));
+
+    // VP_partial is empty for HE/HE-NNLS so needs to be populated
+    if(solver != "Fisher"){
+        VP_partial = precomp_list["PZZt"];
+    }
+
     arma::mat vcov(varCovar(VP_partial, c)); // DF calculation is done in R, but needs this
 
     // compute the variance of the pseudovariable
