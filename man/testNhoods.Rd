@@ -73,10 +73,20 @@ these should have the same \code{length} as \code{nrow} of \code{nhoodCounts}. I
 to correspond to indices of \code{nhoodCounts} - if the maximal index is greater than \code{nrow(nhoodCounts(x))}
 an error will be produced.}
 
+\item{intercept.type}{A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
+intercept variable in the model. This only applies to the GLMM case where additional random effects variables are
+already included. Setting \code{intercept.type="fixed"} or \code{intercept.type="random"} will require the user to
+test their model for failures with each. In the case of using a kinship matrix, \code{intercept.type="fixed"} is
+set automatically.}
+
 \item{fail.on.error}{A logical scalar the determines the behaviour of the error reporting. Used for debugging only.}
 
 \item{BPPARAM}{A \linkS4class{BiocParallelParam} object specifying the arguments for parallelisation. By default
 this will evaluate using \code{SerialParam()}. See \code{details}on how to use parallelisation in \code{testNhoods}.}
+
+\item{force}{A logical scalar that overrides the default behaviour to nicely error when N < 50 and using a mixed
+effect model. This is because model parameter estimation may be unstable with these sample sizes, and hence the
+fixed effect GLM is recommended instead. If used with the LMM, a warning will be produced.}
 }
 \value{
 A \code{data.frame} of model results, which contain:
@@ -126,6 +136,14 @@ parallelise - for details see the \code{BiocParallel} package.
 need this to be the first variable. A future update will harmonise these behaviours for
 consistency. While it is strictly feasible to compute multiple contrasts at once, the
 recommendation, for ease of interpretability, is to compute one at a time.
+
+If using the GLMM option, i.e. including a random effect variable in the \code{design}
+formula, then \code{testNhoods} will check for the sample size of the analysis. If this is
+less than 60 it will stop and produce an error. It is \emph{strongly} recommended that
+the GLMM is not used with relatively small sample sizes, i.e. N<60, and even up to N~100
+may have unstable parameter estimates across nhoods. This behaviour can be overriden by
+setting \code{force=TRUE}, but also be aware that parameter estimates may not be
+accurate. A warning will be produced to alert you to this fact.
 }
 \examples{
 library(SingleCellExperiment)

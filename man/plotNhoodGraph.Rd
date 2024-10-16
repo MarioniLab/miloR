@@ -11,6 +11,8 @@ plotNhoodGraph(
   subset.nhoods = NULL,
   size_range = c(0.5, 3),
   node_stroke = 0.3,
+  is.da = FALSE,
+  highlight.da = FALSE,
   ...
 )
 }
@@ -29,6 +31,14 @@ plotNhoodGraph(
 in the graph)}
 
 \item{node_stroke}{a numeric indicating the desired thickness of the border around each node}
+
+\item{is.da}{logical scalar that tells plotNhoodGraph to order nhoods by |LFC| which can help to visually
+emphasise which nhoods are DA.}
+
+\item{highlight.da}{logical or numeric scalar that emphasises the DA nhoods in the layout by adjusting the transparency
+of the non-DA nhoods. Can only be used if \code{is.da=TRUE}, otherwise will give a warning. If highlight.da is a numeric
+then it explicitly sets the transparency level (must be between 0 and 1). If highlight.da is logical then the
+transparency is set to 0.1}
 
 \item{...}{arguments to pass to \code{ggraph}}
 }

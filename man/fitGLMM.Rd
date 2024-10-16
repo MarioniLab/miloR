@@ -17,6 +17,7 @@ fitGLMM(
     NULL, init.u = NULL, solver = NULL),
   dispersion = 1,
   geno.only = FALSE,
+  intercept.type = "fixed",
   solver = NULL
 )
 }
@@ -43,6 +44,12 @@ initial parameter values for the fixed (init.beta) and random effects (init.u), 
 \item{dispersion}{A scalar value for the initial dispersion of the negative binomial.}
 
 \item{geno.only}{A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.}
+
+\item{intercept.type}{A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
+intercept variable in the model. This only applies to the GLMM case where additional random effects variables are
+already included. Setting \code{intercept.type="fixed"} or \code{intercept.type="random"} will require the user to
+test their model for failures with each. In the case of using a kinship matrix, \code{intercept.type="fixed"} is
+set automatically.}
 
 \item{solver}{a character value that determines which optimisation algorithm is used for the variance components. Must be either
 HE (Haseman-Elston regression) or Fisher (Fisher scoring).}
