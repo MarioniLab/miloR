@@ -275,7 +275,18 @@ plotNhoodGraphDA <- function(x, milo_res, alpha=0.05, res_column = "logFC", ... 
   g_atts <- names(vertex_attr(nhoodGraph(x)))
   if(isFALSE(res_column %in% g_atts)){
       message("Adding nhood effect sizes to neighbourhood graph attributes")
-      nhoodGraph(x) <- set_vertex_attr(nhoodGraph(x), name = res_column, value = signif_res[, res_column])
+
+      if(any(names(list(...)) %in% c("subset.nhoods"))){
+          nh.v <- V(nhoodGraph(x))
+          drop.v <- setdiff(nh.v, sub.indices)
+          nhgraph <- nhoodGraph(x)
+          nhgraph <- subgraph(nhgraph, sub.indices)
+          nhgraph <- set_vertex_attr(nhgraph,
+                                     name = res_column, value = signif_res[, res_column])
+          nhoodGraph(x) <- nhgraph
+      } else{
+          nhoodGraph(x) <- set_vertex_attr(nhoodGraph(x), name = res_column, value = signif_res[, res_column])
+      }
   }
 
   ## Plot logFC
