@@ -56,6 +56,11 @@ traj_meta <- sim_trajectory[["meta"]]
 
 ## Add metadata to colData slot
 colData(traj_sce) <- DataFrame(traj_meta)
+colnames(traj_sce) <- colData(traj_sce)$cell_id
+
+redim <- reducedDim(traj_sce, "PCA")
+dimnames(redim) <- list(colnames(traj_sce), paste0("PC", c(1:50)))
+reducedDim(traj_sce, "PCA") <- redim 
 ```
 
 # Pre-processing 
