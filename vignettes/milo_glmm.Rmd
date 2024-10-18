@@ -235,7 +235,7 @@ We can also inspect our results as we would for the GLM, by using the neighbourh
 pbmc.milo <- buildNhoodGraph(pbmc.milo, overlap=25)
 
 # we need to subset the plotting results as it can't handle the NAs internally.
-plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, da_results[!is.na(da_results$logFC), ],
+plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, da_results,
                                                                 alpha=0.1) +
   plot_layout(guides="auto" )
 ```
