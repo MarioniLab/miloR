@@ -183,9 +183,11 @@ makeNhoods <- function(x, prop=0.1, k=21, d=30, refined=TRUE, reduced_dims="PCA"
     # search for NN between 2 distinct sets of points (here I'd like to search NNs of
     # nh_reduced_dims points among X_reduced_dims points). Suggestions are welcome
     all_reduced_dims <- rbind(nh_reduced_dims, X_reduced_dims)
+
+    ## a change in BiocNeighbors creates a type error for subset=character vectors
     nn_mat <- findKNN(all_reduced_dims,
                       k = nrow(nh_reduced_dims) + 1,
-                      subset = rownames(nh_reduced_dims))[["index"]]
+                      subset = which(rownames(nh_reduced_dims) %in% rownames(all_reduced_dims)))[["index"]]
     ## Look for first NN that is not another nhood
     nh_ixs <- seq_len(nrow(nh_reduced_dims))
     i = 1
