@@ -25,6 +25,9 @@
 #' adjacency matrix if already present.
 #' @param na.function A valid NA action function to apply, should be one of
 #' \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').
+#' @param original.behaviour A logical scalar indicating whether to use the original nhood grouping
+#' behaviour that \emph{can} give rise to nhood groups with discordant LFC. If \code{original.behaviour=FALSE}
+#' then the more intuitive functionality that forces nhood groups to have \emph{only} concordant LFC signs.
 #'
 #' @return A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned
 #' group label for each neighbourhood (\code{NhoodGroup} column)
@@ -45,7 +48,8 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                         merge.discord=FALSE,
                         subset.nhoods=NULL,
                         compute.new=FALSE,
-                        na.function="na.pass"
+                        na.function="na.pass",
+                        original.behaviour=TRUE
                         ){
   if(!is(x, "Milo")){
     stop("Unrecognised input type - must be of class Milo")
@@ -92,7 +96,8 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                                              merge.discord=merge.discord,
                                              max.lfc.delta=max.lfc.delta,
                                              overlap=overlap,
-                                             subset.nhoods=subset.nhoods
+                                             subset.nhoods=subset.nhoods,
+                                             orig.behave=original.behaviour
                                              )
 
   ## Save in DAres data.frame
@@ -110,7 +115,8 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
                                          merge.discord=FALSE,
                                          max.lfc.delta=NULL,
                                          overlap=1,
-                                         subset.nhoods=NULL
+                                         subset.nhoods=NULL,
+                                         orig.behave=TRUE
                                          ){
 
   if(is.null(colnames(nhs))){
@@ -150,8 +156,13 @@ groupNhoods <- function(x, da.res, da.fdr=0.1,
 
   ## check for concordant signs (only for significant DA) - assume order is the same as nhoods
   if(isFALSE(merge.discord)){
-    discord.sign <- sign(da.res[is.da, 'logFC'] %*% t(da.res[is.da, 'logFC'])) < 0
-    nhood.adj[is.da, is.da][discord.sign] <- 0
+      if(isFALSE(orig.behave)){
+          discord.sign <- sign(as.matrix(da.res[, 'logFC', drop=FALSE]) %*% as.matrix(t(da.res[, 'logFC', drop=FALSE]))) < 0
+          nhood.adj[discord.sign] <- 0
+      } else{
+          discord.sign <- sign(as.matrix(da.res[is.da, 'logFC', drop=FALSE]) %*% as.matrix(t(da.res[is.da, 'logFC', drop=FALSE]))) < 0
+          nhood.adj[is.da, is.da][discord.sign] <- 0
+      }
   }
 
   if(overlap > 1){

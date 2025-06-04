@@ -13,7 +13,8 @@ groupNhoods(
   merge.discord = FALSE,
   subset.nhoods = NULL,
   compute.new = FALSE,
-  na.function = "na.pass"
+  na.function = "na.pass",
+  original.behaviour = TRUE
 )
 }
 \arguments{
@@ -45,6 +46,10 @@ adjacency matrix if already present.}
 
 \item{na.function}{A valid NA action function to apply, should be one of
 \code{na.fail, na.omit, na.exclude, na.pass} (default='na.pass').}
+
+\item{original.behaviour}{A logical scalar indicating whether to use the original nhood grouping
+behaviour that \emph{can} give rise to nhood groups with discordant LFC. If \code{original.behaviour=FALSE}
+then the more intuitive functionality that forces nhood groups to have \emph{only} concordant LFC signs.}
 }
 \value{
 A \code{data.frame} of model results (as \code{da.res} input) with a new column storing the assigned

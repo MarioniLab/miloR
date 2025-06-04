@@ -32,6 +32,7 @@ library(scuttle)
 library(irlba)
 library(BiocParallel)
 library(ggplot2)
+library(sparseMatrixStats)
 ```
 
 
@@ -186,14 +187,14 @@ values in the testing variables of interest. If any nhoods have perfect separati
 analysis.
 
 ```{r}
-which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5))
+which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=10))
 ```
 
-Here we can see that nhood `r which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5))` can be separated into counts >= 5 and < 5 on our test variable `adjmfc.time` - this is the same nhood that encounters a model failure in our GLMM. We 
+Here we can see that nhood `r which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=10))` can be separated into counts >= 10 and < 10 on our test variable `adjmfc.time` - this is the same nhood that encounters a model failure in our GLMM. We 
 can also visualise the count distribution to confirm this using `plotNhoodCounts` (kindly contributed by Nick Hirschmüller).
 
 ```{r}
-plotNhoodCounts(pbmc.milo, which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=5)), 
+plotNhoodCounts(pbmc.milo, which(checkSeparation(pbmc.milo, design.df=pbmc.design, condition="adjmfc.time", min.val=10)), 
                 design.df=pbmc.design, condition="adjmfc.time")
 ```
 
@@ -235,7 +236,7 @@ We can also inspect our results as we would for the GLM, by using the neighbourh
 pbmc.milo <- buildNhoodGraph(pbmc.milo, overlap=25)
 
 # we need to subset the plotting results as it can't handle the NAs internally.
-plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, da_results[!is.na(da_results$logFC), ],
+plotUMAP(pbmc.milo, colour_by="adjmfc.time") + plotNhoodGraphDA(pbmc.milo, da_results,
                                                                 alpha=0.1) +
   plot_layout(guides="auto" )
 ```

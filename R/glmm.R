@@ -674,6 +674,7 @@ function_jac <- function(x, coeff.mat, mint, cint, G_inv, random.levels) {
     # check for singularity
     lr.tosolve <- LowerRight
     lr.rcond <- rcond(lr.tosolve)
+
     if(lr.rcond <= 1e-9){
         warning("Coefficient submatrix is nearly singular - using pseudoinverse")
         lr.inv <- pinv(LowerRight)
