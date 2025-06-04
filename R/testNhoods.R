@@ -493,16 +493,16 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = error.fail),
                                          FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                                       randlevels, disper, genonly,
-                                                      kin.ship, glmm.contr, reml, int.type){
+                                                      kins, glmm.contr, reml, int.type){
                                              fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
                                                      random.levels=randlevels, REML = reml,
                                                      dispersion=disper[i], geno.only=genonly,
-                                                     Kin=kinship, glmm.control=glmm.contr,
+                                                     Kin=kins, glmm.control=glmm.contr,
                                                      intercept.type=int.type)
                                              }, BPPARAM=BPPARAM,
                                          Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                          randlevels=randlevels, disper=disper, genonly=genonly,
-                                         kin.ship=kin.ship, glmm.cont=glmm.cont, reml=reml,
+                                         kins=kin.ship, glmm.cont=glmm.cont, reml=reml,
                                        int.type=intercept.type)
                                 }) # need to handle this output which is a bplist_error object
 
