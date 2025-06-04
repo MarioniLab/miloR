@@ -1,4 +1,7 @@
-# 2.0.X (2024-10-30)
+# 2.3.X (2024-11-20)
++ Allow groupNhoods() to retain original behaviour or force intuitive grouping such that no nhood group has discordant LFCs
+
+# 2.2.0 (2024-10-30)
 + Warning on GLMM if glmm.solver not set
 + Bug fix in model contrasts vignette with multiple contrasts
 + testNhoods will error if N<60 and using GLMM - introduce force=TRUE to override (with a warning)
