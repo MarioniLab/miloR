@@ -134,9 +134,12 @@
 #' @importFrom Matrix crossprod
 .build_nhood_adjacency <- function(nhoods, overlap=1){
     nh_intersect_mat <- Matrix::crossprod(nhoods)
-    nh_intersect_mat@x[nh_intersect_mat@x < overlap] <- 0
-    nh_intersect_mat <- Matrix::drop0(nh_intersect_mat)
-
+    if(inherits(nh_intersect_mat, c("sparseMatrix"))){
+        nh_intersect_mat@x[nh_intersect_mat@x < overlap] <- 0
+        nh_intersect_mat <- Matrix::drop0(nh_intersect_mat)
+    }else{
+        nh_intersect_mat[nh_intersect_mat < overlap] <- 0    
+    }
     rownames(nh_intersect_mat) <- colnames(nhoods)
     colnames(nh_intersect_mat) <- colnames(nhoods)
     return(nh_intersect_mat)
