@@ -213,7 +213,8 @@ plotNhoodGraph <- function(x, layout="UMAP", colour_by=NA, subset.nhoods=NULL, s
   }
 
   if (is.numeric(V(nh_graph)$colour_by)) {
-    pl <- pl + scale_fill_gradient2(name=colour_by)
+    pl <- pl + scale_fill_gradient2(name=colour_by, low = scales::muted("blue"),
+                     mid = "white", high = scales::muted("red"))
   } else {
       if(is.factor(V(nh_graph)$colour_by)){
           mycolors <- colorRampPalette(brewer.pal(11, "Spectral"))(length(levels(V(nh_graph)$colour_by)))
@@ -734,39 +735,20 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     da.res <- da.res[subset.nhoods,]
   }
 
-  # Get position with ggbeeswarm
-  beeswarm_pos <- ggplot_build(
-    da.res %>%
-      mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
-      arrange(group_by) %>%
-      ggplot(aes(group_by, logFC)) +
-      geom_quasirandom()
-  )
-
-  pos_x <- beeswarm_pos$data[[1]]$x
-  pos_y <- beeswarm_pos$data[[1]]$y
-
-  n_groups <- unique(da.res$group_by) %>% length()
-
-  da.res %>%
-    mutate(is_signif = ifelse(SpatialFDR < alpha, 1, 0)) %>%
-    mutate(logFC_color = ifelse(is_signif==1, logFC, NA)) %>%
-    arrange(group_by) %>%
-    mutate(Nhood=factor(Nhood, levels=unique(Nhood))) %>%
-    mutate(pos_x = pos_x, pos_y=pos_y) %>%
-    ggplot(aes(pos_x, pos_y, color=logFC_color)) +
-    scale_color_gradient2() +
+  da.res %>% dplyr::mutate(logFC_color = ifelse(SpatialFDR < alpha, logFC, NA)) %>% 
+    dplyr::arrange(group_by) %>% 
+    ggplot(aes(group_by, logFC, color=logFC_color)) + 
+    geom_hline(yintercept=0, linewidth = 0.2, color = "black") +
+    ggrastr::geom_quasirandom_rast() +
+    scale_color_gradient2(low  = scales::muted("blue"), mid  = "white", 
+                          high = scales::muted("red"), na.value = "grey80") +
     guides(color="none") +
-    xlab(group.by) + ylab("Log Fold Change") +
-    scale_x_continuous(
-      breaks = seq(1,n_groups),
-      labels = setNames(levels(da.res$group_by), seq(1,n_groups))
-      ) +
-    geom_point() +
-    coord_flip() +
-    theme_bw(base_size=22) +
-    theme(strip.text.y =  element_text(angle=0))
-
+    xlab(NULL) +
+    ylab("Log Fold Change") +
+    geom_boxplot(alpha=0,outlier.shape=NA,width=0.25) +
+    theme_bw(base_size = 12) +
+    theme(axis.text = element_text(color = "black"),
+          axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5))
 }
 
 
