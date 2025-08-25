@@ -739,7 +739,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
     dplyr::arrange(group_by) %>% 
     ggplot(aes(group_by, logFC, color=logFC_color)) + 
     geom_hline(yintercept=0, linewidth = 0.2, color = "black") +
-    ggrastr::geom_quasirandom_rast() +
+    ggbeeswarm::geom_quasirandom() +
     scale_color_gradient2(low  = scales::muted("blue"), mid  = "white", 
                           high = scales::muted("red"), na.value = "grey80") +
     guides(color="none") +
