@@ -42,7 +42,7 @@
 #' @importFrom irlba prcomp_irlba
 #' @importFrom SummarizedExperiment assay
 #' @importFrom Matrix which
-calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
+calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts", ncores=1L){
     if(is(x, "Milo")){
         # check for reducedDims
         if((length(reducedDimNames(x)) == 0) & is.null(reduced.dim)){
@@ -58,33 +58,43 @@ calcNhoodDistance <- function(x, d, reduced.dim=NULL, use.assay="logcounts"){
         stop("Input is not a valid Milo object")
     }
 
-    non.zero.nhoods <- which(nhoods(x)!=0, arr.ind = TRUE)
+    nhood_matrix <- nhoods(x)
+    non.zero.nhoods <- which(nhood_matrix != 0, arr.ind = TRUE)
 
+    if(ncores > 1){
+        if (Sys.info()['sysname'] == "Windows") 
+          bpp <- BiocParallel::SnowParam(workers=ncores)
+        else
+          bpp <- BiocParallel::MulticoreParam(workers=ncores)
+    }else{
+         bpp <- BiocParallel::SerialParam()
+    }
+    
     if(is.character(reduced.dim)){
         # check if it exists in the slot
         if(!any(names(reducedDims(x)) %in% reduced.dim)){
             stop(reduced.dim, " not found in the reducedDim slot")
         }
-        nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
-                              function(X) .calc_distance(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
-                                                                                    seq_len(d),drop=FALSE]))
+        nhood.dists <- BiocParallel::bplapply(seq_len(ncol(nhood_matrix)),
+                              function(X) as(proxyC::dist(reducedDim(x, reduced.dim)[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                                    seq_len(d),drop=FALSE]), "dsCMatrix"), BPPARAM = bpp)
         names(nhood.dists) <- nhoodIndex(x)
     } else if(is(reduced.dim, "matrix")){
-        nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
-                              function(X) .calc_distance(reduced.dim[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
-                                                                     seq_len(d),drop=FALSE]))
+        nhood.dists <- BiocParallel::bplapply(seq_len(ncol(nhood_matrix)),
+                              function(X) as(proxyC::dist(reduced.dim[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                     seq_len(d),drop=FALSE]), "dsCMatrix"), BPPARAM = bpp)
     } else if(is.null(reduced.dim)){
         if(any(names(reducedDims(x)) %in% c("PCA"))){
-            nhood.dists <- sapply(seq_len(ncol(nhoods(x))),
-                                  function(X) .calc_distance(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
-                                                                                  seq_len(d),drop=FALSE]))
+            nhood.dists <- BiocParallel::bplapply(seq_len(ncol(nhood_matrix)),
+                               function(X) as(proxyC::dist(reducedDim(x, "PCA")[non.zero.nhoods[non.zero.nhoods[,'col']==X,'row'],
+                                                                                  seq_len(d),drop=FALSE]), "dsCMatrix"), BPPARAM = bpp)
             names(nhood.dists) <- nhoodIndex(x)
 
         } else{
             stop("No reduced.dim slot specified")
         }
     }
-
+                                                  
     nhoodDistances(x) <- nhood.dists
 
     return(x)

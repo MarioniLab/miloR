@@ -198,7 +198,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     nhood.gr <- subset.groups
   }
 
-  for(i in seq_along(nhood.gr)){
+  for(i in seq_len(min(length(unique(fake.meta$Nhood.Group)), length(unique(nhood.gr))))){
     i.meta <- fake.meta
     i.meta$Test <- "Ref"
     i.meta$Test[fake.meta$Nhood.Group == nhood.gr[i]] <- "Test"
