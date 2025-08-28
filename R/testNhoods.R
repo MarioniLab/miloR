@@ -572,12 +572,25 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "SE"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) x[ret.beta])),
                                 "tvalue" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
                                 "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
-                                matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
                                 "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")),
                                 "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
-        rownames(res) <- 1:length(fit)
-        colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance", sep="_")
+        # need to know how many variance components there are to get proper data frame dimensions
+        n.sigmas <- unique(unlist(lapply(lapply(fit, `[[`, "Sigma"), length)))
+        varcomps <- as.data.frame(matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=n.sigmas, byrow=TRUE))
+
+        if(n.sigmas == length(rand.levels)){
+            colnames(varcomps) <- paste(names(rand.levels), "variance", sep="_")
+        } else{
+            colnames(varcomps) <- paste(c(names(rand.levels), "CovarMat"), "variance", sep="_")
+        }
+
+        res <- do.call(cbind.data.frame, list(res[, c("logFC", "logCPM", "SE", "tvalue", "PValue")],
+                                              varcomps,
+                                              res[, c("Converged", "Logliklihood")]))
+
+        rownames(res) <- c(1:n.nhoods)
+        # colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance", sep="_")
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)

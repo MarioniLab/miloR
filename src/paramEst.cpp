@@ -30,6 +30,7 @@ arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ysta
     for(int i=0; i < c; i++){
         const arma::mat& P_pvi = pvstar_i(i); // this is Vstar_inv * partial derivative
         const arma::mat& Pdifi = remldiffV(i);
+
         double lhs = -0.5 * arma::trace(Pdifi);
         arma::mat mid1(1, 1);
         mid1 = arma::trans(ystarminx) * P_pvi * Vstarinv * ystarminx;
