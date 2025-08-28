@@ -220,6 +220,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
         Winv = W.i();
+
         // pre-compute matrics: X^T * W^-1, Z^T * W^-1
         arma::mat xTwinv = X.t() * Winv;
         arma::mat zTwin = Z.t() * Winv;
@@ -272,6 +273,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             if(REML){
                 arma::mat VstarZ = V_star_inv * Z;
                 VP_partial = precomp_list["PZZt"];
+
                 VS_partial = pseudovarPartial_VG(u_indices, Z,  VstarZ, K);
 
                 score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,

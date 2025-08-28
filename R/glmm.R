@@ -179,7 +179,6 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         geno.I <- diag(nrow(full.Z))
         colnames(geno.I) <- paste0("CovarMat", seq_len(ncol(geno.I)))
         full.Z <- do.call(cbind, list(full.Z, geno.I))
-
         # add a genetic variance component
         sigma_g <- Matrix(runif(1, 0, 1), ncol=1, nrow=1, sparse=TRUE)
         rownames(sigma_g) <- "CovarMat"

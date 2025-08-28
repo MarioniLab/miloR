@@ -156,13 +156,14 @@ List pseudovarPartial_VG(const List& u_indices, const arma::mat& Z, const arma::
         arma::uvec u_idx = u_indices[i];
         arma::mat omat(n , n);
 
+        arma::mat VsZcols = VstarZ.cols(u_idx-1);
+        arma::mat Zcols = Z.cols(u_idx-1).t();
+
         if(i == c - 1){
-            omat = VstarZ.cols(u_idx-1) * K * Z.cols(u_idx-1);
+            omat = VstarZ.cols(u_idx-1) * K * Zcols;
         } else{
-            omat = VstarZ.cols(u_idx-1) * Z.cols(u_idx-1);
+            omat = VstarZ.cols(u_idx-1) * Zcols;
         }
-
-
 
         outlist[i] = omat;
     }
