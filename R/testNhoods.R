@@ -572,7 +572,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "SE"= unlist(lapply(lapply(fit, `[[`, "SE"), function(x) x[ret.beta])),
                                 "tvalue" = unlist(lapply(lapply(fit, `[[`, "t"), function(x) x[ret.beta])),
                                 "PValue" = unlist(lapply(lapply(fit, `[[`, "PVALS"), function(x) x[ret.beta])),
-                                matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
+                                as.matrix(t(do.call(cbind, lapply(fit, `[[`, "Sigma")))),
+                                # matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=length(rand.levels), byrow=TRUE),
                                 "Converged"=unlist(lapply(fit, `[[`, "converged")), "Dispersion" = unlist(lapply(fit, `[[`, "Dispersion")),
                                 "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
