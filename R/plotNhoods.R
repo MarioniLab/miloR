@@ -736,7 +736,7 @@ plotDAbeeswarm <- function(da.res, group.by=NULL, alpha=0.1, subset.nhoods=NULL)
   }
 
   da.res %>% dplyr::mutate(logFC_color = ifelse(SpatialFDR < alpha, logFC, NA)) %>% 
-    dplyr::arrange(group_by) %>% 
+    dplyr::arrange(group_by, !is.na(logFC_color)) %>% 
     ggplot(aes(group_by, logFC, color=logFC_color)) + 
     geom_hline(yintercept=0, linewidth = 0.2, color = "black") +
     ggbeeswarm::geom_quasirandom() +
