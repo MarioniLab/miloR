@@ -159,28 +159,15 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     fake.meta[,"sample_id"] <- colData(x)[fake.meta$CellID,sample_col]
     fake.meta[,'sample_group'] <- paste(fake.meta[,"sample_id"], fake.meta[,"Nhood.Group"], sep="_")
 
-    sample_gr_mat <- matrix(0, nrow=nrow(fake.meta), ncol=length(unique(fake.meta$sample_group)))
-    colnames(sample_gr_mat) <- unique(fake.meta$sample_group)
+    sample_gr_mat <- model.matrix(~ 0 + sample_group, data=fake.meta)
+    colnames(sample_gr_mat) <- gsub("sample_group", "", colnames(sample_gr_mat))
     rownames(sample_gr_mat) <- rownames(fake.meta)
 
-    for (s in colnames(sample_gr_mat)) {
-      sample_gr_mat[which(fake.meta$sample_group == s),s] <- 1
-    }
-
     ## Summarise expression by sample
-    exprs_smp <- matrix(0, nrow=nrow(exprs), ncol=ncol(sample_gr_mat))
-    if (assay=='counts') {
-      summFunc <- rowSums
-    } else {
-      summFunc <- rowMeans
-    }
-
-    for (i in seq_len(ncol(sample_gr_mat))){
-      if (sum(sample_gr_mat[,i]) > 1) {
-        exprs_smp[,i] <- summFunc(exprs[,which(sample_gr_mat[,i] > 0)])
-      } else {
-        exprs_smp[,i] <- exprs[,which(sample_gr_mat[,i] > 0)]
-      }
+    exprs_smp <- exprs %*% sample_gr_mat
+    
+    if (assay != "counts"){
+      exprs_smp <- exprs_smp / rep(colSums(sample_gr_mat), each = nrow(exprs))
     }
     rownames(exprs_smp) <- rownames(exprs)
     colnames(exprs_smp) <- colnames(sample_gr_mat)
@@ -188,7 +175,7 @@ findNhoodGroupMarkers <- function(x, da.res, assay="logcounts",
     smp_meta <- unique(fake.meta[,c("sample_group","Nhood.Group")])
     rownames(smp_meta) <- smp_meta[,"sample_group"]
 
-    fake.meta <- smp_meta
+    fake.meta <- smp_meta[colnames(exprs_smp),]
     exprs <- exprs_smp
   }
 
