@@ -576,7 +576,8 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 "Logliklihood"=unlist(lapply(fit, `[[`, "LOGLIHOOD")))
 
         # need to know how many variance components there are to get proper data frame dimensions
-        n.sigmas <- unique(unlist(lapply(lapply(fit, `[[`, "Sigma"), length)))
+        # sometimes calling unique on the length of sigmas returns two values - because there are NAs?
+        n.sigmas <- max(unique(unlist(lapply(lapply(fit, `[[`, "Sigma"), length))))
         varcomps <- as.data.frame(matrix(unlist(lapply(fit, `[[`, "Sigma")), ncol=n.sigmas, byrow=TRUE))
 
         if(n.sigmas == length(rand.levels)){
