@@ -75,7 +75,8 @@ List computePZList_G(const List& u_indices, const arma::mat& PZ, const arma::mat
         arma::mat _pzz(n, n);
 
         if(i == c - 1){
-            _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+            // _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
+            _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
         } else{
             _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
         }
@@ -160,7 +161,8 @@ List pseudovarPartial_VG(const List& u_indices, const arma::mat& Z, const arma::
         arma::mat Zcols = Z.cols(u_idx-1).t();
 
         if(i == c - 1){
-            omat = VstarZ.cols(u_idx-1) * K * Zcols;
+            //omat = VstarZ.cols(u_idx-1) * K * Zcols;
+            omat = VstarZ.cols(u_idx-1) * Zcols;
         } else{
             omat = VstarZ.cols(u_idx-1) * Zcols;
         }
@@ -181,7 +183,8 @@ List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
     for(unsigned int i = 0; i < items; i++){
         if(i == items - 1){
             arma::uvec icols = u_indices[i];
-            arma::mat _omat(Z.cols(icols - 1) * K * Z.cols(icols - 1).t());
+            // arma::mat _omat(Z.cols(icols - 1) * K * Z.cols(icols - 1).t());
+            arma::mat _omat(K);
             outlist[i] = _omat; // K is equivalent to ZZ^T
         } else{
             arma::uvec icols = u_indices[i];

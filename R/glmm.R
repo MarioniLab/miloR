@@ -76,7 +76,7 @@
 #' @name fitGLMM
 #'
 #' @importMethodsFrom Matrix %*%
-#' @importFrom Matrix Matrix solve crossprod kronecker
+#' @importFrom Matrix Matrix solve crossprod kronecker chol
 #' @importFrom stats runif var
 #' @importFrom BiocParallel bpstopOnError
 #' @export
@@ -176,9 +176,13 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         ## add the genetic components
         ## augment Z with I
-        geno.I <- diag(nrow(full.Z))
+        ## Use K=LD^1/2(LD^1/2)^T instead of ZZ^T for GRM
+        ## chol return L^T
+        geno.I <- t(chol(Kin))
+        # geno.I <- diag(nrow(full.Z))
         colnames(geno.I) <- paste0("CovarMat", seq_len(ncol(geno.I)))
         full.Z <- do.call(cbind, list(full.Z, geno.I))
+
         # add a genetic variance component
         sigma_g <- Matrix(runif(1, 0, 1), ncol=1, nrow=1, sparse=TRUE)
         rownames(sigma_g) <- "CovarMat"
@@ -201,7 +205,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
 
         # if we only have a GRM then Z _is_ full.Z?
         # full.Z <- initializeFullZ(Z, cluster_levels=random.levels)
-        full.Z <- Z
+        ## Use K=LD^1/2(LD^1/2)^T instead of ZZ^T for GRM
+        ## chol return L^T
+        full.Z <- t(chol(Kin))
+        # full.Z <- Z
         # should this be the matrix R?
         colnames(full.Z) <- paste0(names(random.levels), seq_len(ncol(full.Z)))
 
@@ -456,7 +463,7 @@ initialiseG <- function(cluster_levels, sigmas, Kin=NULL){
             diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
         } else{
             if(rownames(sigmas[x, , drop=FALSE]) %in% c("Genetic")){
-                diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] * Kin
+                diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] #* Kin
             }else{
                 diag(G[c(i:(i+x.q-1)), c(i:(i+x.q-1)), drop=FALSE]) <- sigmas[x, ] # is this sufficient to transform the sigma to the model scale?
             }
