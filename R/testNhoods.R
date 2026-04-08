@@ -539,7 +539,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             if(isTRUE(geno.only)){
                 message("Running genetic model with ", nrow(kinship), " individuals")
             } else{
-                message("Running genetic model with ", nrow(z.model), " observations")
+                message("Running genetic+ model with ", nrow(z.model), " observations")
             }
         }
 

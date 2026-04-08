@@ -131,7 +131,10 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         }
 
         # create full Z with expanded random effect levels
+        # add a residual variance parameter
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+        # random.levels <- c(random.levels, list("Residual"=rownames(Z)))
+
         if(is.null(glmm.control[["init.u"]])){
             curr_u <- matrix(runif(ncol(full.Z), 0, 1), ncol=1)
         } else{
@@ -172,7 +175,8 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         } else{
             curr_sigma <- Matrix(glmm.control[["init.sigma"]], ncol=1, sparse=TRUE)
         }
-        rownames(curr_sigma) <- colnames(Z)
+
+        rownames(curr_sigma) <- names(random.levels)
 
         ## add the genetic components
         ## augment Z with I
@@ -262,6 +266,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
     } else if(is.null(Kin)){
         # create full Z with expanded random effect levels
         full.Z <- initializeFullZ(Z=Z, cluster_levels=random.levels)
+        # random.levels <- c(random.levels, list("Residual"=rownames(Z)))
 
         # random value initiation from runif
         if(is.null(glmm.control[["init.u"]])){
@@ -572,7 +577,12 @@ initializeFullZ <- function(Z, cluster_levels, stand.cols=FALSE){
 
         i.z.list[[colnames(Z)[i]]] <- i.z
     }
+    # # Add the residual variance
+    # resid.eye <- diag(nrow(Z))
+    # colnames(resid.eye) <- rownames(Z)
+    # i.z.list[["Residual"]] <- resid.eye
     full.Z <- do.call(cbind, i.z.list)
+
     return(full.Z)
 }
 
