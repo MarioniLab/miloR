@@ -2,7 +2,6 @@
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "utils.h"
-#include "solveQP.h"
 #include<RcppArmadillo.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -358,8 +357,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     // solve by linear least squares
     arma::vec _he_update(c+1);
 
-    // use RcppML NNLS (needs casting Eigen <-> arma)
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
+    // Tried RcppML NNLS but arma <> eigen cast is too expensive
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -390,7 +388,6 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -424,7 +421,6 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
     arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
 
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -455,11 +451,10 @@ arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
     arma::mat vecZ = vectoriseZGeneticML(Z, u_indices, Kin); // projection already applied
 
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
-    return _he_update;
-}
+    return _he_update;}
+
 
 
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters){
