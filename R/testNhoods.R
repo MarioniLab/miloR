@@ -551,6 +551,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
         # give warning about how many neighborhoods didn't converge and error if > 50% nhoods failed
         n.nhoods <- length(fit)
+
         half.n <- floor(n.nhoods * 0.5)
         if (sum(!(unlist(lapply(fit, `[[`, "converged"))), na.rm = TRUE)/length(unlist(lapply(fit, `[[`, "converged"))) > 0){
             if(sum(is.na(unlist(lapply(fit, `[[`, "FE")))) >= half.n){
@@ -590,8 +591,12 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                               varcomps,
                                               res[, c("Converged", "Logliklihood")]))
 
+        # check if the number of input and output nhoods is the same
+        out.nhoods <- nrow(res)
+        if(out.nhoods != n.nhoods){
+            warning("Output results DF missing nhood params - try re-running model with different formula")
+        }
         rownames(res) <- c(1:n.nhoods)
-        # colnames(res)[6:(6+length(rand.levels)-1)] <- paste(names(rand.levels), "variance", sep="_")
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)
