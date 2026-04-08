@@ -2,7 +2,6 @@
 #include "paramEst.h"
 #include "computeMatrices.h"
 #include "utils.h"
-#include "solveQP.h"
 #include<RcppArmadillo.h>
 #ifdef _OPENMP
 #include <omp.h>
@@ -358,8 +357,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
     // solve by linear least squares
     arma::vec _he_update(c+1);
 
-    // use RcppML NNLS (needs casting Eigen <-> arma)
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
+    // Tried RcppML NNLS but arma <> eigen cast is too expensive
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -390,7 +388,6 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -424,7 +421,6 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
     arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
 
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
     return _he_update;
@@ -455,11 +451,10 @@ arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
     arma::mat vecZ = vectoriseZGeneticML(Z, u_indices, Kin); // projection already applied
 
     arma::vec _he_update(c+1);
-    // _he_update = solveQP(vecZ, Ybig, _he_update);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
 
-    return _he_update;
-}
+    return _he_update;}
+
 
 
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters){
@@ -700,7 +695,12 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
-            arma::vec _vecZ = Kin(lower_indices);
+            // arma::vec _vecZ = Kin(lower_indices);
+            // Cholesky LL^T of kinship == ZZ^T
+            arma::mat _ZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // REML projection
+
+            // vectorise
+            arma::vec _vecZ = _ZZT(lower_indices);
             vecMat.col(i+1) = _vecZ;
             // vecMat.col(i) = _vecZ;
         } else{
@@ -741,7 +741,12 @@ arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
-            arma::vec _vecZ = Kin(lower_indices);
+            // arma::vec _vecZ = Kin(lower_indices);
+            // Cholesky LL^T of kinship == ZZ^T
+            arma::mat _ZZT = Z.cols(u_idx - 1) * Z.cols(u_idx - 1).t();
+
+            // vectorise
+            arma::vec _vecZ = _ZZT(lower_indices);
             vecMat.col(i+1) = _vecZ;
             // vecMat.col(i) = _vecZ;
         } else{
