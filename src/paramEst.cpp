@@ -33,7 +33,7 @@ arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ysta
         double lhs = -0.5 * arma::trace(Pdifi);
         arma::mat mid1(1, 1);
         mid1 = arma::trans(ystarminx) * P_pvi * Vstarinv * ystarminx;
-        double rhs = 0.5 * mid1[(0, 0)]
+        double rhs = 0.5 * mid1[(0, 0)];
 
         reml_score[i] = lhs + rhs;
     }
