@@ -68,10 +68,56 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// fitGeneticNullGlmm
+List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_u, arma::vec curr_sigma, const arma::vec& y, List u_indices, double theta_conv, double curr_disp, const bool& REML, const int& maxit, Rcpp::Nullable<Rcpp::NumericMatrix> Kinv_, Rcpp::Nullable<Rcpp::NumericVector> null_sigma_, Rcpp::Nullable<Rcpp::NumericVector> null_beta_, double null_disp, const bool& fix_variance, const bool& return_projection);
+RcppExport SEXP _miloR_fitGeneticNullGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP KSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP Kinv_SEXP, SEXP null_sigma_SEXP, SEXP null_beta_SEXP, SEXP null_dispSEXP, SEXP fix_varianceSEXP, SEXP return_projectionSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type Z(ZSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type X(XSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type K(KSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type muvec(muvecSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type offsets(offsetsSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_beta(curr_betaSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_u(curr_uSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type curr_sigma(curr_sigmaSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< List >::type u_indices(u_indicesSEXP);
+    Rcpp::traits::input_parameter< double >::type theta_conv(theta_convSEXP);
+    Rcpp::traits::input_parameter< double >::type curr_disp(curr_dispSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type REML(REMLSEXP);
+    Rcpp::traits::input_parameter< const int& >::type maxit(maxitSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericMatrix> >::type Kinv_(Kinv_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericVector> >::type null_sigma_(null_sigma_SEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericVector> >::type null_beta_(null_beta_SEXP);
+    Rcpp::traits::input_parameter< double >::type null_disp(null_dispSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type fix_variance(fix_varianceSEXP);
+    Rcpp::traits::input_parameter< const bool& >::type return_projection(return_projectionSEXP);
+    rcpp_result_gen = Rcpp::wrap(fitGeneticNullGlmm(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection));
+    return rcpp_result_gen;
+END_RCPP
+}
+// scoreTestGeneticSNPs
+List scoreTestGeneticSNPs(const arma::mat& P, const arma::vec& Pystar, const arma::mat& G, double min_variance);
+RcppExport SEXP _miloR_scoreTestGeneticSNPs(SEXP PSEXP, SEXP PystarSEXP, SEXP GSEXP, SEXP min_varianceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type P(PSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Pystar(PystarSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type G(GSEXP);
+    Rcpp::traits::input_parameter< double >::type min_variance(min_varianceSEXP);
+    rcpp_result_gen = Rcpp::wrap(scoreTestGeneticSNPs(P, Pystar, G, min_variance));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 19},
     {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 18},
+    {"_miloR_fitGeneticNullGlmm", (DL_FUNC) &_miloR_fitGeneticNullGlmm, 20},
+    {"_miloR_scoreTestGeneticSNPs", (DL_FUNC) &_miloR_scoreTestGeneticSNPs, 4},
     {NULL, NULL, 0}
 };
 

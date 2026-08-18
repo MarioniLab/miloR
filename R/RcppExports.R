@@ -157,3 +157,154 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
     .Call('_miloR_fitPLGlmm', PACKAGE = 'miloR', Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist)
 }
 
+#' Fit a NB-GLMM with a genetic random effect, optionally warm-started
+#'
+#' Fits the negative binomial generalised linear mixed model used by Milo for
+#' genetic analyses, using penalised quasi-likelihood (PQL) with REML or ML
+#' estimation of the variance components. It follows the same iterative logic as
+#' \code{fitGeneticPLGlmm} - alternating between the fixed/random effect
+#' solutions and the variance component update, with an off-line golden-section
+#' search for the dispersion - but differs in three respects that matter for
+#' genome-wide use:
+#'
+#' \enumerate{
+#' \item The genetic covariance enters as \eqn{\sigma_g K} directly rather than
+#' through a dense \eqn{n \times n} Cholesky block appended to \emph{Z}. This
+#' applies \emph{K} exactly once and removes the dominant \eqn{O(n^3)} term.
+#' \item The working weight matrices \emph{D} and \emph{W} are diagonal by
+#' construction and are carried as vectors, so they are never inverted by a
+#' dense LU factorisation.
+#' \item Null model parameter estimates may be supplied, in which case they are
+#' used as starting values and - if \code{fix_variance} is \code{TRUE} - the
+#' variance components and dispersion are held fixed while only the fixed
+#' effects are updated.
+#' }
+#'
+#' When \code{return_projection} is \code{TRUE} the REML projection matrix
+#' \emph{P} and the vector \eqn{P y^*} are returned. These are the sufficient
+#' quantities for the score test in \code{\link{scoreTestGeneticSNPs}}, and are
+#' invariant across the SNPs tested within a neighbourhood.
+#'
+#' @param Z mat - design matrix mapping the levels of the non-genetic random
+#' effects to observations. May have zero columns if the genetic random effect
+#' is the only one.
+#' @param X mat - design matrix of fixed effects. For a null model this excludes
+#' the genetic variant of interest.
+#' @param K mat - the n x n genetic relationship matrix.
+#' @param muvec vec - vector of starting values for the phenotype means.
+#' @param offsets vec - vector of model offsets, e.g. log library sizes.
+#' @param curr_beta vec - starting values for the fixed effect parameters.
+#' @param curr_u vec - starting values for the random effect BLUPs, ordered as
+#' the non-genetic effect levels followed by the n genetic effect levels.
+#' @param curr_sigma vec - starting values for the variance components. The
+#' final element is always the genetic variance component attached to \emph{K}.
+#' @param y vec - vector of observed counts.
+#' @param u_indices List - each element holds the (1-based) column indices of
+#' \emph{Z} belonging to one non-genetic random effect.
+#' @param theta_conv double - convergence tolerance on the parameter estimates.
+#' @param curr_disp double - starting value for the dispersion.
+#' @param REML bool - use REML rather than ML for the variance components.
+#' @param maxit int - maximum number of PQL iterations.
+#' @param Kinv_ Nullable NumericMatrix - optional precomputed inverse of
+#' \emph{K}. \emph{K} is invariant across neighbourhoods and SNPs, so supplying
+#' the inverse once avoids repeating an O(n^3) factorisation per model fit.
+#' @param null_sigma_ Nullable NumericVector - optional variance components from
+#' a previously fitted null model, used as starting values.
+#' @param null_beta_ Nullable NumericVector - optional fixed effect estimates
+#' from a previously fitted null model, used as starting values. Only the
+#' leading elements shared with the current design are used.
+#' @param null_disp double - optional dispersion estimate from a previously
+#' fitted null model. A negative value means no estimate is supplied.
+#' @param fix_variance bool - hold the variance components and dispersion fixed
+#' at their supplied values and update only the fixed effects.
+#' @param return_projection bool - return the REML projection matrix \emph{P}
+#' and \eqn{P y^*}.
+#'
+#' @details The model fitted is the same pseudo-likelihood approximation used
+#' throughout Milo. At convergence the working response is
+#' \eqn{y^* = \eta + D^{-1}(y - \mu)} and the pseudo-variance is
+#' \eqn{V^* = W + \sum_j \sigma_j Z_j Z_j' + \sigma_g K}, with
+#' \eqn{W = \mathrm{diag}(\phi^{-1} + \mu_i^{-1})}. Variance components are
+#' updated by Fisher scoring on the REML log-likelihood and constrained to be
+#' non-negative.
+#'
+#' @return A \code{list} containing the fitted model. Elements are:
+#' \describe{
+#' \item{\code{FE}:}{\code{numeric} vector of fixed effect estimates.}
+#' \item{\code{RE}:}{\code{numeric} vector of random effect BLUPs.}
+#' \item{\code{Sigma}:}{\code{numeric} vector of variance component estimates, genetic component last.}
+#' \item{\code{Dispersion}:}{\code{numeric} scalar dispersion estimate.}
+#' \item{\code{converged}:}{\code{logical} whether the convergence tolerance was met.}
+#' \item{\code{Iters}:}{\code{numeric} number of PQL iterations run.}
+#' \item{\code{SE}:}{\code{numeric} vector of fixed effect standard errors.}
+#' \item{\code{t}:}{\code{numeric} vector of Wald t-statistics for the fixed effects.}
+#' \item{\code{P}:}{\code{matrix} REML projection matrix, or a 1 x 1 zero matrix if not requested.}
+#' \item{\code{Pystar}:}{\code{numeric} vector \eqn{P y^*}, or a length-1 zero vector if not requested.}
+#' \item{\code{ystar}:}{\code{numeric} working response at convergence.}
+#' \item{\code{Wdiag}:}{\code{numeric} diagonal of the working weight matrix.}
+#' \item{\code{VCOV}:}{\code{matrix} variance-covariance matrix of the fixed effects.}
+#' \item{\code{LOGLIHOOD}:}{\code{numeric} pseudo-log-likelihood at convergence.}
+#' }
+#'
+#' @author Mike Morgan
+#'
+#' @examples
+#' NULL
+#'
+#' @name fitGeneticNullGlmm
+#'
+fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE) {
+    .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection)
+}
+
+#' Score test for genetic variants against a fitted null model
+#'
+#' Computes score (Rao) test statistics for a block of genetic variants against
+#' a null NB-GLMM fitted by \code{\link{fitGeneticNullGlmm}}. Because the
+#' variance components do not depend on the variant being tested, the REML
+#' projection \emph{P} and the vector \eqn{P y^*} are computed once per
+#' neighbourhood and reused across every variant.
+#'
+#' For a variant with genotype vector \emph{g} the score statistic is
+#' \eqn{U = g' P y^*} with variance \eqn{I = g' P g}, giving
+#' \eqn{\chi^2_1 = U^2 / I}. The corresponding one-step effect size estimate is
+#' \eqn{\hat{\beta} = U / I} with standard error \eqn{1/\sqrt{I}}, so the Wald
+#' statistic formed from these is algebraically identical to the score
+#' statistic. Variants are processed as a block so that \eqn{P G} is a single
+#' matrix-matrix product rather than a loop of matrix-vector products.
+#'
+#' @param P mat - the REML projection matrix from the fitted null model.
+#' @param Pystar vec - the vector \eqn{P y^*} from the fitted null model.
+#' @param G mat - an n x B matrix of genotypes, one column per variant.
+#' @param min_variance double - variants whose score variance falls below this
+#' value are returned as \code{NA} rather than producing an unstable ratio.
+#' This traps monomorphic variants and variants that are collinear with the
+#' fixed effects.
+#'
+#' @details The score test uses the variance components estimated under the
+#' null. This is the standard approximation used by genome-wide mixed model
+#' methods and is asymptotically equivalent to the Wald test from a full refit;
+#' variants passing a screening threshold should be refitted exactly with
+#' \code{\link{fitGeneticNullGlmm}} to obtain final effect size estimates.
+#'
+#' @return A \code{list} with one element per statistic, each a \code{numeric}
+#' vector of length B:
+#' \describe{
+#' \item{\code{Score}:}{the score \eqn{U = g' P y^*}.}
+#' \item{\code{Variance}:}{the score variance \eqn{I = g' P g}.}
+#' \item{\code{Chisq}:}{the test statistic \eqn{U^2 / I} on 1 degree of freedom.}
+#' \item{\code{Beta}:}{the one-step effect size estimate \eqn{U / I}.}
+#' \item{\code{SE}:}{the standard error \eqn{1/\sqrt{I}}.}
+#' }
+#'
+#' @author Mike Morgan
+#'
+#' @examples
+#' NULL
+#'
+#' @name scoreTestGeneticSNPs
+#'
+scoreTestGeneticSNPs <- function(P, Pystar, G, min_variance = 1e-12) {
+    .Call('_miloR_scoreTestGeneticSNPs', PACKAGE = 'miloR', P, Pystar, G, min_variance)
+}
+
