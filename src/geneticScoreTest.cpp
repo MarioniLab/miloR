@@ -120,6 +120,18 @@ Rcpp::List buildVpartial(const arma::mat& Z, const arma::mat& K, const Rcpp::Lis
 //' at their supplied values and update only the fixed effects.
 //' @param return_projection bool - return the REML projection matrix \emph{P}
 //' and \eqn{P y^*}.
+//' @param fix_dispersion bool - hold the dispersion fixed at \code{curr_disp}
+//' rather than re-estimating it inside the PQL loop. Recommended when a
+//' dispersion estimated across neighbourhoods is available, e.g. from
+//' \code{edgeR::estimateDisp}.
+//' @param max_disp double - upper bound on the size parameter when it is
+//' estimated inside the loop. Prevents the search running away to the Poisson
+//' limit.
+//' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
+//' additional variance component on the REML objective, rather than by a
+//' golden-section search on the conditional negative binomial likelihood. This
+//' puts the overdispersion and the random effect variances on a common
+//' objective so that they compete properly.
 //'
 //' @details The model fitted is the same pseudo-likelihood approximation used
 //' throughout Milo. At convergence the working response is
@@ -166,7 +178,10 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                         Rcpp::Nullable<Rcpp::NumericVector> null_beta_ = R_NilValue,
                         double null_disp = -1.0,
                         const bool& fix_variance = false,
-                        const bool& return_projection = true){
+                        const bool& return_projection = true,
+                        const bool& fix_dispersion = false,
+                        double max_disp = 1e4,
+                        const bool& disp_as_vc = false){
 
     constexpr double pi = 3.14159265358979323846;
     const double constval = 1e-8;
@@ -216,8 +231,31 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
         }
     }
 
-    // partial derivatives of V* are constant across iterations
+    // Partial derivatives of V* are constant across iterations.
+    //
+    // When disp_as_vc is set, the negative binomial overdispersion is treated as
+    // one more variance component. W = diag(1/phi + 1/mu) splits into a constant
+    // diagonal 1/phi and the Poisson part 1/mu, and the constant diagonal is
+    // exactly sigma_0 * I. Estimating sigma_0 = 1/phi by the same REML Fisher
+    // scoring as the other components puts every variance parameter on one
+    // objective, instead of estimating phi from the conditional NB likelihood at
+    // fixed mu while sigma is estimated from the marginal REML likelihood.
+    const int ctot = disp_as_vc ? c + 1 : c;
     List dV = buildVpartial(Z, K, u_indices, c);
+    List dVa(ctot);
+    for(int j = 0; j < c; j++){
+        dVa[j] = dV[j];
+    }
+    if(disp_as_vc){
+        dVa[c] = arma::mat(n, n, arma::fill::eye);
+    }
+
+    // augmented parameter vector: [sigma_1 .. sigma_c, sigma_0]
+    arma::vec sig_a(ctot);
+    sig_a.head(c) = curr_sigma;
+    if(disp_as_vc){
+        sig_a(c) = 1.0 / std::max(curr_disp, 1e-8);
+    }
 
     arma::vec wdiag(n);
     arma::vec dinv(n);
@@ -249,7 +287,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
         eta += curr_u.tail(n); // genetic BLUPs enter with an implicit identity design
 
         ystar = eta + (dinv % (y - muvec));
-        wdiag = (1.0 / curr_disp) + dinv;
+        wdiag = disp_as_vc ? dinv : ((1.0 / curr_disp) + dinv);
 
         // The offset is part of the linear predictor but is not a column of X,
         // so it must be removed before the GLS solve. Leaving it in lets the
@@ -259,6 +297,9 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
 
         // ---- pseudo-variance and its inverse -------------------------------
         Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
+        if(disp_as_vc){
+            Vstar.diag() += sig_a(c);
+        }
         bool _vok = arma::inv_sympd(Vsinv, Vstar);
         if(!_vok){
             Rcpp::warning("Pseudovariance is not positive definite - using pseudoinverse");
@@ -282,23 +323,23 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
 
         // ---- variance components -------------------------------------------
         if(!fix_variance){
-            arma::vec score_sigma(c, arma::fill::zeros);
-            arma::mat info_sigma(c, c, arma::fill::zeros);
+            arma::vec score_sigma(ctot, arma::fill::zeros);
+            arma::mat info_sigma(ctot, ctot, arma::fill::zeros);
             arma::vec Py = P * ystar_c;
 
-            std::vector<arma::mat> PdV(c);
-            for(int j = 0; j < c; j++){
-                const arma::mat& dVj = dV[j];
+            std::vector<arma::mat> PdV(ctot);
+            for(int j = 0; j < ctot; j++){
+                const arma::mat& dVj = dVa[j];
                 PdV[j] = P * dVj;
             }
 
-            for(int j = 0; j < c; j++){
-                const arma::mat& dVj = dV[j];
+            for(int j = 0; j < ctot; j++){
+                const arma::mat& dVj = dVa[j];
                 double lhs = -0.5 * arma::trace(PdV[j]);
                 double rhs = 0.5 * arma::as_scalar(Py.t() * dVj * Py);
                 score_sigma(j) = lhs + rhs;
 
-                for(int k = j; k < c; k++){
+                for(int k = j; k < ctot; k++){
                     // trace(A * B) without forming the product
                     double tr = arma::accu(PdV[j] % PdV[k].t());
                     info_sigma(j, k) = 0.5 * tr;
@@ -308,7 +349,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                 }
             }
 
-            arma::vec sigma_update = fisherScore(info_sigma, score_sigma, curr_sigma);
+            arma::vec sigma_update = fisherScore(info_sigma, score_sigma, sig_a);
 
             // The domain of the variance components is [0, Inf). Rather than
             // clamping a negative update straight to the boundary - which pins
@@ -317,28 +358,36 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
             // ascent direction by step-halving until every component is
             // strictly positive. This keeps the search direction and lets a
             // component recover if the data support it.
-            arma::vec step = sigma_update - curr_sigma;
+            arma::vec step = sigma_update - sig_a;
             int halvings = 0;
-            while(arma::any((curr_sigma + step) <= 0.0) && halvings < 30){
+            while(arma::any((sig_a + step) <= 0.0) && halvings < 30){
                 step *= 0.5;
                 halvings++;
             }
-            sigma_update = curr_sigma + step;
+            sigma_update = sig_a + step;
 
             // final guard for non-finite or still non-positive components
-            for(int j = 0; j < c; j++){
+            for(int j = 0; j < ctot; j++){
                 if(!std::isfinite(sigma_update(j)) || sigma_update(j) <= 0.0){
                     sigma_update(j) = constval;
                 }
             }
 
-            sigma_diff = arma::abs(sigma_update - curr_sigma);
-            curr_sigma = sigma_update;
+            sigma_diff = arma::abs(sigma_update.head(c) - curr_sigma);
+            sig_a = sigma_update;
+            curr_sigma = sigma_update.head(c);
+            if(disp_as_vc){
+                // report the overdispersion on the size scale
+                curr_disp = 1.0 / std::max(sig_a(c), 1e-12);
+            }
         }
 
         // ---- fixed effects and BLUPs ---------------------------------------
         // recompute V* with the updated variance components before solving
         Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
+        if(disp_as_vc){
+            Vstar.diag() += sig_a(c);
+        }
         _vok = arma::inv_sympd(Vsinv, Vstar);
         if(!_vok){
             Vsinv = arma::pinv(Vstar);
@@ -387,11 +436,19 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
             // injects jitter of that size into W and prevents the fixed effects
             // ever meeting a tighter convergence tolerance. Stop updating once
             // the dispersion has settled, as fitGeneticPLGlmm does.
-            if(disp_diff > disp_tol){
+            if(!fix_dispersion && !disp_as_vc && disp_diff > disp_tol){
                 double delta_lo = std::max(1e-2, curr_disp - (curr_disp * 0.5));
-                double delta_up = std::max(2e-2, curr_disp * 2.0);
+                double delta_up = std::min(max_disp, std::max(2e-2, curr_disp * 2.0));
                 update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
                                               muvec, Ginv, pi, curr_u, curr_sigma, y);
+                // phiGoldenSearch maximises the conditional NB likelihood at the
+                // current mu, and mu already contains the fitted BLUPs. The
+                // random effects have therefore already absorbed the
+                // overdispersion, so the search sees almost none left and drives
+                // the size parameter towards the Poisson limit. Bounding it stops
+                // the runaway; the principled fix is to supply an externally
+                // estimated dispersion and set fix_dispersion.
+                update_disp = std::min(update_disp, max_disp);
                 disp_diff = std::abs(curr_disp - update_disp);
                 curr_disp = update_disp;
             }
@@ -431,10 +488,13 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
     }
     eta_f += curr_u.tail(n);
     ystar = eta_f + (dinv % (y - muvec));
-    wdiag = (1.0 / curr_disp) + dinv;
+    wdiag = disp_as_vc ? dinv : ((1.0 / curr_disp) + dinv);
     arma::vec ystar_c = ystar - offsets;
 
     Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
+    if(disp_as_vc){
+        Vstar.diag() += sig_a(c);
+    }
     bool _vok2 = arma::inv_sympd(Vsinv, Vstar);
     if(!_vok2){
         Vsinv = arma::pinv(Vstar);

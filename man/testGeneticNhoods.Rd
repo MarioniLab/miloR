@@ -20,6 +20,7 @@ testGeneticNhoods(
   max.iters = 100,
   theta.conv = 1e-06,
   sigma.boundary = 1e-06,
+  disp.as.vc = TRUE,
   BPPARAM = BiocParallel::SerialParam()
 )
 }
@@ -75,6 +76,11 @@ for the null model parameter estimates.}
 variance component falls below this value are flagged in the output as
 having hit the boundary of the parameter space.}
 
+\item{disp.as.vc}{A \code{logical} scalar. Estimate the negative binomial
+overdispersion as an additional variance component on the REML objective,
+rather than by a golden-section search on the conditional negative binomial
+likelihood at the current fitted means. Defaults to \code{TRUE}; see Details.}
+
 \item{BPPARAM}{A \code{\linkS4class{BiocParallelParam}} object controlling
 parallelisation across neighbourhoods.}
 }
@@ -126,6 +132,17 @@ the expected situation for a cohort of unrelated donors. The
 \code{SigmaGenetic} and \code{SigmaBoundary} columns of the output report the
 fitted value and flag neighbourhoods where it has collapsed, so that the
 behaviour is visible rather than silent.
+
+The overdispersion is estimated as an additional variance component by
+default. Estimating it instead by a search on the conditional negative
+binomial likelihood is circular here: that likelihood is evaluated at the
+current fitted means, which already contain the random effect BLUPs, so the
+random effects have absorbed the overdispersion before it is estimated and
+the size parameter is driven towards the Poisson limit. On simulated data
+with a true size parameter of 5 that search returns values of order 1e4 and
+inflates the genetic variance component threefold, whereas estimating the
+overdispersion on the same REML objective as the other variance components
+recovers a size parameter of 5.4 and the correct variance components.
 
 Variants passing a screening threshold should be refitted exactly with
 \code{\link{refineGeneticHits}} to obtain final effect size estimates, since

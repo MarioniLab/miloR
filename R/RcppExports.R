@@ -219,6 +219,18 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #' at their supplied values and update only the fixed effects.
 #' @param return_projection bool - return the REML projection matrix \emph{P}
 #' and \eqn{P y^*}.
+#' @param fix_dispersion bool - hold the dispersion fixed at \code{curr_disp}
+#' rather than re-estimating it inside the PQL loop. Recommended when a
+#' dispersion estimated across neighbourhoods is available, e.g. from
+#' \code{edgeR::estimateDisp}.
+#' @param max_disp double - upper bound on the size parameter when it is
+#' estimated inside the loop. Prevents the search running away to the Poisson
+#' limit.
+#' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
+#' additional variance component on the REML objective, rather than by a
+#' golden-section search on the conditional negative binomial likelihood. This
+#' puts the overdispersion and the random effect variances on a common
+#' objective so that they compete properly.
 #'
 #' @details The model fitted is the same pseudo-likelihood approximation used
 #' throughout Milo. At convergence the working response is
@@ -253,8 +265,8 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #'
 #' @name fitGeneticNullGlmm
 #'
-fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE) {
-    .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection)
+fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE, fix_dispersion = FALSE, max_disp = 1e4, disp_as_vc = FALSE) {
+    .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc)
 }
 
 #' Score test for genetic variants against a fitted null model

@@ -24,7 +24,10 @@ fitGeneticNullGlmm(
   null_beta_ = NULL,
   null_disp = -1,
   fix_variance = FALSE,
-  return_projection = TRUE
+  return_projection = TRUE,
+  fix_dispersion = FALSE,
+  max_disp = 10000,
+  disp_as_vc = FALSE
 )
 }
 \arguments{
@@ -81,6 +84,21 @@ at their supplied values and update only the fixed effects.}
 
 \item{return_projection}{bool - return the REML projection matrix \emph{P}
 and \eqn{P y^*}.}
+
+\item{fix_dispersion}{bool - hold the dispersion fixed at \code{curr_disp}
+rather than re-estimating it inside the PQL loop. Recommended when a
+dispersion estimated across neighbourhoods is available, e.g. from
+\code{edgeR::estimateDisp}.}
+
+\item{max_disp}{double - upper bound on the size parameter when it is
+estimated inside the loop. Prevents the search running away to the Poisson
+limit.}
+
+\item{disp_as_vc}{bool - estimate the negative binomial overdispersion as an
+additional variance component on the REML objective, rather than by a
+golden-section search on the conditional negative binomial likelihood. This
+puts the overdispersion and the random effect variances on a common
+objective so that they compete properly.}
 }
 \value{
 A \code{list} containing the fitted model. Elements are:
