@@ -131,7 +131,9 @@ Rcpp::List buildVpartial(const arma::mat& Z, const arma::mat& K, const Rcpp::Lis
 //' additional variance component on the REML objective, rather than by a
 //' golden-section search on the conditional negative binomial likelihood. This
 //' puts the overdispersion and the random effect variances on a common
-//' objective so that they compete properly.
+//' objective so that they compete properly. Defaults to \code{TRUE}; set to
+//' \code{FALSE} to use the golden-section search on the conditional negative
+//' binomial likelihood instead.
 //'
 //' @details The model fitted is the same pseudo-likelihood approximation used
 //' throughout Milo. At convergence the working response is
@@ -181,7 +183,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                         const bool& return_projection = true,
                         const bool& fix_dispersion = false,
                         double max_disp = 1e4,
-                        const bool& disp_as_vc = false){
+                        const bool& disp_as_vc = true){
 
     constexpr double pi = 3.14159265358979323846;
     const double constval = 1e-8;
@@ -532,6 +534,14 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
     }
     Ginv_f.submat(qz, qz, qz + n - 1, qz + n - 1) = Kinv / curr_sigma(c - 1);
     double loglihood = nbLogLik(muvec, curr_disp, y) - normLogLik(c, Ginv_f, littleG, curr_u, pi);
+
+    // Report W on a common scale for both estimators: the disp_as_vc path
+    // carries the constant diagonal as sigma_0 rather than inside wdiag, but
+    // 1/curr_disp == sigma_0 by construction, so callers can always rebuild
+    // V* as diag(Wdiag) + sum_j sigma_j Zj Zj' + sigma_g K.
+    if(disp_as_vc){
+        wdiag = dinv + (1.0 / curr_disp);
+    }
 
     arma::mat P_out(1, 1, arma::fill::zeros);
     arma::vec Py_out(1, arma::fill::zeros);

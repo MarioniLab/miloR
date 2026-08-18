@@ -222,3 +222,38 @@ test_that("fixing the variance components holds them at their supplied values", 
     expect_equal(as.numeric(fixed$Sigma), target, tolerance=1e-12)
     expect_equal(fixed$Dispersion, fit$Dispersion, tolerance=1e-12)
 })
+
+
+test_that("the overdispersion is recovered rather than driven to the Poisson limit", {
+    # The default estimates the overdispersion as a variance component on the
+    # REML objective. The alternative - a search on the conditional negative
+    # binomial likelihood at the current fitted means - is circular, because
+    # those means already contain the BLUPs, so the random effects absorb the
+    # overdispersion before it is estimated and the size parameter runs away.
+    d <- .simGeneticNhood(n=200, qp=40, seed=77)
+
+    as.vc <- miloR:::fitGeneticNullGlmm(
+        Z=d$Zp, X=d$X, K=d$K, muvec=rep(mean(d$y), d$n), offsets=d$offsets,
+        curr_beta=c(log(mean(d$y)) - mean(d$offsets), 0, 0),
+        curr_u=rep(0, d$qp + d$n), curr_sigma=c(0.5, 0.5), y=d$y,
+        u_indices=list(seq_len(d$qp)), theta_conv=1e-6, curr_disp=1,
+        REML=TRUE, maxit=100, return_projection=FALSE)
+
+    golden <- miloR:::fitGeneticNullGlmm(
+        Z=d$Zp, X=d$X, K=d$K, muvec=rep(mean(d$y), d$n), offsets=d$offsets,
+        curr_beta=c(log(mean(d$y)) - mean(d$offsets), 0, 0),
+        curr_u=rep(0, d$qp + d$n), curr_sigma=c(0.5, 0.5), y=d$y,
+        u_indices=list(seq_len(d$qp)), theta_conv=1e-6, curr_disp=1,
+        REML=TRUE, maxit=100, disp_as_vc=FALSE, return_projection=FALSE)
+
+    # the simulation uses size = 5; the default should stay on that scale
+    expect_gt(as.vc$Dispersion, 1)
+    expect_lt(as.vc$Dispersion, 50)
+
+    # and should not run away the way the golden-section search does
+    expect_lt(as.vc$Dispersion, golden$Dispersion)
+
+    # the genetic variance component should not be inflated by soaking up the
+    # overdispersion that belongs in phi
+    expect_lt(as.numeric(as.vc$Sigma)[2], as.numeric(golden$Sigma)[2])
+})

@@ -230,7 +230,9 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #' additional variance component on the REML objective, rather than by a
 #' golden-section search on the conditional negative binomial likelihood. This
 #' puts the overdispersion and the random effect variances on a common
-#' objective so that they compete properly.
+#' objective so that they compete properly. Defaults to \code{TRUE}; set to
+#' \code{FALSE} to use the golden-section search on the conditional negative
+#' binomial likelihood instead.
 #'
 #' @details The model fitted is the same pseudo-likelihood approximation used
 #' throughout Milo. At convergence the working response is
@@ -265,7 +267,7 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #'
 #' @name fitGeneticNullGlmm
 #'
-fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE, fix_dispersion = FALSE, max_disp = 1e4, disp_as_vc = FALSE) {
+fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE, fix_dispersion = FALSE, max_disp = 1e4, disp_as_vc = TRUE) {
     .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc)
 }
 

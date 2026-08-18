@@ -27,7 +27,7 @@ fitGeneticNullGlmm(
   return_projection = TRUE,
   fix_dispersion = FALSE,
   max_disp = 10000,
-  disp_as_vc = FALSE
+  disp_as_vc = TRUE
 )
 }
 \arguments{
@@ -98,7 +98,9 @@ limit.}
 additional variance component on the REML objective, rather than by a
 golden-section search on the conditional negative binomial likelihood. This
 puts the overdispersion and the random effect variances on a common
-objective so that they compete properly.}
+objective so that they compete properly. Defaults to \code{TRUE}; set to
+\code{FALSE} to use the golden-section search on the conditional negative
+binomial likelihood instead.}
 }
 \value{
 A \code{list} containing the fitted model. Elements are:
