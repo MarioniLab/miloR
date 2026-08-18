@@ -1,3 +1,7 @@
+# Columns referred to by non-standard evaluation inside ggplot2 aesthetics.
+# Declaring them keeps R CMD check from reporting them as undefined globals.
+utils::globalVariables(c("Expected", "Observed"))
+
 #' Refit variants passing a screening threshold with the exact model
 #'
 #' Take the results of \code{\link{testGeneticNhoods}}, select the
