@@ -96,6 +96,7 @@ Collate:
     'sim_trajectory.R'
     'testNhoods.R'
     'testGeneticNhoods.R'
+    'geneticHits.R'
     'testDiffExp.R'
     'utils.R'
     'buildNhoodGraph.R'
