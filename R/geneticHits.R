@@ -63,7 +63,32 @@ utils::globalVariables(c("Expected", "Observed"))
 #' @author Mike Morgan
 #'
 #' @examples
-#' NULL
+#' library(SingleCellExperiment)
+#' ux <- matrix(rpois(12000, 5), ncol=400)
+#' vx <- log2(ux + 1)
+#' pca <- prcomp(t(vx))
+#' sce <- SingleCellExperiment(assays=list(counts=ux, logcounts=vx),
+#'                             reducedDims=SimpleList(PCA=pca$x))
+#' milo <- Milo(sce)
+#' milo <- buildGraph(milo, k=20, d=10, transposed=TRUE)
+#' milo <- makeNhoods(milo, k=20, d=10, prop=0.3)
+#' milo <- calcNhoodDistance(milo, d=10)
+#' meta.df <- data.frame(Sample=rep(paste0("S", seq_len(10)), each=40),
+#'                       Sex=rep(c(0, 1), 200))
+#' milo <- countCells(milo, meta.data=meta.df, samples="Sample")
+#' dd <- data.frame(Sex=rep(c(0, 1), 5))
+#' rownames(dd) <- paste0("S", seq_len(10))
+#' geno <- matrix(rbinom(20, 2, 0.4), nrow=10,
+#'                dimnames=list(rownames(dd), c("rs1", "rs2")))
+#' kin <- diag(10)
+#' dimnames(kin) <- list(rownames(dd), rownames(dd))
+#' res <- testGeneticNhoods(milo, design=~Sex, design.df=dd,
+#'                          genotypes=geno, kinship=kin)
+#' # a lenient threshold so the example refits something on toy data
+#' hits <- refineGeneticHits(milo, res, design=~Sex, design.df=dd,
+#'                           genotypes=geno, kinship=kin,
+#'                           screen.threshold=0.5)
+#' head(hits)
 #'
 #' @name refineGeneticHits
 #' @importFrom BiocParallel bplapply SerialParam
