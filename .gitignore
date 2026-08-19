@@ -12,3 +12,5 @@ docs
 *yml
 *.o
 *~
+*.so
+*.dylib
