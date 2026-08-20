@@ -596,7 +596,18 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         if(out.nhoods != n.nhoods){
             warning("Output results DF missing nhood params - try re-running model with different formula")
         }
-        rownames(res) <- c(1:n.nhoods)
+        # Carry the original neighbourhood identifiers rather than renumbering
+        # from 1. The GLM branch below inherits these from the DGEList, which is
+        # built on nhoodCounts(x)[keep.nh, ], so renumbering here makes the two
+        # branches disagree whenever subset.nhoods drops a neighbourhood: the
+        # GLM returns true indices with gaps while the GLMM returns 1..n_kept.
+        # Any join of the two results on Nhood then pairs unrelated
+        # neighbourhoods, which silently destroys the comparison.
+        nh.names <- rownames(nhoodCounts(x))
+        if(is.null(nh.names)){
+            nh.names <- as.character(seq_len(nrow(nhoodCounts(x))))
+        }
+        rownames(res) <- nh.names[keep.nh]
     } else {
         # need to use legacy=TRUE to maintain original edgeR behaviour
         fit <- glmQLFit(dge, x.model, robust=robust, legacy=TRUE)
@@ -614,12 +625,17 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
 
     res$Nhood <- as.numeric(rownames(res))
     message("Performing spatial FDR correction with ", fdr.weighting[1], " weighting")
-    mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x),
+    # Restrict the neighbourhood-derived inputs to the same subset as the
+    # p-values. graphSpatialFDR builds one weight per column of x.nhoods and
+    # then applies w[order(pvalues)], so passing the full set alongside subset
+    # p-values indexes the weight vector with subset ranks and attaches the
+    # overlap weights to the wrong neighbourhoods.
+    mod.spatialfdr <- graphSpatialFDR(x.nhoods=nhoods(x)[, keep.nh, drop=FALSE],
                                       graph=graph(x),
                                       weighting=fdr.weighting,
                                       k=x@.k,
                                       pvalues=res[order(res$Nhood), ]$PValue,
-                                      indices=nhoodIndex(x),
+                                      indices=nhoodIndex(x)[keep.nh],
                                       distances=nhoodDistances(x),
                                       reduced.dimensions=reducedDim(x, reduced.dim))
     res$SpatialFDR[order(res$Nhood)] <- mod.spatialfdr
