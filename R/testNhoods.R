@@ -45,6 +45,11 @@
 #' variance estimates.
 #' @param glmm.solver A character scalar that determines which GLMM solver is applied. Must be one of: Fisher, HE
 #' or HE-NNLS. HE or HE-NNLS are recommended when supplying a user-defined covariance matrix.
+#' @param disp.as.vc A \code{logical} scalar. Estimate the negative binomial
+#' overdispersion as an additional variance component on the REML objective
+#' rather than by a golden section search on the conditional negative binomial
+#' likelihood at the current fitted means. Only applies to the GLMM, and only to
+#' the Fisher solver. See \code{\link{fitGLMM}}.
 #' @param max.iters A scalar that determines the maximum number of iterations to run the GLMM solver if it does
 #' not reach the convergence tolerance threshold.
 #' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep
@@ -168,6 +173,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                        min.mean=0, model.contrasts=NULL, robust=TRUE, reduced.dim="PCA", REML=TRUE,
                        norm.method=c("TMM", "RLE", "logMS"), cell.sizes=NULL,
                        max.iters = 50, max.tol = 1e-5, glmm.solver=NULL,
+                       disp.as.vc=TRUE,
                        subset.nhoods=NULL, intercept.type=c("fixed", "random"),
                        fail.on.error=FALSE, BPPARAM=SerialParam(), force=FALSE){
     is.lmm <- FALSE
@@ -487,7 +493,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         #wrapper function is the same for all analyses
         glmmWrapper <- function(Y, disper, Xmodel, Zmodel, off.sets, randlevels,
                                 reml, glmm.contr, int.type, genonly=FALSE, kin.ship=NULL,
-                                BPPARAM=BPPARAM, error.fail=FALSE){
+                                BPPARAM=BPPARAM, error.fail=FALSE, dispvc=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
             #
@@ -503,17 +509,17 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             bp.list <- bptry({bplapply(seq_len(nrow(Y)),
                                          FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                                       randlevels, disper, genonly,
-                                                      kins, glmm.contr, reml, int.type){
+                                                      kins, glmm.contr, reml, int.type, dispvc){
                                              fitGLMM(X=Xmodel, Z=Zmodel, y=Y[i, ], offsets=off.sets,
                                                      random.levels=randlevels, REML = reml,
                                                      dispersion=disper[i], geno.only=genonly,
                                                      Kin=kins, glmm.control=glmm.contr,
-                                                     intercept.type=int.type)
+                                                     intercept.type=int.type, disp.as.vc=dispvc)
                                              }, BPPARAM=BPPARAM,
                                          Xmodel=Xmodel, Zmodel=Zmodel, Y=Y, off.sets=off.sets,
                                          randlevels=randlevels, disper=disper, genonly=genonly,
                                          kins=kin.ship, glmm.cont=glmm.cont, reml=reml,
-                                       int.type=intercept.type)
+                                       int.type=intercept.type, dispvc=dispvc)
                                 }) # need to handle this output which is a bplist_error object
 
             # parse the bplist_error object
@@ -557,7 +563,7 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                            off.sets=offsets, randlevels=rand.levels, reml=REML, glmm.contr = glmm.cont,
                            genonly = geno.only, kin.ship=kinship,
                            BPPARAM=BPPARAM, error.fail=fail.on.error,
-                           int.type=intercept.type)
+                           int.type=intercept.type, dispvc=disp.as.vc)
 
         # give warning about how many neighborhoods didn't converge and error if > 50% nhoods failed
         n.nhoods <- length(fit)

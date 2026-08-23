@@ -242,16 +242,25 @@ sim1.meta$Condition_num <- paste0("Condition_num", c(1, 1, 1, 0, 0, 0))
 sim1.meta$Replicate_num <- paste0("Replicate_num", c(1, 2, 3, 1, 2, 3))
 sim1.meta$Replicate2 <- paste0("Replicate2", c(1, 2, 1, 2, 1, 2))
 
-test_that("Singular Hessians are detectable and fail appropriately", {
+test_that("Collinear fixed and random effects cannot produce a significant result", {
+    # Condition enters as both the fixed and the random effect, so the variance
+    # component is not identifiable from the mean structure.
+    #
+    # This used to surface as a singular Hessian and an error, which depended on
+    # the random starting values - the fit failed for most draws and returned a
+    # component of 1e-8 for the rest. Estimating the dispersion as a variance
+    # component leaves the pseudo-variance better conditioned, so the fit now
+    # converges instead. The degeneracy is still detectable, and more usefully
+    # so: the Satterthwaite degrees of freedom collapse to the order of 1e-28
+    # and every p-value is exactly 1, so no neighbourhood can be called
+    # significant. For a loop over neighbourhoods that is a safer failure mode
+    # than aborting the whole batch on one degenerate fit.
     set.seed(42)
-    # having a singular Hessian depends on some of the staring values <- this test needs to
-    # be reproducible and not depend on setting a specific seed. The easiest way might be to have
-    # a variance component that is effectively 0.
-
-    # collinear fixed and random effects
-    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
-                            design.df=sim1.meta, glmm.solver="Fisher", force=TRUE, fail.on.error=TRUE)),
-                 "Lowest traceback returned")
+    res <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
+                                       design.df=sim1.meta, glmm.solver="Fisher", force=TRUE))
+    expect_true(all(res$PValue > 0.99, na.rm=TRUE))
+    expect_true(all(res$SpatialFDR > 0.99, na.rm=TRUE))
+    expect_true(any(is.finite(res$logFC)))
 })
 
 test_that("Invalid formulae give expected errors", {

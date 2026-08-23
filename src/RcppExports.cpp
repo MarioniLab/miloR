@@ -12,8 +12,8 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // fitGeneticPLGlmm
-List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, const arma::vec& y, List u_indices, double theta_conv, const List& rlevels, double curr_disp, const bool& REML, const int& maxit, std::string solver, std::string vardist);
-RcppExport SEXP _miloR_fitGeneticPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP KSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP solverSEXP, SEXP vardistSEXP) {
+List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, const arma::vec& y, List u_indices, double theta_conv, const List& rlevels, double curr_disp, const bool& REML, const int& maxit, std::string solver, std::string vardist, const bool& disp_as_vc);
+RcppExport SEXP _miloR_fitGeneticPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP KSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP solverSEXP, SEXP vardistSEXP, SEXP disp_as_vcSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -36,13 +36,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int& >::type maxit(maxitSEXP);
     Rcpp::traits::input_parameter< std::string >::type solver(solverSEXP);
     Rcpp::traits::input_parameter< std::string >::type vardist(vardistSEXP);
-    rcpp_result_gen = Rcpp::wrap(fitGeneticPLGlmm(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist));
+    Rcpp::traits::input_parameter< const bool& >::type disp_as_vc(disp_as_vcSEXP);
+    rcpp_result_gen = Rcpp::wrap(fitGeneticPLGlmm(Z, X, K, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist, disp_as_vc));
     return rcpp_result_gen;
 END_RCPP
 }
 // fitPLGlmm
-List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, const arma::vec& y, List u_indices, double theta_conv, const List& rlevels, double curr_disp, const bool& REML, const int& maxit, std::string solver, std::string vardist);
-RcppExport SEXP _miloR_fitPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP solverSEXP, SEXP vardistSEXP) {
+List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_theta, arma::vec curr_u, arma::vec curr_sigma, arma::mat curr_G, const arma::vec& y, List u_indices, double theta_conv, const List& rlevels, double curr_disp, const bool& REML, const int& maxit, std::string solver, std::string vardist, const bool& disp_as_vc);
+RcppExport SEXP _miloR_fitPLGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_thetaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP curr_GSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP rlevelsSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP solverSEXP, SEXP vardistSEXP, SEXP disp_as_vcSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -64,7 +65,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const int& >::type maxit(maxitSEXP);
     Rcpp::traits::input_parameter< std::string >::type solver(solverSEXP);
     Rcpp::traits::input_parameter< std::string >::type vardist(vardistSEXP);
-    rcpp_result_gen = Rcpp::wrap(fitPLGlmm(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist));
+    Rcpp::traits::input_parameter< const bool& >::type disp_as_vc(disp_as_vcSEXP);
+    rcpp_result_gen = Rcpp::wrap(fitPLGlmm(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_sigma, curr_G, y, u_indices, theta_conv, rlevels, curr_disp, REML, maxit, solver, vardist, disp_as_vc));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -117,8 +119,8 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 19},
-    {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 18},
+    {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 20},
+    {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 19},
     {"_miloR_fitGeneticNullGlmm", (DL_FUNC) &_miloR_fitGeneticNullGlmm, 23},
     {"_miloR_scoreTestGeneticSNPs", (DL_FUNC) &_miloR_scoreTestGeneticSNPs, 4},
     {NULL, NULL, 0}

@@ -159,11 +159,11 @@ test_that("Infinite and NA values fail as expected", {
          random.levels=list(Genetic=paste0("Genetic", seq_len(n))))
 }
 
-.fitKin <- function(d){
+.fitKin <- function(d, vc=TRUE){
     suppressWarnings(fitGLMM(
         X=d$X, Z=matrix(1, d$n, 1, dimnames=list(NULL, "Genetic")), y=d$y,
         offsets=d$offsets, Kin=d$K, geno.only=TRUE, random.levels=d$random.levels,
-        REML=TRUE, dispersion=4,
+        REML=TRUE, dispersion=4, disp.as.vc=vc,
         glmm.control=list(theta.tol=1e-6, max.iter=d$maxit, solver="Fisher",
                           init.u=rep(0, d$n), init.sigma=NULL, init.beta=NULL)))
 }
@@ -193,17 +193,116 @@ test_that("fitGLMM with a kinship matrix matches the reference genetic fitter", 
     # fitGeneticNullGlmm builds V* = W + sigma_g K directly rather than through
     # Z and G, so it is an independent implementation of the same model.
     d <- .simGeneticFit(5)
-    fit <- .fitKin(d)
     b0 <- as.numeric(solve(crossprod(d$X), crossprod(d$X, log(d$y + 1) - d$offsets)))
-    ref <- suppressWarnings(miloR:::fitGeneticNullGlmm(
+    .ref <- function(vc) suppressWarnings(miloR:::fitGeneticNullGlmm(
         Z=matrix(0, d$n, 0), X=d$X, K=d$K, muvec=rep(mean(d$y), d$n), offsets=d$offsets,
         curr_beta=b0, curr_u=rep(0, d$n), curr_sigma=0.5, y=d$y, u_indices=list(),
-        theta_conv=1e-6, curr_disp=4, REML=TRUE, maxit=d$maxit, disp_as_vc=FALSE))
+        theta_conv=1e-6, curr_disp=4, REML=TRUE, maxit=d$maxit, disp_as_vc=vc))
 
-    # both fitters use the same legacy dispersion estimator here; if they part
-    # company on the dispersion the variance components are not comparable, so
-    # check that first to keep a failure self-explanatory
-    expect_equal(fit$Dispersion, ref$Dispersion, tolerance=1e-4)
-    expect_equal(as.numeric(fit$Sigma[1]), as.numeric(ref$Sigma[1]), tolerance=1e-5)
-    expect_equal(as.numeric(fit$FE), as.numeric(ref$FE), tolerance=1e-4)
+    # the two must agree under either dispersion estimator; if they part company
+    # on the dispersion the variance components are not comparable, so check
+    # that first to keep a failure self-explanatory
+    for(vc in c(TRUE, FALSE)){
+        fit <- .fitKin(d, vc=vc)
+        ref <- .ref(vc)
+        expect_equal(fit$Dispersion, ref$Dispersion, tolerance=1e-4)
+        expect_equal(as.numeric(fit$Sigma[1]), as.numeric(ref$Sigma[1]), tolerance=1e-5)
+        expect_equal(as.numeric(fit$FE), as.numeric(ref$FE), tolerance=1e-4)
+    }
+})
+
+
+### -------------------------------------------------------------------------
+### disp.as.vc estimates the negative binomial overdispersion as one more
+### variance component on the REML objective, rather than by a golden section
+### search on the conditional NB likelihood at the current fitted means. The
+### latter is circular - the fitted means already contain the random effect
+### BLUPs, so the random effects absorb the overdispersion before it is
+### estimated.
+### -------------------------------------------------------------------------
+.simPooled <- function(seed, n=200, qp=40, sg=0.09, size=5, b1=0.2){
+    set.seed(seed)
+    pool <- sample(seq_len(qp), n, replace=TRUE)
+    Zp <- matrix(0, n, qp)
+    Zp[cbind(seq_len(n), pool)] <- 1
+    X <- cbind(1, rbinom(n, 1, 0.5), as.numeric(scale(rnorm(n))))
+    offs <- log(rnbinom(n, mu=2000, size=80))
+    u <- rnorm(qp, 0, sqrt(sg))
+    y <- as.numeric(rnbinom(n, mu=exp(offs + log(0.02) + b1 * X[, 2] + Zp %*% u), size=size) + 1)
+    rl <- list(pool=paste0("pool", sort(unique(pool))))
+    list(X=X, y=y, offsets=offs, Zin=matrix(pool, ncol=1, dimnames=list(NULL, "pool")),
+         random.levels=rl,
+         control=list(theta.tol=1e-6, max.iter=100, solver="Fisher",
+                      init.u=rep(0, length(rl$pool)), init.sigma=NULL, init.beta=NULL))
+}
+
+.fitPooled <- function(d, vc, solver="Fisher", quiet=TRUE){
+    ctl <- d$control
+    ctl$solver <- solver
+    call <- function() fitGLMM(X=d$X, Z=d$Zin, y=d$y, offsets=d$offsets,
+                               random.levels=d$random.levels, REML=TRUE, dispersion=4,
+                               solver=solver, glmm.control=ctl, disp.as.vc=vc)
+    if(quiet) suppressWarnings(call()) else call()
+}
+
+
+test_that("disp.as.vc recovers the dispersion the golden section search misses", {
+    d <- .simPooled(77)
+    legacy <- .fitPooled(d, vc=FALSE)
+    asvc <- .fitPooled(d, vc=TRUE)
+
+    expect_true(legacy$converged)
+    expect_true(asvc$converged)
+
+    # the simulated size is 5; the conditional likelihood search overshoots it
+    expect_lt(abs(asvc$Dispersion - 5), abs(legacy$Dispersion - 5))
+    expect_true(asvc$Dispersion > 0 && is.finite(asvc$Dispersion))
+
+    # both should land in the same region for the variance component
+    expect_lt(abs(asvc$Sigma[1] - 0.09), 0.1)
+    expect_equal(as.numeric(asvc$FE[2]), 0.2, tolerance=0.3)
+})
+
+
+test_that("disp.as.vc falls back with a warning on the Haseman-Elston solvers", {
+    d <- .simPooled(77)
+    expect_warning(.fitPooled(d, vc=TRUE, solver="HE-NNLS", quiet=FALSE),
+                   "only implemented for the Fisher solver")
+
+    # and the fallback result matches simply not asking for it
+    fallback <- suppressWarnings(.fitPooled(d, vc=TRUE, solver="HE-NNLS"))
+    plain <- .fitPooled(d, vc=FALSE, solver="HE-NNLS")
+    expect_equal(as.numeric(fallback$Sigma), as.numeric(plain$Sigma), tolerance=1e-10)
+    expect_equal(fallback$Dispersion, plain$Dispersion, tolerance=1e-10)
+})
+
+
+test_that("disp.as.vc is on by default and the flag actually switches estimator", {
+    d <- .simPooled(77)
+    default <- suppressWarnings(fitGLMM(X=d$X, Z=d$Zin, y=d$y, offsets=d$offsets,
+                                        random.levels=d$random.levels, REML=TRUE, dispersion=4,
+                                        solver="Fisher", glmm.control=d$control))
+    asvc <- .fitPooled(d, vc=TRUE)
+    legacy <- .fitPooled(d, vc=FALSE)
+
+    expect_equal(as.numeric(default$Sigma), as.numeric(asvc$Sigma), tolerance=1e-8)
+    expect_equal(default$Dispersion, asvc$Dispersion, tolerance=1e-8)
+
+    # and the two estimators are genuinely different, so the flag is live
+    expect_gt(abs(asvc$Dispersion - legacy$Dispersion), 1e-3)
+})
+
+
+test_that("repeated identical fits are reproducible", {
+    # invertPseudoVar computed Z*G and I + Z'W^-1*(Z*G) in two omp sections, the
+    # second reading what the first was still writing. Identical calls returned
+    # different estimates and took different numbers of iterations.
+    d <- .simPooled(77)
+    fits <- replicate(5, {
+        f <- .fitPooled(d, vc=TRUE)
+        c(as.numeric(f$Sigma[1]), f$Dispersion, f$Iters)
+    })
+    expect_equal(length(unique(fits[1, ])), 1L)
+    expect_equal(length(unique(fits[2, ])), 1L)
+    expect_equal(length(unique(fits[3, ])), 1L)
 })

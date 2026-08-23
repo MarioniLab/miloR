@@ -13,6 +13,14 @@
 #' initial parameter values for the fixed (init.beta) and random effects (init.u), and glmm solver (see details).
 #' @param dispersion A scalar value for the initial dispersion of the negative binomial.
 #' @param geno.only A logical value that flags the model to use either just the \code{matrix} `Kin` or the supplied random effects.
+#' @param disp.as.vc A \code{logical} scalar. Estimate the negative binomial
+#' overdispersion as an additional variance component on the REML objective,
+#' rather than by a golden section search on the conditional negative binomial
+#' likelihood evaluated at the current fitted means. The latter is circular: the
+#' fitted means already contain the random effect BLUPs, so the random effects
+#' absorb the overdispersion before it is estimated. Only implemented for the
+#' Fisher solver; \code{HE} and \code{HE-NNLS} fall back to the golden section
+#' search with a warning.
 #' @param solver a character value that determines which optimisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
 #' @param intercept.type A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global
@@ -87,7 +95,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                       init.u=NULL, solver=NULL),
                     dispersion = 1, geno.only=FALSE,
                     intercept.type="fixed",
-                    solver=NULL){
+                    solver=NULL, disp.as.vc=TRUE){
 
     if(!is.null(solver)){
         glmm.control$solver <- solver
@@ -371,7 +379,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
         final.list <- tryCatch(fitPLGlmm(Z=full.Z, X=X, muvec=mu.vec, offsets=offsets, curr_beta=curr_beta,
                                          curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                          curr_G=as.matrix(curr_G), y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                         curr_disp=dispersion, REML=REML, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
+                                         curr_disp=dispersion, REML=REML, maxit=max.hit, solver=glmm.control$solver, vardist="NB", disp_as_vc=disp.as.vc),
                                error=function(err){
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,
@@ -386,7 +394,7 @@ fitGLMM <- function(X, Z, y, offsets, init.theta=NULL, Kin=NULL,
                                                 muvec=mu.vec, curr_beta=curr_beta,
                                                 curr_theta=curr_theta, curr_u=curr_u, curr_sigma=curr_sigma,
                                                 curr_G=curr_G, y=y, u_indices=u_indices, theta_conv=theta.conv, rlevels=random.levels,
-                                                curr_disp=dispersion, REML=REML, maxit=max.hit, solver=glmm.control$solver, vardist="NB"),
+                                                curr_disp=dispersion, REML=REML, maxit=max.hit, solver=glmm.control$solver, vardist="NB", disp_as_vc=disp.as.vc),
                                error=function(err){
                                    return(list("FE"=NA, "RE"=NA, "Sigma"=NA,
                                                "converged"=FALSE, "Iters"=NA, "Dispersion"=NA,

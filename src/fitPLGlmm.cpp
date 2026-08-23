@@ -39,6 +39,11 @@ using namespace Rcpp;
 //' @param maxit int maximum number of iterations if theta_conv is FALSE
 //' @param solver string which solver to use - either HE (Haseman-Elston regression) or Fisher scoring
 //' @param vardist string which variance form to use NB = negative binomial, P=Poisson [not yet implemented.]
+//' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
+//' additional variance component on the REML objective, rather than by a golden
+//' section search on the conditional negative binomial likelihood at the current
+//' fitted means. Only implemented for the Fisher solver; the Haseman-Elston
+//' solvers fall back to the golden section search with a warning.
 //'
 //' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 //' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -90,7 +95,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                double theta_conv,
                const List& rlevels, double curr_disp, const bool& REML, const int& maxit,
                std::string solver,
-               std::string vardist){
+               std::string vardist,
+               const bool& disp_as_vc = true){
 
     // no guarantee that Pi exists before C++ 20(?!?!?!)
     constexpr double pi = 3.14159265358979323846;
@@ -113,6 +119,34 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
 
     std::string user_solver = solver;
+
+    // When disp_as_vc is set the negative binomial overdispersion is estimated
+    // as one more variance component on the same REML objective as the others,
+    // rather than by a golden section search on the conditional NB likelihood
+    // evaluated at the current fitted means. That search is circular: the fitted
+    // means already contain the random effect BLUPs, so the random effects
+    // absorb the overdispersion before it is estimated.
+    //
+    // W = diag(1/phi + 1/mu) splits into a constant diagonal 1/phi and the
+    // Poisson part 1/mu, and the constant diagonal is exactly sigma_0 * I. Since
+    // sigma_0 = 1/phi, computeW with phi = 1/sigma_0 already builds the right
+    // matrix - only the extra component and its partial derivative, dV*/dsigma_0
+    // = I, need adding.
+    bool _disp_vc = disp_as_vc;
+    if(_disp_vc && solver != "Fisher"){
+        warning("disp.as.vc is only implemented for the Fisher solver - falling back to the golden section search");
+        _disp_vc = false;
+    }
+
+    const int ctot = _disp_vc ? c + 1 : c;
+
+    // augmented parameter vector: [sigma_1 .. sigma_c, sigma_0]
+    arma::vec sig_a(ctot);
+    sig_a.head(c) = curr_sigma;
+    if(_disp_vc){
+        sig_a(c) = 1.0 / std::max(curr_disp, 1e-8);
+    }
+
     // setup matrices
     arma::mat D(n, n, arma::fill::zeros);
     arma::mat Dinv(n, n, arma::fill::zeros);
@@ -136,12 +170,12 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     List precomp_list(2);
     List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
 
-    arma::vec score_sigma(c);
-    arma::mat information_sigma(c, c);
+    arma::vec score_sigma(ctot);
+    arma::mat information_sigma(ctot, ctot);
     information_sigma.zeros();
     arma::vec sigma_update(c);
     arma::vec _sigma_update(c+1);
-    arma::vec sigma_diff(sigma_update.size());
+    arma::vec sigma_diff(ctot);
     sigma_diff.zeros();
 
     arma::mat G_inv(stot, stot, arma::fill::zeros);
@@ -174,9 +208,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     bool _phi_est = true; // control if we re-estimate phi or not
 
     // // initial optimisation of dispersion
-    update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                  muvec, G_inv, pi,
-                                  curr_u, curr_sigma, y);
+    if(_disp_vc){
+        update_disp = curr_disp; // sigma_0 carries the dispersion from here on
+    } else{
+        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                      muvec, G_inv, pi,
+                                      curr_u, curr_sigma, y);
+    }
 
     disp_diff = abs(curr_disp - update_disp);
     // curr_disp = update_disp;
@@ -190,6 +228,14 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     while(!meet_cond){
         curr_disp = update_disp;
+
+        // keep the augmented parameter vector in step with the components, which
+        // the HE solvers also update, so a solver switch cannot leave it stale
+        sig_a.head(c) = curr_sigma;
+        if(_disp_vc){
+            sig_a(c) = 1.0 / std::max(curr_disp, 1e-12);
+        }
+
         D.diag() = muvec;
 
         // check for all zero eigen values
@@ -278,9 +324,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 // away from the REML solution.
                 VP_partial = precomp_list["PZZt"];
 
-                score_sigma = sigmaScoreREML_arma(VP_partial, y_star_c, P,
+                // dV*/dsigma_0 is the identity, so its projection is P itself
+                List dV_aug(ctot);
+                for(int j=0; j < c; j++){
+                    dV_aug[j] = VP_partial[j];
+                }
+                if(_disp_vc){
+                    dV_aug[c] = P;
+                }
+
+                score_sigma = sigmaScoreREML_arma(dV_aug, y_star_c, P,
                                                   curr_beta, X);
-                information_sigma = sigmaInfoREML_arma(VP_partial, P);
+                information_sigma = sigmaInfoREML_arma(dV_aug, P);
             } else{
                 // theres a strange bug that means assigning V_partial to VP_partial
                 // doesn't copy over the contents of the list - perhaps it needs to
@@ -289,10 +344,19 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 // under ML P is the identity, so PZZt is dV and both the score
                 // and the information are in the Vstar^-1 basis
                 VP_partial = precomp_list["PZZt"];
-                score_sigma = sigmaScore(y_star_c, curr_beta, X, VP_partial, V_star_inv);
-                information_sigma = sigmaInformation(V_star_inv, VP_partial);
+
+                List dV_aug(ctot);
+                for(int j=0; j < c; j++){
+                    dV_aug[j] = VP_partial[j];
+                }
+                if(_disp_vc){
+                    dV_aug[c] = arma::mat(n, n, arma::fill::eye);
+                }
+
+                score_sigma = sigmaScore(y_star_c, curr_beta, X, dV_aug, V_star_inv);
+                information_sigma = sigmaInformation(V_star_inv, dV_aug);
             }
-            sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+            arma::vec sig_update_a = fisherScore(information_sigma, score_sigma, sig_a);
 
             // The domain of the variance components is [0, Inf). Rather than
             // abandoning Fisher scoring the moment a full step oversteps the
@@ -300,19 +364,27 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             // until every component is strictly positive. This keeps the search
             // direction and lets a component recover on a later iteration if the
             // data support it, instead of pinning it at the boundary.
-            arma::vec fisher_step = sigma_update - curr_sigma;
+            arma::vec fisher_step = sig_update_a - sig_a;
             int halvings = 0;
-            while(arma::any((curr_sigma + fisher_step) <= 0.0) && halvings < 30){
+            while(arma::any((sig_a + fisher_step) <= 0.0) && halvings < 30){
                 fisher_step *= 0.5;
                 halvings++;
             }
-            sigma_update = curr_sigma + fisher_step;
+            sig_update_a = sig_a + fisher_step;
 
             // final guard for non-finite or still non-positive components
-            for(int i=0; i < c; i++){
-                if(!std::isfinite(sigma_update[i]) || sigma_update[i] <= 0.0){
-                    sigma_update[i] = constval;
+            for(int i=0; i < ctot; i++){
+                if(!std::isfinite(sig_update_a[i]) || sig_update_a[i] <= 0.0){
+                    sig_update_a[i] = constval;
                 }
+            }
+
+            sigma_diff = sig_update_a - sig_a;
+            sig_a = sig_update_a;
+            sigma_update = sig_a.head(c);
+            if(_disp_vc){
+                // report the overdispersion on the size scale
+                update_disp = 1.0 / std::max(sig_a(c), 1e-12);
             }
         }
 
@@ -349,7 +421,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // update sigma, G, and G_inv
         // sigma update explodes for poorly conditioned system
 
-        sigma_diff = sigma_update - curr_sigma;
+        // the Fisher branch already differenced the augmented vector, which
+        // carries sigma_0 when the dispersion is a variance component
+        if(solver != "Fisher"){
+            sigma_diff.head(c) = sigma_update - curr_sigma;
+        }
         curr_sigma = sigma_update;
 
         curr_G = initialiseG(u_indices, curr_sigma);
@@ -368,13 +444,18 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // W and starves them. The search is a scalar golden section over
         // [phi/2, 2*phi], which is cheap next to the matrix work in the same
         // iteration, so it now runs while the model is still iterating.
-        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                      muvec, G_inv, pi,
-                                      curr_u, curr_sigma, y);
+        // Under disp_as_vc the dispersion was already updated with the other
+        // variance components above, on the same objective, and needs no
+        // separate search.
+        if(!_disp_vc){
+            update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                          muvec, G_inv, pi,
+                                          curr_u, curr_sigma, y);
 
-        // bracket the current estimate on both sides - see above
-        delta_lo = std::max(1e-2, update_disp * 0.5);
-        delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
+            // bracket the current estimate on both sides - see above
+            delta_lo = std::max(1e-2, update_disp * 0.5);
+            delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
+        }
 
         disp_diff = abs(curr_disp - update_disp);
 
