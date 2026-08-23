@@ -161,7 +161,7 @@ NULL
 #' @importFrom utils tail
 #' @importFrom stats dist median model.matrix
 #' @importFrom limma makeContrasts
-#' @importFrom BiocParallel bplapply SerialParam bptry bpok bpoptions
+#' @importFrom BiocParallel bplapply SerialParam bptry bpok bpoptions "bpstopOnError<-"
 #' @importFrom edgeR DGEList estimateDisp glmQLFit glmQLFTest topTags calcNormFactors
 testNhoods <- function(x, design, design.df, kinship=NULL,
                        fdr.weighting=c("k-distance", "neighbour-distance", "max", "graph-overlap", "none"),
@@ -490,7 +490,17 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
                                 BPPARAM=BPPARAM, error.fail=FALSE){
             #bp.list <- NULL
             # this needs to be able to run with BiocParallel
-            bp.list <- bptry({bplapply(seq_len(nrow(Y)), BPOPTIONS=bpoptions(stop.on.error = error.fail),
+            #
+            # The stop-on-error option is set on the BPPARAM object rather than
+            # passed as BPOPTIONS. Passing it as BPOPTIONS makes bplapply resolve
+            # bpstopOnError from the calling frame, which only succeeds if the
+            # user has attached BiocParallel themselves - library(miloR) alone
+            # gives "could not find function bpstopOnError" and the whole GLMM
+            # path fails. Reproducible outside miloR with a fully qualified
+            # BiocParallel::bplapply(..., BPOPTIONS=...) in a session where
+            # BiocParallel is not attached.
+            bpstopOnError(BPPARAM) <- error.fail
+            bp.list <- bptry({bplapply(seq_len(nrow(Y)),
                                          FUN=function(i, Xmodel, Zmodel, Y, off.sets,
                                                       randlevels, disper, genonly,
                                                       kins, glmm.contr, reml, int.type){
