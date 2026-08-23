@@ -74,12 +74,10 @@ List computePZList_G(const List& u_indices, const arma::mat& PZ, const arma::mat
         arma::uvec u_idx = u_indices[i];
         arma::mat _pzz(n, n);
 
-        if(i == c - 1){
-            // _pzz = PZ.cols(u_idx-1) * K * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
-            _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
-        } else{
-            _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
-        }
+        // The genetic effect is carried whitened - Z_g is the Cholesky factor of
+        // K - so Z_g Z_g' is already K and the last component needs no special
+        // case. Multiplying by K here as well would apply it twice.
+        _pzz = PZ.cols(u_idx-1) * Z.cols(u_idx-1).t(); // convert 1-based to 0-based
 
         pzz_list[i] = _pzz;
         if(solver == "HE" || solver == "HE-NNLS"){
@@ -124,57 +122,6 @@ List pseudovarPartial_P(List V_partial, const arma::mat& P){
     return outlist;
 
 }
-
-
-List pseudovarPartial_V(const List& u_indices, const arma::mat& Z, const arma::mat& VstarZ){
-    // A Rcpp specific implementation that uses positional indexing rather than character indexes
-    // don't be tempted to sparsify this - the overhead of casting is too expensive
-    unsigned int items = u_indices.size();
-    List outlist(items);
-
-    for(unsigned int i = 0; i < items; i++){
-        // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
-        arma::uvec u_idx = u_indices[i];
-        arma::mat omat = VstarZ.cols(u_idx-1) * Z.cols(u_idx-1).t();
-        outlist[i] = omat;
-    }
-
-    return outlist;
-
-}
-
-
-List pseudovarPartial_VG(const List& u_indices, const arma::mat& Z, const arma::mat& VstarZ,
-                         const arma::mat& K){
-    // A Rcpp specific implementation that uses positional indexing rather than character indexes
-    // don't be tempted to sparsify this - the overhead of casting is too expensive
-    unsigned int c = u_indices.size();
-    unsigned int n = Z.n_rows;
-    List outlist(c);
-
-    for(unsigned int i = 0; i < c; i++){
-        // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices
-        arma::uvec u_idx = u_indices[i];
-        arma::mat omat(n , n);
-
-        arma::mat VsZcols = VstarZ.cols(u_idx-1);
-        arma::mat Zcols = Z.cols(u_idx-1).t();
-
-        if(i == c - 1){
-            //omat = VstarZ.cols(u_idx-1) * K * Zcols;
-            omat = VstarZ.cols(u_idx-1) * Zcols;
-        } else{
-            omat = VstarZ.cols(u_idx-1) * Zcols;
-        }
-
-        outlist[i] = omat;
-    }
-
-    return outlist;
-
-}
-
-
 List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
     // A Rcpp specific implementation that uses positional indexing rather than character indexes
     unsigned int items = u_indices.size();
@@ -182,10 +129,10 @@ List pseudovarPartial_G(arma::mat Z, const arma::mat& K, List u_indices){
 
     for(unsigned int i = 0; i < items; i++){
         if(i == items - 1){
-            arma::uvec icols = u_indices[i];
-            // arma::mat _omat(Z.cols(icols - 1) * K * Z.cols(icols - 1).t());
+            // Z_g is the Cholesky factor of K, so Z_g Z_g' = K exactly - take K
+            // directly rather than re-forming the product
             arma::mat _omat(K);
-            outlist[i] = _omat; // K is equivalent to ZZ^T
+            outlist[i] = _omat;
         } else{
             arma::uvec icols = u_indices[i];
             // Need to output an S4 object - arma::sp_mat uses implicit interconversion for support dg Matrices

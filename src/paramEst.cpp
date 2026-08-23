@@ -14,26 +14,37 @@
 
 // All functions used in parameter estimation
 
-arma::vec sigmaScoreREML_arma (const Rcpp::List& pvstar_i, const arma::vec& ystar,
+arma::vec sigmaScoreREML_arma (const Rcpp::List& PdV, const arma::vec& ystar,
                                const arma::mat& P, const arma::vec& curr_beta,
-                               const arma::mat& X, const arma::mat& Vstarinv,
-                               const Rcpp::List& remldiffV){
-    // Armadillo implementation
-    // sparsifying doesn't speed up - overhead is too high
-    const int& c = pvstar_i.size();
+                               const arma::mat& X){
+    // REML score for the variance components:
+    //
+    //   dl/dsigma_j = -0.5 tr(P dV/dsigma_j) + 0.5 y*' P dV/dsigma_j P y*
+    //
+    // Both terms are in the projection basis P. Taking the trace in P and the
+    // quadratic form in Vstar^-1 does not differentiate any objective: Vstar^-1
+    // - P is positive semi-definite, so the quadratic form is inflated relative
+    // to the trace it is meant to balance and the root of the score moves away
+    // from the REML solution. Only PdV is needed here, so there is no second
+    // basis to pass in and get wrong.
+    //
+    // ystar must have the offset removed: the offset is part of the linear
+    // predictor but not a column of X, so P does not annihilate it.
+    const int& c = PdV.size();
     const int& n = X.n_rows;
     arma::vec reml_score(c);
     arma::vec ystarminx(n);
     ystarminx = ystar - (X * curr_beta);
 
-    for(int i=0; i < c; i++){
-        const arma::mat& P_pvi = pvstar_i(i); // this is Vstar_inv * partial derivative
-        const arma::mat& Pdifi = remldiffV(i);
+    // P X = 0, so this is P y* regardless of the current beta
+    arma::vec Presid = P * ystarminx;
 
-        double lhs = -0.5 * arma::trace(Pdifi);
-        arma::mat mid1(1, 1);
-        mid1 = arma::trans(ystarminx) * P_pvi * Vstarinv * ystarminx;
-        double rhs = 0.5 * mid1[(0, 0)];
+    for(int i=0; i < c; i++){
+        const arma::mat& PdVi = PdV(i); // this is P * partial derivative
+
+        double lhs = -0.5 * arma::trace(PdVi);
+        // ystarminx' (P dV_i) (P ystarminx) = ystarminx' P dV_i P ystarminx
+        double rhs = 0.5 * arma::dot(ystarminx, PdVi * Presid);
 
         reml_score[i] = lhs + rhs;
     }
@@ -232,7 +243,8 @@ arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rc
 
 
 arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
-                                  const Rcpp::List& u_indices, const arma::vec& ystar, const arma::mat& Kin){
+                                  const Rcpp::List& u_indices, const arma::vec& ystar, const arma::mat& Kin,
+                                  const arma::mat& W){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -253,7 +265,7 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, co
 
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
-    arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
+    arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin, W); // projection already applied
 
     // solve by linear least squares
     arma::vec he_update(c+1);
@@ -267,7 +279,7 @@ arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, co
 
 arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
                            const Rcpp::List& u_indices, const arma::vec& ystar,
-                           const arma::mat& PZ){
+                           const arma::mat& PZ, const arma::mat& W){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -289,7 +301,7 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
 
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
-    arma::mat vecZ = vectoriseZ(Z, u_indices, PREML, PZ); // projection already applied
+    arma::mat vecZ = vectoriseZ(Z, u_indices, PREML, PZ, W); // projection already applied
 
     // solve by linear least squares
     arma::vec he_update(c+1);
@@ -300,7 +312,8 @@ arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
 }
 
 
-arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, const arma::vec& ystar){
+arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, const arma::vec& ystar,
+                             const arma::mat& W){
     // use HasemanElston regression to estimate variance components
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -318,7 +331,7 @@ arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, co
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZML(Z, u_indices); // projection already applied
+    vecZ = vectoriseZML(Z, u_indices, W); // projection already applied
 
     // solve by linear least squares
     arma::vec he_update(c+1);
@@ -332,7 +345,7 @@ arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices, co
 
 arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
                                       const arma::vec& ystar, arma::vec he_update, const int& Iters,
-                                      const arma::mat& PZ){
+                                      const arma::mat& PZ, const arma::mat& W){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -352,7 +365,7 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
 
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
-    arma::mat vecZ = vectoriseZ(Z, u_indices, PREML, PZ); // projection already applied
+    arma::mat vecZ = vectoriseZ(Z, u_indices, PREML, PZ, W); // projection already applied
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
@@ -365,7 +378,8 @@ arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML
 
 
 arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_indices,
-                                        const arma::vec& ystar, arma::vec he_update, const int& Iters){
+                                        const arma::vec& ystar, arma::vec he_update, const int& Iters,
+                                        const arma::mat& W){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -384,7 +398,7 @@ arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
     arma::mat vecZ(nsq, c+1);
-    vecZ = vectoriseZML(Z, u_indices); // projection already applied
+    vecZ = vectoriseZML(Z, u_indices, W); // projection already applied
 
     // solve by linear least squares
     arma::vec _he_update(c+1);
@@ -398,7 +412,8 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
                                              const arma::mat& PZ,
                                              const Rcpp::List& u_indices,
                                              const arma::vec& ystar, const arma::mat& Kin,
-                                             arma::vec he_update, const int& Iters){
+                                             arma::vec he_update, const int& Iters,
+                                             const arma::mat& W){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -418,7 +433,7 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
 
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
-    arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin); // projection already applied
+    arma::mat vecZ = vectoriseZGenetic(Z, u_indices, PREML, PZ, Kin, W); // projection already applied
 
     arma::vec _he_update(c+1);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
@@ -430,7 +445,8 @@ arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat
 arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
                                                const Rcpp::List& u_indices,
                                                const arma::vec& ystar, const arma::mat& Kin,
-                                               arma::vec he_update, const int& Iters){
+                                               arma::vec he_update, const int& Iters,
+                                             const arma::mat& W){
     // use constrained HasemanElston regression to estimate variance components - using a NNLS estimator
     // vectorize everything
     // we will also estimate a "residual" variance parameter
@@ -448,7 +464,7 @@ arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
 
     // sequentially vectorise ZZ^T - this automatically adds a vectorised identity matrix
     // for the "residual" variance
-    arma::mat vecZ = vectoriseZGeneticML(Z, u_indices, Kin); // projection already applied
+    arma::mat vecZ = vectoriseZGeneticML(Z, u_indices, Kin, W); // projection already applied
 
     arma::vec _he_update(c+1);
     _he_update = nnlsSolve(vecZ, Ybig, _he_update, Iters);
@@ -469,20 +485,27 @@ arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_up
     double constval = 0.0; // value at which to constrain values
     double EPS = 1e-6;
     unsigned int m = vecZ.n_cols;
+
+    // Lawson and Hanson start from x = 0 with an empty passive set and a full
+    // active set. Only a strictly positive component is free; a component sitting
+    // at the boundary belongs to the active set. These two tests used to be on
+    // the wrong side of zero, so a zero starting vector - which is what both the
+    // HE-NNLS solver and the negative-variance fallback hand in - put every index
+    // in the passive set and left the active set empty. An empty active set is
+    // itself a termination condition, so the loop below was skipped entirely and
+    // the zero vector was handed straight back as the variance component estimate.
     arma::ivec P(m, arma::fill::ones); // the indices have to be set to negative values to be empty
 
     for(int i=0; i < m; i++){
-        if(nnls_update[i] < constval){
+        if(nnls_update[i] <= constval){
             P[i] = -1;
         }
     }
 
-    // all indices need to be active if all are zero - i.e. the first iteration
-    // what happens if all estimates get regularized to exactly zero?
     arma::ivec R(m, arma::fill::ones); // these are the indices of the active set
 
     for(int i=0; i < m; i++){
-        if(nnls_update[i] >= constval){
+        if(nnls_update[i] > constval){
             R[i] = -1;
         }
     }
@@ -501,16 +524,28 @@ arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_up
 
     double max_w = 0.0;
 
-    while(!check_conditions){ // set a tolerance here to check for positive Langrangian
-        max_w = max(w.elem(find(R > 0))); // what if several are identical?
-        unsigned int max_j = 0;
+    // Lawson and Hanson terminates in a finite number of steps in exact
+    // arithmetic, but the loop below has no bound of its own and this routine
+    // used to return before entering it, so the absence of one was never
+    // exercised. Cap it: each pass frees one index, so a few sweeps of the
+    // parameter vector is a generous bound.
+    const unsigned int max_outer = 3 * m + 10;
+    unsigned int outer = 0;
 
-        // get the index of the maximal Langrangian multiplier
-        // need to find the maximum value in w^R, but the index needs to be from w
-        // turn this into a function?
-        for(int i=0; i < m; i++){
-            if(abs(w[i] - max_w) <= EPS){
-                max_j = i;
+    while(!check_conditions && outer < max_outer){ // set a tolerance here to check for positive Langrangian
+        outer++;
+        arma::uvec active_idx = find(R > 0);
+        max_w = max(w.elem(active_idx)); // what if several are identical?
+        unsigned int max_j = active_idx(0);
+
+        // get the index of the maximal Langrangian multiplier. The search has to
+        // be restricted to the active set: taken over every index it can land on
+        // a passive one whose multiplier happens to sit within EPS of the
+        // maximum, which flips the wrong index in and out of the passive set and
+        // leaves the loop cycling.
+        for(arma::uword k=0; k < active_idx.n_elem; k++){
+            if(abs(w[active_idx(k)] - max_w) <= EPS){
+                max_j = active_idx(k);
             }
         }
 
@@ -525,8 +560,10 @@ arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_up
 
         double min_sp = s_all.elem(select_P).min();
         double alpha = 1.0; // the step size
+        unsigned int inner = 0;
 
-        while(min_sp < 0){
+        while(min_sp < 0 && inner < max_outer){
+            inner++;
             // recompute selection of P element restricted to negative estimates in S
             arma::uvec select_sP = find(P > 0 && s_all < 0);
             arma::vec diffVec(select_sP.size());
@@ -609,7 +646,7 @@ arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y){
 
 
 arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P,
-                     const arma::mat& PZ){
+                     const arma::mat& PZ, const arma::mat& W){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     // make use of pre-computed PZ
@@ -623,8 +660,17 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
     // do we need an intercept term?
 
     arma::mat vecMat(nsq, c+1);
-    arma::mat bigI = arma::eye(arma::size(P));
-    vecMat.col(0) = bigI(lower_indices); // vector of 1s for the intercept?
+    // The residual basis of the vectorised design. Under REML the moment being
+    // regressed is E[P y* y*' P] = P W P + sum_j sigma_j P Z_j Z_j' P, so the
+    // column standing in for the residual term is vec(P W P). It used to be
+    // vec(I), which is not in that space: W is diag(1/phi + 1/mu_i), not a
+    // multiple of the identity, so the residual column could not absorb the
+    // working weights and the difference was taken out of the random effect
+    // instead. That drives the component negative, and the NNLS solver then
+    // clamps it to exactly zero.
+    // W is diagonal by construction, so keep the first product O(n^2)
+    arma::mat resid_basis = (P.each_row() % W.diag().t()) * P.t();
+    vecMat.col(0) = resid_basis(lower_indices);
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
@@ -640,7 +686,7 @@ arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma
 }
 
 
-arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
+arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& W){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     int c = u_indices.size();
@@ -652,8 +698,10 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
     arma::mat vecMat(nsq, c+1);
     // arma::mat vecMat(nsq, c);
     // vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
-    arma::mat bigI = arma::eye(arma::size(n , n));
-    vecMat.col(0) = bigI(lower_indices); // vector of 1s for the intercept?
+    // Under ML the moment is E[y* y*'] = W + sum_j sigma_j Z_j Z_j', so the
+    // residual column is vec(W). It used to be vec(I) - see vectoriseZ.
+    arma::mat resid_basis = W;
+    vecMat.col(0) = resid_basis(lower_indices);
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
@@ -672,7 +720,7 @@ arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices){
 
 arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
                             const arma::mat& P, const arma::mat& PZ,
-                            const arma::mat& Kin){
+                            const arma::mat& Kin, const arma::mat& W){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     // this needs to use PZ
@@ -686,8 +734,17 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
     arma::mat vecMat(nsq, c+1);
     // arma::mat vecMat(nsq, c);
     // vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
-    arma::mat bigI = arma::eye(arma::size(P));
-    vecMat.col(0) = bigI(lower_indices); // vector of 1s for the intercept?
+    // The residual basis of the vectorised design. Under REML the moment being
+    // regressed is E[P y* y*' P] = P W P + sum_j sigma_j P Z_j Z_j' P, so the
+    // column standing in for the residual term is vec(P W P). It used to be
+    // vec(I), which is not in that space: W is diag(1/phi + 1/mu_i), not a
+    // multiple of the identity, so the residual column could not absorb the
+    // working weights and the difference was taken out of the random effect
+    // instead. That drives the component negative, and the NNLS solver then
+    // clamps it to exactly zero.
+    // W is diagonal by construction, so keep the first product O(n^2)
+    arma::mat resid_basis = (P.each_row() % W.diag().t()) * P.t();
+    vecMat.col(0) = resid_basis(lower_indices);
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
@@ -695,7 +752,6 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
-            // arma::vec _vecZ = Kin(lower_indices);
             // Cholesky LL^T of kinship == ZZ^T
             arma::mat _ZZT = PZ.cols(u_idx - 1) * Z.cols(u_idx - 1).t() * P.t(); // REML projection
 
@@ -718,7 +774,7 @@ arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
 }
 
 arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
-                              const arma::mat& Kin){
+                              const arma::mat& Kin, const arma::mat& W){
     // sequentially vectorise the columns ZZ^T that map to each random effect
     // pre- and post- multiply by the REML projection matrix
     // this needs to use PZ
@@ -732,8 +788,10 @@ arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
     arma::mat vecMat(nsq, c+1);
     // arma::mat vecMat(nsq, c);
     // vecMat.col(0) = arma::ones(nsq); // vector of 1s for the intercept?
-    arma::mat bigI = arma::eye(arma::size(Kin));
-    vecMat.col(0) = bigI(lower_indices); // vector of 1s for the intercept?
+    // Under ML the moment is E[y* y*'] = W + sum_j sigma_j Z_j Z_j', so the
+    // residual column is vec(W). It used to be vec(I) - see vectoriseZ.
+    arma::mat resid_basis = W;
+    vecMat.col(0) = resid_basis(lower_indices);
 
     for(int i=0; i < c; i++){
         // extract the elements of u_indices
@@ -741,7 +799,6 @@ arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
 
         // always set the last component to the genetic variance if there is a kinship matrix
         if(i == c-1){
-            // arma::vec _vecZ = Kin(lower_indices);
             // Cholesky LL^T of kinship == ZZ^T
             arma::mat _ZZT = Z.cols(u_idx - 1) * Z.cols(u_idx - 1).t();
 
@@ -803,7 +860,14 @@ double phiGoldenSearch(double disp, double lower, double upper, const int& c,
     // function inspired by https://drlvk.github.io/nm/section-golden-section.html
     // this only requires a single call to this function
 
-    double tol = 1e-2; // tolerance for phi
+    // Tolerance on the width of the bracket, relative to its scale. This was a
+    // flat 1e-2, which leaves the returned value uncertain at the 1e-3 level.
+    // The dispersion is re-estimated on every iteration, so that uncertainty
+    // reappears as jitter in W and prevents the outer fixed point from ever
+    // meeting a parameter tolerance tighter than it. The search is O(n) per
+    // evaluation against the O(n^3) work in the same iteration, so resolving it
+    // properly costs roughly twenty extra evaluations and nothing else.
+    double tol = 1e-8 * std::max(1.0, upper);
     double r = (3 - std::sqrt(5))/2.0;
     double pc = lower + r*(upper - lower);
     double pd = upper - r*(upper - lower);

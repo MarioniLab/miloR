@@ -1,4 +1,5 @@
 #include<RcppArmadillo.h>
+#include<cmath>
 #include<string>
 // [[Rcpp::depends(RcppArmadillo)]]
 #include "paramEst.h"
@@ -111,7 +112,8 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression
-    double delta_up = 2.0 * curr_disp;
+    double max_disp = 1e4; // ceiling on the dispersion search, as in fitGeneticNullGlmm
+    double delta_up = std::min(max_disp, 2.0 * curr_disp);
     double delta_lo = 1e-2;
     double update_disp = 0.0;
     double disp_diff = 0.0;
@@ -123,6 +125,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     Dinv.zeros();
 
     arma::vec y_star(n);
+    arma::vec y_star_c(n); // working response with the offset removed
 
     arma::mat Vmu(n, n);
     arma::mat W(n, n);
@@ -139,7 +142,6 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     List VP_partial(c);
     List precomp_list(2);
     List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
-    List VS_partial(c);
 
     arma::vec score_sigma(c);
     arma::mat information_sigma(c, c);
@@ -176,24 +178,22 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         u_ix[px] = m + px;
     }
 
-    // we only need to invert the Kinship once
-    unsigned long _kn = K.n_cols;
-    arma::mat Kinv(_kn, _kn);
+    // The genetic random effect is carried in the whitened parameterisation:
+    // Z_g is the Cholesky factor L of the relatedness matrix, set in fitGLMM, so
+    // Z_g Z_g' = L L' = K and the corresponding block of G is simply sigma_g I.
+    // G used to hold sigma_g K in that block instead, which - against a Z_g that
+    // is already L - built sigma_g L K L' into the pseudo-variance and applied K
+    // twice. Every partial derivative of V* with respect to sigma_g in this file
+    // is K, so the score and the information described a model the pseudo-
+    // variance did not encode. In the whitened form G and G_inv are diagonal, so
+    // no inverse of K is needed here at all.
+    if(K.n_cols != n || K.n_rows != n){
+        stop("Covariance matrix and design matrix dimensions do not match");
+    }
 
-    // check this isn't singular first - it could be due to a block structure
-    double _rcond = arma::rcond(K);
-    bool is_singular;
-    is_singular = _rcond < 1e-9;
-
-    // check for singular condition
-    if(is_singular){
-        // first try to invert the top block which should be N/2 x N/2
-        Rcpp::warning("Kinship is singular - attempting broad cast inverse");
-        double nhalfloat = (double)n/2;
-        unsigned int nhalf = nhalfloat;
-        Kinv = broadcastInverseMatrix(K, nhalf);
-    } else{
-        Kinv = arma::inv(K); // this could be very slow
+    arma::uvec _gidx = u_indices[c - 1];
+    if(_gidx.n_elem != static_cast<unsigned int>(n)){
+        stop("RE indices and dimensions of covariance do not match");
     }
 
     bool converged = false;
@@ -208,14 +208,24 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
     // curr_disp = update_disp;
     // make the upper and lower bounds based on the current value,
     // but 0 < lo < up < 1.0
-    delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
-    delta_up = std::max(1e-2, update_disp);
+    // Re-bracket around the value the search just returned, on both sides of
+    // it. The bracket used to be [phi/2, phi], whose upper end is the current
+    // estimate itself, so the golden section search could only ever return a
+    // smaller value: the dispersion halved every iteration regardless of data.
+    delta_lo = std::max(1e-2, update_disp * 0.5);
+    delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
 
     while(!meet_cond){
         curr_disp = update_disp;
         D.diag() = muvec; // data space
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets); // data space
+        // The offset belongs to the linear predictor but is not a column of X,
+        // so it has to come off the working response before it is used: P only
+        // annihilates the column space of X, and the mixed model equations
+        // otherwise let the intercept absorb the offset and feed it back into
+        // eta a second time on the next iteration.
+        y_star_c = y_star - offsets;
 
         Vmu = computeVmu(muvec, curr_disp, vardist);
         W = computeW(curr_disp, Dinv, vardist);
@@ -245,17 +255,17 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         // sigma_update is always 1 element longer than the others with HE, but we need to keep track of this
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
-            sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star, K);
+            sigma_update = estHasemanElstonGenetic(Z, P, PZ, u_indices, y_star_c, K, W);
         } else if (solver == "HE-NNLS"){
             // for the first iteration use the current non-zero estimate
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
             if(REML){
-                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star_c, K, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             } else{
-                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star_c, K, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             }
@@ -271,21 +281,43 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         }else if(solver == "Fisher"){
             if(REML){
-                arma::mat VstarZ = V_star_inv * Z;
+                // Score and information both in the P basis - the score used to
+                // mix P for its trace term with Vstar^-1 for its quadratic form,
+                // which is not the derivative of any objective.
                 VP_partial = precomp_list["PZZt"];
 
-                VS_partial = pseudovarPartial_VG(u_indices, Z,  VstarZ, K);
-
-                score_sigma = sigmaScoreREML_arma(VP_partial, y_star, P,
-                                                  curr_beta, X, V_star_inv,
-                                                  VP_partial);
+                score_sigma = sigmaScoreREML_arma(VP_partial, y_star_c, P,
+                                                  curr_beta, X);
                 information_sigma = sigmaInfoREML_arma(VP_partial, P);
             } else{
-                List VP_partial = V_partial;
-                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                // this used to redeclare VP_partial, shadowing the outer list, so
+                // the Vpartial returned to R was empty for ML with Fisher scoring
+                // and varCovar() ran on nothing
+                VP_partial = V_partial;
+                score_sigma = sigmaScore(y_star_c, curr_beta, X, VP_partial, V_star_inv);
                 information_sigma = sigmaInformation(V_star_inv, VP_partial);
             }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+
+            // The domain of the variance components is [0, Inf). Retreat along
+            // the ascent direction by step-halving rather than abandoning Fisher
+            // scoring the moment a full step oversteps the boundary - this keeps
+            // the search direction and lets a component recover on a later
+            // iteration if the data support it.
+            arma::vec fisher_step = sigma_update - curr_sigma;
+            int halvings = 0;
+            while(arma::any((curr_sigma + fisher_step) <= 0.0) && halvings < 30){
+                fisher_step *= 0.5;
+                halvings++;
+            }
+            sigma_update = curr_sigma + fisher_step;
+
+            // final guard for non-finite or still non-positive components
+            for(int i=0; i < c; i++){
+                if(!std::isfinite(sigma_update[i]) || sigma_update[i] <= 0.0){
+                    sigma_update[i] = constval;
+                }
+            }
         }
 
         // if we have negative sigmas then we need to switch solver
@@ -296,11 +328,11 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
             if(REML){
-                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star, K, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedGenetic(Z, P, PZ, u_indices, y_star_c, K, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             } else{
-                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star, K, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedGeneticML(Z, u_indices, y_star_c, K, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             }
@@ -319,23 +351,26 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
 
         // update sigma, G, and G_inv
         curr_sigma = sigma_update;
-        curr_G = initialiseG_G(u_indices, curr_sigma, K);
-        G_inv = invGmat_G(u_indices, curr_sigma, Kinv);
+        curr_G = initialiseG(u_indices, curr_sigma);
+        G_inv = invGmat(u_indices, curr_sigma);
 
-        // Update the dispersion with the new variances
-        // only update if diff is > 1e-2
-        if(disp_diff > 1e-2){
-            update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                          muvec, G_inv, pi,
-                                          curr_u, curr_sigma, y);
+        // Update the dispersion with the new variances.
+        //
+        // This used to be skipped once two consecutive searches agreed to
+        // within 1e-2, but that is a convergence test on the wrong quantity:
+        // the dispersion is estimated from the NB likelihood at the current mu,
+        // and mu is still moving in the early iterations. Two early searches
+        // agreeing switched the estimator off permanently and left the
+        // dispersion pinned to a mu the model had already left behind, which
+        // then propagates into W and starves the variance components estimated
+        // on the same pseudo-variance.
+        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                      muvec, G_inv, pi,
+                                      curr_u, curr_sigma, y);
 
-            disp_diff = abs(curr_disp - update_disp);
-            // curr_disp = update_disp;
-            // make the upper and lower bounds based on the current value,
-            // but 0 < lo < up < ??
-            delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
-            delta_up = std::max(1e-2, update_disp);
-        }
+        // bracket the current estimate on both sides - see above
+        delta_lo = std::max(1e-2, update_disp * 0.5);
+        delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
 
         // update_disp = phiMME(y_star, curr_sigma);
         disp_diff = abs(curr_disp - update_disp);
@@ -343,7 +378,7 @@ List fitGeneticPLGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for beta and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, xTwinv, zTwin, Z, G_inv); //model space
-        theta_update = solveEquations(stot, m, zTwin, xTwinv, coeff_mat, curr_beta, curr_u, y_star); //model space
+        theta_update = solveEquations(stot, m, zTwin, xTwinv, coeff_mat, curr_beta, curr_u, y_star_c); //model space
 
         LogicalVector _check_theta = check_na_arma_numeric(theta_update);
         bool _any_ystar_na = any(_check_theta).is_true(); // .is_true required for proper type casting to bool

@@ -1,5 +1,6 @@
 #include<RcppArmadillo.h>
 #include<Rcpp.h>
+#include<cmath>
 // [[Rcpp::depends(RcppArmadillo)]]
 #include "paramEst.h"
 #include "computeMatrices.h"
@@ -104,7 +105,8 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
     double _intercept = constval; // intercept for HE regression?? need a better estimate.
-    double delta_up = 2.0 * curr_disp;
+    double max_disp = 1e4; // ceiling on the dispersion search, as in fitGeneticNullGlmm
+    double delta_up = std::min(max_disp, 2.0 * curr_disp);
     double delta_lo = 1e-2; // this needs to be non-zero
     double update_disp = 0.0;
     double disp_diff = 0.0;
@@ -116,6 +118,7 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat Dinv(n, n, arma::fill::zeros);
 
     arma::vec y_star(n);
+    arma::vec y_star_c(n); // working response with the offset removed
 
     arma::mat Vmu(n, n, arma::fill::zeros);
     arma::mat W(n, n, arma::fill::zeros);
@@ -130,7 +133,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     V_partial = pseudovarPartial_C(Z, u_indices);
     // compute outside the loop
     List VP_partial(c); // P * Z(j) * Z(j)^T
-    List VS_partial(c); // Vstar * Z(j) * Z(j)^T
     List precomp_list(2);
     List pzzp_list(c); // P * Z(j) * Z(j)^T * P^T
 
@@ -178,10 +180,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
     disp_diff = abs(curr_disp - update_disp);
     // curr_disp = update_disp;
-    // make the upper and lower bounds based on the current value,
-    // but 0 < lo < up < ??
-    delta_lo = std::max(1e-2, curr_disp - (curr_disp*0.5));
-    delta_up = std::max(1e-2, curr_disp);
+    // Re-bracket around the value the search just returned, on both sides of it.
+    // The bracket used to be [phi/2, phi], whose upper end is the current
+    // estimate itself, so the golden section search could only ever return a
+    // smaller value: the dispersion halved on every iteration until the
+    // convergence check stopped it, regardless of the data.
+    delta_lo = std::max(1e-2, update_disp * 0.5);
+    delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
 
     while(!meet_cond){
         curr_disp = update_disp;
@@ -198,6 +203,13 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         Dinv = D.i();
         y_star = computeYStar(X, curr_beta, Z, Dinv, curr_u, y, offsets);
+        // The offset belongs to the linear predictor but is not a column of X,
+        // so it has to come off the working response before any of the fitting
+        // is done with it. Left in, it is neither annihilated by P - which only
+        // annihilates the column space of X - nor held fixed by the mixed model
+        // equations, where the intercept simply absorbs it and then feeds it
+        // back into eta a second time on the next iteration.
+        y_star_c = y_star - offsets;
         Vmu = computeVmu(muvec, curr_disp, vardist);
 
         W = computeW(curr_disp, Dinv, vardist);
@@ -229,21 +241,21 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         if(solver == "HE"){
             // try Haseman-Elston regression instead of Fisher scoring
             if(REML){
-                sigma_update = estHasemanElston(Z, P, u_indices, y_star, PZ);
+                sigma_update = estHasemanElston(Z, P, u_indices, y_star_c, PZ, W);
             } else{
-                sigma_update = estHasemanElstonML(Z, u_indices, y_star);
+                sigma_update = estHasemanElstonML(Z, u_indices, y_star_c, W);
             }
 
         } else if(solver == "HE-NNLS"){
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
             if(REML){
-                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star_c, _curr_sigma, iters, PZ, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
 
             } else{
-                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star_c, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             }
@@ -259,24 +271,49 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
 
         }else if(solver == "Fisher"){
             if(REML){
-                arma::mat VstarZ = V_star_inv * Z;
+                // The score and the information are both taken in the P basis.
+                // The score used to take its trace term from P * dV and its
+                // quadratic form from Vstar^-1 * dV, which is not the derivative
+                // of any objective and drove the components orders of magnitude
+                // away from the REML solution.
                 VP_partial = precomp_list["PZZt"];
-                VS_partial = pseudovarPartial_V(u_indices, Z, VstarZ);
 
-                score_sigma = sigmaScoreREML_arma(VS_partial, y_star, P,
-                                                  curr_beta, X, V_star_inv,
-                                                  VP_partial);
+                score_sigma = sigmaScoreREML_arma(VP_partial, y_star_c, P,
+                                                  curr_beta, X);
                 information_sigma = sigmaInfoREML_arma(VP_partial, P);
             } else{
                 // theres a strange bug that means assigning V_partial to VP_partial
                 // doesn't copy over the contents of the list - perhaps it needs to
                 // be a pointer? Crude solve is to just to pre-multiply by I
                 // VP_partial = pseudovarPartial_P(V_partial, P);
+                // under ML P is the identity, so PZZt is dV and both the score
+                // and the information are in the Vstar^-1 basis
                 VP_partial = precomp_list["PZZt"];
-                score_sigma = sigmaScore(y_star, curr_beta, X, VP_partial, V_star_inv);
+                score_sigma = sigmaScore(y_star_c, curr_beta, X, VP_partial, V_star_inv);
                 information_sigma = sigmaInformation(V_star_inv, VP_partial);
             }
             sigma_update = fisherScore(information_sigma, score_sigma, curr_sigma);
+
+            // The domain of the variance components is [0, Inf). Rather than
+            // abandoning Fisher scoring the moment a full step oversteps the
+            // boundary, retreat along the same ascent direction by step-halving
+            // until every component is strictly positive. This keeps the search
+            // direction and lets a component recover on a later iteration if the
+            // data support it, instead of pinning it at the boundary.
+            arma::vec fisher_step = sigma_update - curr_sigma;
+            int halvings = 0;
+            while(arma::any((curr_sigma + fisher_step) <= 0.0) && halvings < 30){
+                fisher_step *= 0.5;
+                halvings++;
+            }
+            sigma_update = curr_sigma + fisher_step;
+
+            // final guard for non-finite or still non-positive components
+            for(int i=0; i < c; i++){
+                if(!std::isfinite(sigma_update[i]) || sigma_update[i] <= 0.0){
+                    sigma_update[i] = constval;
+                }
+            }
         }
 
         // if we have negative sigmas then we need to switch solver
@@ -287,11 +324,11 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             arma::dvec _curr_sigma(c+1, arma::fill::zeros);
 
             if(REML){
-                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star, _curr_sigma, iters, PZ);
+                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star_c, _curr_sigma, iters, PZ, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             } else{
-                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star, _curr_sigma, iters);
+                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star_c, _curr_sigma, iters, W);
                 _intercept = _sigma_update[0];
                 sigma_update = _sigma_update.tail(c);
             }
@@ -318,27 +355,34 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         curr_G = initialiseG(u_indices, curr_sigma);
         G_inv = invGmat(u_indices, curr_sigma);
 
-        // Update the dispersion with the new variances
-        // only update if diff is > 1e-2
-        if(disp_diff > 1e-2){
-            update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
-                                          muvec, G_inv, pi,
-                                          curr_u, curr_sigma, y);
+        // Update the dispersion with the new variances.
+        //
+        // This used to be skipped once two consecutive searches agreed to
+        // within 1e-2, but that is a convergence test on the wrong quantity:
+        // the dispersion is estimated from the NB likelihood at the current mu,
+        // and mu is still moving by orders of magnitude in the early iterations.
+        // Two early searches agreeing switched the estimator off permanently
+        // and left the dispersion pinned to a value fitted against a mu the
+        // model had already left behind. The variance components are estimated
+        // on the same pseudo-variance, so a pinned dispersion is absorbed into
+        // W and starves them. The search is a scalar golden section over
+        // [phi/2, 2*phi], which is cheap next to the matrix work in the same
+        // iteration, so it now runs while the model is still iterating.
+        update_disp = phiGoldenSearch(curr_disp, delta_lo, delta_up, c,
+                                      muvec, G_inv, pi,
+                                      curr_u, curr_sigma, y);
 
-            disp_diff = abs(curr_disp - update_disp);
-            // curr_disp = update_disp;
-            // make the upper and lower bounds based on the current value,
-            // but 0 < lo < up < ??
-            delta_lo = std::max(1e-2, update_disp - (update_disp*0.5));
-            delta_up = std::max(1e-2, update_disp);
-        }
+        // bracket the current estimate on both sides - see above
+        delta_lo = std::max(1e-2, update_disp * 0.5);
+        delta_up = std::min(max_disp, std::max(update_disp * 2.0, delta_lo + 1e-2));
+
         disp_diff = abs(curr_disp - update_disp);
 
         // Next, solve pseudo-likelihood GLMM equations to compute solutions for B and u
         // compute the coefficient matrix
         coeff_mat = coeffMatrix(X, xTwinv, zTwinv, Z, G_inv);
 
-        theta_update = solveEquations(stot, m, zTwinv, xTwinv, coeff_mat, curr_beta, curr_u, y_star);
+        theta_update = solveEquations(stot, m, zTwinv, xTwinv, coeff_mat, curr_beta, curr_u, y_star_c);
         theta_diff = abs(theta_update - curr_theta);
 
         // inference
