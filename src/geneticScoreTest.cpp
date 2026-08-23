@@ -129,6 +129,12 @@ Rcpp::List buildVpartial(const arma::mat& Z, const arma::mat& K, const Rcpp::Lis
 //' limit.
 //' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
 //' additional variance component on the REML objective, rather than by a
+//' @param solver string - which solver to use for the variance components:
+//' \code{Fisher} for Fisher scoring, \code{HE} for Haseman-Elston regression
+//' or \code{HE-NNLS} for its non-negative least squares form. The
+//' Haseman-Elston solvers regress the vectorised REML moment on the same
+//' partial derivatives the Fisher branch uses, so they cover the overdispersion
+//' component under \code{disp_as_vc} as well.
 //' golden-section search on the conditional negative binomial likelihood. This
 //' puts the overdispersion and the random effect variances on a common
 //' objective so that they compete properly. Defaults to \code{TRUE}; set to
@@ -183,7 +189,8 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                         const bool& return_projection = true,
                         const bool& fix_dispersion = false,
                         double max_disp = 1e4,
-                        const bool& disp_as_vc = true){
+                        const bool& disp_as_vc = true,
+                        std::string solver = "Fisher"){
 
     constexpr double pi = 3.14159265358979323846;
     const double constval = 1e-8;
@@ -198,6 +205,9 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
     }
     if(c < 1){
         stop("At least one variance component is required");
+    }
+    if(solver != "Fisher" && solver != "HE" && solver != "HE-NNLS"){
+        stop(solver + " not recognised - must be HE, HE-NNLS or Fisher");
     }
 
     // ---- optional warm start from a previously fitted null model -----------
@@ -325,6 +335,22 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
 
         // ---- variance components -------------------------------------------
         if(!fix_variance){
+            arma::vec sigma_update(ctot, arma::fill::zeros);
+
+            if(solver != "Fisher"){
+                // Haseman-Elston, off the same partial derivatives the Fisher
+                // branch uses. Under disp_as_vc the last of those is the
+                // identity, so the overdispersion is estimated by the same
+                // regression as everything else rather than by a separate search.
+                sigma_update = heSolveREML(P, wdiag, dVa, ystar_c,
+                                           solver == "HE-NNLS", disp_as_vc, iters);
+
+                for(int j = 0; j < ctot; j++){
+                    if(!std::isfinite(sigma_update(j)) || sigma_update(j) <= 0.0){
+                        sigma_update(j) = constval;
+                    }
+                }
+            } else {
             arma::vec score_sigma(ctot, arma::fill::zeros);
             arma::mat info_sigma(ctot, ctot, arma::fill::zeros);
             arma::vec Py = P * ystar_c;
@@ -351,7 +377,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                 }
             }
 
-            arma::vec sigma_update = fisherScore(info_sigma, score_sigma, sig_a);
+            sigma_update = fisherScore(info_sigma, score_sigma, sig_a);
 
             // The domain of the variance components is [0, Inf). Rather than
             // clamping a negative update straight to the boundary - which pins
@@ -374,6 +400,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                     sigma_update(j) = constval;
                 }
             }
+        }
 
             sigma_diff = arma::abs(sigma_update.head(c) - curr_sigma);
             sig_a = sigma_update;

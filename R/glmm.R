@@ -18,9 +18,10 @@
 #' rather than by a golden section search on the conditional negative binomial
 #' likelihood evaluated at the current fitted means. The latter is circular: the
 #' fitted means already contain the random effect BLUPs, so the random effects
-#' absorb the overdispersion before it is estimated. Only implemented for the
-#' Fisher solver; \code{HE} and \code{HE-NNLS} fall back to the golden section
-#' search with a warning.
+#' absorb the overdispersion before it is estimated. Supported by all three
+#' solvers: under Fisher scoring the component enters the score and information
+#' with \code{dV/dsigma_0 = I}, and under Haseman-Elston it enters the
+#' regression as the identity basis.
 #' @param solver a character value that determines which optimisation algorithm is used for the variance components. Must be either
 #' HE (Haseman-Elston regression) or Fisher (Fisher scoring).
 #' @param intercept.type A character scalar, either \emph{fixed} or \emph{random} that sets the type of the global

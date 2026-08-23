@@ -71,8 +71,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // fitGeneticNullGlmm
-List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_u, arma::vec curr_sigma, const arma::vec& y, List u_indices, double theta_conv, double curr_disp, const bool& REML, const int& maxit, Rcpp::Nullable<Rcpp::NumericMatrix> Kinv_, Rcpp::Nullable<Rcpp::NumericVector> null_sigma_, Rcpp::Nullable<Rcpp::NumericVector> null_beta_, double null_disp, const bool& fix_variance, const bool& return_projection, const bool& fix_dispersion, double max_disp, const bool& disp_as_vc);
-RcppExport SEXP _miloR_fitGeneticNullGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP KSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP Kinv_SEXP, SEXP null_sigma_SEXP, SEXP null_beta_SEXP, SEXP null_dispSEXP, SEXP fix_varianceSEXP, SEXP return_projectionSEXP, SEXP fix_dispersionSEXP, SEXP max_dispSEXP, SEXP disp_as_vcSEXP) {
+List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat& K, arma::vec muvec, arma::vec offsets, arma::vec curr_beta, arma::vec curr_u, arma::vec curr_sigma, const arma::vec& y, List u_indices, double theta_conv, double curr_disp, const bool& REML, const int& maxit, Rcpp::Nullable<Rcpp::NumericMatrix> Kinv_, Rcpp::Nullable<Rcpp::NumericVector> null_sigma_, Rcpp::Nullable<Rcpp::NumericVector> null_beta_, double null_disp, const bool& fix_variance, const bool& return_projection, const bool& fix_dispersion, double max_disp, const bool& disp_as_vc, std::string solver);
+RcppExport SEXP _miloR_fitGeneticNullGlmm(SEXP ZSEXP, SEXP XSEXP, SEXP KSEXP, SEXP muvecSEXP, SEXP offsetsSEXP, SEXP curr_betaSEXP, SEXP curr_uSEXP, SEXP curr_sigmaSEXP, SEXP ySEXP, SEXP u_indicesSEXP, SEXP theta_convSEXP, SEXP curr_dispSEXP, SEXP REMLSEXP, SEXP maxitSEXP, SEXP Kinv_SEXP, SEXP null_sigma_SEXP, SEXP null_beta_SEXP, SEXP null_dispSEXP, SEXP fix_varianceSEXP, SEXP return_projectionSEXP, SEXP fix_dispersionSEXP, SEXP max_dispSEXP, SEXP disp_as_vcSEXP, SEXP solverSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -99,7 +99,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const bool& >::type fix_dispersion(fix_dispersionSEXP);
     Rcpp::traits::input_parameter< double >::type max_disp(max_dispSEXP);
     Rcpp::traits::input_parameter< const bool& >::type disp_as_vc(disp_as_vcSEXP);
-    rcpp_result_gen = Rcpp::wrap(fitGeneticNullGlmm(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc));
+    Rcpp::traits::input_parameter< std::string >::type solver(solverSEXP);
+    rcpp_result_gen = Rcpp::wrap(fitGeneticNullGlmm(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc, solver));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -121,7 +122,7 @@ END_RCPP
 static const R_CallMethodDef CallEntries[] = {
     {"_miloR_fitGeneticPLGlmm", (DL_FUNC) &_miloR_fitGeneticPLGlmm, 20},
     {"_miloR_fitPLGlmm", (DL_FUNC) &_miloR_fitPLGlmm, 19},
-    {"_miloR_fitGeneticNullGlmm", (DL_FUNC) &_miloR_fitGeneticNullGlmm, 23},
+    {"_miloR_fitGeneticNullGlmm", (DL_FUNC) &_miloR_fitGeneticNullGlmm, 24},
     {"_miloR_scoreTestGeneticSNPs", (DL_FUNC) &_miloR_scoreTestGeneticSNPs, 4},
     {NULL, NULL, 0}
 };

@@ -20,36 +20,11 @@ arma::mat coeffMatrix(const arma::mat& X, const arma::mat& XtWinv, const arma::m
                       const arma::mat& Z, const arma::mat& Ginv);
 arma::mat computeZstar(const arma::mat& Z, const arma::vec& curr_sigma, const Rcpp::List& u_indices);
 // arma::vec conjugateGradient(const arma::mat& A, const arma::vec& x, const arma::vec& b, double conv_tol);
-arma::vec estHasemanElston(const arma::mat& Z, const arma::mat& PREML,
-                           const Rcpp::List& u_indices, const arma::vec& ystar,
-                           const arma::mat& PZ, const arma::mat& W);
-arma::vec estHasemanElstonML(const arma::mat& Z, const Rcpp::List& u_indices,
-                             const arma::vec& ystar, const arma::mat& W);
-arma::vec estHasemanElstonGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
-                                  const Rcpp::List& u_indices, const arma::vec& ystar,
-                                  const arma::mat& Kin, const arma::mat& W);
-arma::vec estHasemanElstonConstrained(const arma::mat& Z, const arma::mat& PREML, const Rcpp::List& u_indices,
-                                      const arma::vec& ystar, arma::vec he_update, const int& Iters,
-                                      const arma::mat& PZ, const arma::mat& W);
-arma::vec estHasemanElstonConstrainedML(const arma::mat& Z, const Rcpp::List& u_indices,
-                                        const arma::vec& ystar, arma::vec he_update, const int& Iters, const arma::mat& W);
-arma::vec estHasemanElstonConstrainedGenetic(const arma::mat& Z, const arma::mat& PREML, const arma::mat& PZ,
-                                             const Rcpp::List& u_indices,
-                                             const arma::vec& ystar, const arma::mat& Kin, arma::vec he_update,
-                                             const int& Iters, const arma::mat& W);
-arma::vec estHasemanElstonConstrainedGeneticML(const arma::mat& Z,
-                                               const Rcpp::List& u_indices,
-                                               const arma::vec& ystar, const arma::mat& Kin,
-                                               arma::vec he_update, const int& Iters, const arma::mat& W);
+arma::vec heSolveREML(const arma::mat& P, const arma::vec& wdiag,
+                      const Rcpp::List& dV, const arma::vec& ystar_c,
+                      const bool& nnls, const bool& w_known, const int& iters);
 arma::vec nnlsSolve(const arma::mat& vecZ, const arma::vec& Y, arma::vec nnls_update, const int& Iters);
 arma::vec fastNnlsSolve(const arma::mat& vecZ, const arma::vec& Y);
-arma::mat vectoriseZ(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& P,
-                     const arma::mat& PZ, const arma::mat& W);
-arma::mat vectoriseZML(const arma::mat& Z, const Rcpp::List& u_indices, const arma::mat& W);
-arma::mat vectoriseZGenetic(const arma::mat& Z, const Rcpp::List& u_indices,
-                            const arma::mat& P, const arma::mat& PZ, const arma::mat& Kin, const arma::mat& W);
-arma::mat vectoriseZGeneticML(const arma::mat& Z, const Rcpp::List& u_indices,
-                            const arma::mat& Kin, const arma::mat& W);
 double phiLineSearch(double disp, double lower, double upper, const int& c,
                      const arma::vec& mu, const arma::mat& Ginv, double pi,
                      const arma::vec& curr_u, const arma::vec& sigma,

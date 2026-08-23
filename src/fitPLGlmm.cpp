@@ -42,8 +42,9 @@ using namespace Rcpp;
 //' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
 //' additional variance component on the REML objective, rather than by a golden
 //' section search on the conditional negative binomial likelihood at the current
-//' fitted means. Only implemented for the Fisher solver; the Haseman-Elston
-//' solvers fall back to the golden section search with a warning.
+//' fitted means. Supported by all three solvers: under Fisher scoring the
+//' component enters the score and information with dV/dsigma_0 = I, and under
+//' Haseman-Elston it enters the regression as the identity basis.
 //'
 //' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 //' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -110,7 +111,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     const int& n = X.n_rows;
     bool meet_cond = false;
     double constval = 1e-8; // value at which to constrain values
-    double _intercept = constval; // intercept for HE regression?? need a better estimate.
     double max_disp = 1e4; // ceiling on the dispersion search, as in fitGeneticNullGlmm
     double delta_up = std::min(max_disp, 2.0 * curr_disp);
     double delta_lo = 1e-2; // this needs to be non-zero
@@ -118,7 +118,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     double disp_diff = 0.0;
 
 
-    std::string user_solver = solver;
 
     // When disp_as_vc is set the negative binomial overdispersion is estimated
     // as one more variance component on the same REML objective as the others,
@@ -133,10 +132,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     // matrix - only the extra component and its partial derivative, dV*/dsigma_0
     // = I, need adding.
     bool _disp_vc = disp_as_vc;
-    if(_disp_vc && solver != "Fisher"){
-        warning("disp.as.vc is only implemented for the Fisher solver - falling back to the golden section search");
-        _disp_vc = false;
-    }
 
     const int ctot = _disp_vc ? c + 1 : c;
 
@@ -174,7 +169,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
     arma::mat information_sigma(ctot, ctot);
     information_sigma.zeros();
     arma::vec sigma_update(c);
-    arma::vec _sigma_update(c+1);
     arma::vec sigma_diff(ctot);
     sigma_diff.zeros();
 
@@ -284,35 +278,37 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
         // would a hybrid approach work here? If any HE estimates are zero switch
         // to NNLS using these as the initial estimates?
 
-        if(solver == "HE"){
-            // try Haseman-Elston regression instead of Fisher scoring
-            if(REML){
-                sigma_update = estHasemanElston(Z, P, u_indices, y_star_c, PZ, W);
-            } else{
-                sigma_update = estHasemanElstonML(Z, u_indices, y_star_c, W);
-            }
+        // Under disp_as_vc the dispersion is one more component with
+        // dV*/dsigma_0 = I, and the residual basis of the Haseman-Elston design
+        // drops to the Poisson part 1/mu, since the constant 1/phi diagonal is
+        // now carried by sigma_0 rather than by W.
+        List dV_aug(ctot);
+        for(int j=0; j < c; j++){
+            dV_aug[j] = V_partial[j];
+        }
+        if(_disp_vc){
+            dV_aug[c] = arma::mat(n, n, arma::fill::eye);
+        }
+        arma::vec he_wdiag = _disp_vc ? Dinv.diag() : W.diag();
 
-        } else if(solver == "HE-NNLS"){
-            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
+        if(solver == "HE" || solver == "HE-NNLS"){
+            // one Haseman-Elston implementation for both forms, and the same one
+            // fitGeneticNullGlmm uses - the solvers differ only in whether the
+            // least squares solve is constrained
+            arma::vec he_update = heSolveREML(P, he_wdiag, dV_aug, y_star_c,
+                                              solver == "HE-NNLS", _disp_vc, iters);
 
-            if(REML){
-                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star_c, _curr_sigma, iters, PZ, W);
-                _intercept = _sigma_update[0];
-                sigma_update = _sigma_update.tail(c);
-
-            } else{
-                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star_c, _curr_sigma, iters, W);
-                _intercept = _sigma_update[0];
-                sigma_update = _sigma_update.tail(c);
-            }
-
-            // set 0 values to minval to prevent 0 denominators later
-            if(any(sigma_update == 0.0)){
-                for(int i=0; i<c; i++){
-                    if(sigma_update[i] <= 0.0){
-                        sigma_update[i] = constval;
-                    }
+            for(int i=0; i < ctot; i++){
+                if(!std::isfinite(he_update[i]) || he_update[i] <= 0.0){
+                    he_update[i] = constval;
                 }
+            }
+
+            sigma_diff = he_update - sig_a;
+            sig_a = he_update;
+            sigma_update = sig_a.head(c);
+            if(_disp_vc){
+                update_disp = 1.0 / std::max(sig_a(c), 1e-12);
             }
 
         }else if(solver == "Fisher"){
@@ -325,17 +321,17 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 VP_partial = precomp_list["PZZt"];
 
                 // dV*/dsigma_0 is the identity, so its projection is P itself
-                List dV_aug(ctot);
+                List PdV_aug(ctot);
                 for(int j=0; j < c; j++){
-                    dV_aug[j] = VP_partial[j];
+                    PdV_aug[j] = VP_partial[j];
                 }
                 if(_disp_vc){
-                    dV_aug[c] = P;
+                    PdV_aug[c] = P;
                 }
 
-                score_sigma = sigmaScoreREML_arma(dV_aug, y_star_c, P,
+                score_sigma = sigmaScoreREML_arma(PdV_aug, y_star_c, P,
                                                   curr_beta, X);
-                information_sigma = sigmaInfoREML_arma(dV_aug, P);
+                information_sigma = sigmaInfoREML_arma(PdV_aug, P);
             } else{
                 // theres a strange bug that means assigning V_partial to VP_partial
                 // doesn't copy over the contents of the list - perhaps it needs to
@@ -344,14 +340,6 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
                 // under ML P is the identity, so PZZt is dV and both the score
                 // and the information are in the Vstar^-1 basis
                 VP_partial = precomp_list["PZZt"];
-
-                List dV_aug(ctot);
-                for(int j=0; j < c; j++){
-                    dV_aug[j] = VP_partial[j];
-                }
-                if(_disp_vc){
-                    dV_aug[c] = arma::mat(n, n, arma::fill::eye);
-                }
 
                 score_sigma = sigmaScore(y_star_c, curr_beta, X, dV_aug, V_star_inv);
                 information_sigma = sigmaInformation(V_star_inv, dV_aug);
@@ -388,44 +376,17 @@ List fitPLGlmm(const arma::mat& Z, const arma::mat& X, arma::vec muvec,
             }
         }
 
-        // if we have negative sigmas then we need to switch solver
-        if(any(sigma_update < 0.0)){
-            warning("Negative variance components - re-running with NNLS");
-            solver = "HE-NNLS";
-            // // for the first iteration use the current non-zero estimate
-            arma::dvec _curr_sigma(c+1, arma::fill::zeros);
-
-            if(REML){
-                _sigma_update = estHasemanElstonConstrained(Z, P, u_indices, y_star_c, _curr_sigma, iters, PZ, W);
-                _intercept = _sigma_update[0];
-                sigma_update = _sigma_update.tail(c);
-            } else{
-                _sigma_update = estHasemanElstonConstrainedML(Z, u_indices, y_star_c, _curr_sigma, iters, W);
-                _intercept = _sigma_update[0];
-                sigma_update = _sigma_update.tail(c);
-            }
-
-            // set 0 values to minval to prevent 0 denominators later
-            if(any(sigma_update == 0.0)){
-                for(int i=0; i<c; i++){
-                    if(sigma_update[i] <= 0.0){
-                        sigma_update[i] = constval;
-                    }
-                }
-            }
-        } else{
-            // switch back when positive var params
-            solver = user_solver;
-        }
+        // Both solvers now guarantee strictly positive components - Fisher by
+        // step-halving along the ascent direction, Haseman-Elston by the guard
+        // in its own branch - so the old switch to HE-NNLS on a negative update,
+        // which pinned the component at the boundary for every later iteration,
+        // is no longer reachable and has been removed.
 
         // update sigma, G, and G_inv
         // sigma update explodes for poorly conditioned system
 
-        // the Fisher branch already differenced the augmented vector, which
-        // carries sigma_0 when the dispersion is a variance component
-        if(solver != "Fisher"){
-            sigma_diff.head(c) = sigma_update - curr_sigma;
-        }
+        // both branches difference the augmented vector, which carries sigma_0
+        // when the dispersion is a variance component
         curr_sigma = sigma_update;
 
         curr_G = initialiseG(u_indices, curr_sigma);

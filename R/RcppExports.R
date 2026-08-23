@@ -36,8 +36,9 @@
 #' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
 #' additional variance component on the REML objective, rather than by a golden
 #' section search on the conditional negative binomial likelihood at the current
-#' fitted means. Only implemented for the Fisher solver; the Haseman-Elston
-#' solvers fall back to the golden section search with a warning.
+#' fitted means. Supported by all three solvers: under Fisher scoring the
+#' component enters the score and information with dV/dsigma_0 = I, and under
+#' Haseman-Elston it enters the regression as the identity basis.
 #'
 #' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 #' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -118,8 +119,9 @@ fitGeneticPLGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_theta, cur
 #' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
 #' additional variance component on the REML objective, rather than by a golden
 #' section search on the conditional negative binomial likelihood at the current
-#' fitted means. Only implemented for the Fisher solver; the Haseman-Elston
-#' solvers fall back to the golden section search with a warning.
+#' fitted means. Supported by all three solvers: under Fisher scoring the
+#' component enters the score and information with dV/dsigma_0 = I, and under
+#' Haseman-Elston it enters the regression as the identity basis.
 #'
 #' @details Fit a NB-GLMM to the counts provided in \emph{y}. The model uses an iterative approach that
 #' switches between the joint fixed and random effect parameter inference, and the variance component
@@ -238,6 +240,12 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #' limit.
 #' @param disp_as_vc bool - estimate the negative binomial overdispersion as an
 #' additional variance component on the REML objective, rather than by a
+#' @param solver string - which solver to use for the variance components:
+#' \code{Fisher} for Fisher scoring, \code{HE} for Haseman-Elston regression
+#' or \code{HE-NNLS} for its non-negative least squares form. The
+#' Haseman-Elston solvers regress the vectorised REML moment on the same
+#' partial derivatives the Fisher branch uses, so they cover the overdispersion
+#' component under \code{disp_as_vc} as well.
 #' golden-section search on the conditional negative binomial likelihood. This
 #' puts the overdispersion and the random effect variances on a common
 #' objective so that they compete properly. Defaults to \code{TRUE}; set to
@@ -277,8 +285,8 @@ fitPLGlmm <- function(Z, X, muvec, offsets, curr_beta, curr_theta, curr_u, curr_
 #'
 #' @name fitGeneticNullGlmm
 #'
-fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE, fix_dispersion = FALSE, max_disp = 1e4, disp_as_vc = TRUE) {
-    .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc)
+fitGeneticNullGlmm <- function(Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_ = NULL, null_sigma_ = NULL, null_beta_ = NULL, null_disp = -1.0, fix_variance = FALSE, return_projection = TRUE, fix_dispersion = FALSE, max_disp = 1e4, disp_as_vc = TRUE, solver = "Fisher") {
+    .Call('_miloR_fitGeneticNullGlmm', PACKAGE = 'miloR', Z, X, K, muvec, offsets, curr_beta, curr_u, curr_sigma, y, u_indices, theta_conv, curr_disp, REML, maxit, Kinv_, null_sigma_, null_beta_, null_disp, fix_variance, return_projection, fix_dispersion, max_disp, disp_as_vc, solver)
 }
 
 #' Score test for genetic variants against a fitted null model

@@ -48,8 +48,8 @@
 #' @param disp.as.vc A \code{logical} scalar. Estimate the negative binomial
 #' overdispersion as an additional variance component on the REML objective
 #' rather than by a golden section search on the conditional negative binomial
-#' likelihood at the current fitted means. Only applies to the GLMM, and only to
-#' the Fisher solver. See \code{\link{fitGLMM}}.
+#' likelihood at the current fitted means. Only applies to the GLMM, and is
+#' supported by all three solvers. See \code{\link{fitGLMM}}.
 #' @param max.iters A scalar that determines the maximum number of iterations to run the GLMM solver if it does
 #' not reach the convergence tolerance threshold.
 #' @param max.tol A scalar that deterimines the GLMM solver convergence tolerance. It is recommended to keep

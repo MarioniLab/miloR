@@ -264,17 +264,44 @@ test_that("disp.as.vc recovers the dispersion the golden section search misses",
 })
 
 
-test_that("disp.as.vc falls back with a warning on the Haseman-Elston solvers", {
+test_that("disp.as.vc is supported by the Haseman-Elston solvers", {
     d <- .simPooled(77)
-    expect_warning(.fitPooled(d, vc=TRUE, solver="HE-NNLS", quiet=FALSE),
-                   "only implemented for the Fisher solver")
+    for(sv in c("HE", "HE-NNLS")){
+        expect_warning(.fitPooled(d, vc=TRUE, solver=sv, quiet=FALSE), regexp=NA)
 
-    # and the fallback result matches simply not asking for it
-    fallback <- suppressWarnings(.fitPooled(d, vc=TRUE, solver="HE-NNLS"))
-    plain <- .fitPooled(d, vc=FALSE, solver="HE-NNLS")
-    expect_equal(as.numeric(fallback$Sigma), as.numeric(plain$Sigma), tolerance=1e-10)
-    expect_equal(fallback$Dispersion, plain$Dispersion, tolerance=1e-10)
+        asvc <- .fitPooled(d, vc=TRUE, solver=sv)
+        legacy <- .fitPooled(d, vc=FALSE, solver=sv)
+
+        expect_true(is.finite(asvc$Dispersion) && asvc$Dispersion > 0)
+        expect_true(is.finite(asvc$Sigma[1]) && asvc$Sigma[1] > 0)
+        # the simulated size is 5; the conditional likelihood search overshoots
+        expect_lt(abs(asvc$Dispersion - 5), abs(legacy$Dispersion - 5))
+    }
 })
+
+
+test_that("every solver agrees with the reference genetic fitter", {
+    # fitGeneticNullGlmm builds V* and its partial derivatives directly rather
+    # than through Z, G and the Woodbury inverse, so it is an independent
+    # implementation. With K = Zp Zp' and no other random effect it fits exactly
+    # the same model as a plain random intercept.
+    d <- .simPooled(78, n=120, qp=24)
+    Zp <- matrix(0, nrow(d$X), length(d$random.levels$pool))
+    Zp[cbind(seq_len(nrow(d$X)), as.integer(factor(d$Zin[, 1])))] <- 1
+    K <- Zp %*% t(Zp)
+    b0 <- as.numeric(solve(crossprod(d$X), crossprod(d$X, log(d$y + 1) - d$offsets)))
+
+    for(sv in c("Fisher", "HE", "HE-NNLS")){
+        fit <- .fitPooled(d, vc=TRUE, solver=sv)
+        ref <- suppressWarnings(miloR:::fitGeneticNullGlmm(
+            Z=matrix(0, nrow(d$X), 0), X=d$X, K=K, muvec=rep(mean(d$y), nrow(d$X)),
+            offsets=d$offsets, curr_beta=b0, curr_u=rep(0, nrow(d$X)), curr_sigma=0.5,
+            y=d$y, u_indices=list(), theta_conv=1e-6, curr_disp=4, REML=TRUE,
+            maxit=100, disp_as_vc=TRUE, solver=sv))
+        expect_equal(as.numeric(fit$Sigma[1]), as.numeric(ref$Sigma[1]), tolerance=1e-3)
+    }
+})
+
 
 
 test_that("disp.as.vc is on by default and the flag actually switches estimator", {
