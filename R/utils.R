@@ -141,3 +141,50 @@
     return(nh_intersect_mat)
 }
 
+#' Check a mixed model design for degenerate variance components
+#'
+#' A variance component is only identifiable if its design contributes
+#' something the fixed effects do not. If the columns of Z_j lie in the column
+#' space of X then sigma_j carries no information: the fit either fails on a
+#' singular Hessian or converges to an arbitrary value with the Satterthwaite
+#' degrees of freedom collapsing to zero and every p-value equal to 1. Neither
+#' is a useful answer, and the second is easy to miss, so the design is
+#' rejected up front.
+#'
+#' rank([X Z_j]) is always at least rank(X); equality means Z_j adds nothing.
+#'
+#' @param x.model matrix of fixed effects
+#' @param z.model matrix mapping observations to random effect levels, one
+#' column per random effect variable
+#' @param geno.only logical, whether the only random effect is the genetic one,
+#' whose design is the identity and so is never contained in the span of X
+#'
+#' @return invisible NULL, called for the side effect of erroring
+#'
+#' @importFrom stats model.matrix
+.checkDesignRank <- function(x.model, z.model, geno.only=FALSE){
+    x.rank <- qr(x.model)$rank
+
+    if(x.rank < ncol(x.model)){
+        stop("Fixed effect design matrix is rank deficient: rank ", x.rank,
+             " with ", ncol(x.model), " columns. Two or more fixed effects are ",
+             "collinear - drop one, or combine them into a single variable.")
+    }
+
+    # the genetic design is the identity, which is never contained in span(X)
+    if(isTRUE(geno.only)){
+        return(invisible(NULL))
+    }
+
+    for(j in seq_len(ncol(z.model))){
+        zj <- model.matrix(~ 0 + factor(z.model[, j]))
+        if(qr(cbind(x.model, zj))$rank <= x.rank){
+            stop("Random effect '", colnames(z.model)[j], "' is collinear with the ",
+                 "fixed effects: its levels are fully determined by the fixed effect ",
+                 "design, so its variance component is not identifiable. Remove it ",
+                 "from the random effects, or remove the corresponding fixed effect.")
+        }
+    }
+
+    invisible(NULL)
+}

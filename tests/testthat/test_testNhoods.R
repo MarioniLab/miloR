@@ -242,26 +242,35 @@ sim1.meta$Condition_num <- paste0("Condition_num", c(1, 1, 1, 0, 0, 0))
 sim1.meta$Replicate_num <- paste0("Replicate_num", c(1, 2, 3, 1, 2, 3))
 sim1.meta$Replicate2 <- paste0("Replicate2", c(1, 2, 1, 2, 1, 2))
 
-test_that("Collinear fixed and random effects cannot produce a significant result", {
-    # Condition enters as both the fixed and the random effect, so the variance
-    # component is not identifiable from the mean structure.
+test_that("Collinear fixed and random effects are rejected before fitting", {
+    # Condition enters as both the fixed and the random effect, so the columns of
+    # Z lie in the column space of X and the variance component is not
+    # identifiable.
     #
-    # This used to surface as a singular Hessian and an error, which depended on
-    # the random starting values - the fit failed for most draws and returned a
-    # component of 1e-8 for the rest. Estimating the dispersion as a variance
-    # component leaves the pseudo-variance better conditioned, so the fit now
-    # converges instead. The degeneracy is still detectable, and more usefully
-    # so: the Satterthwaite degrees of freedom collapse to the order of 1e-28
-    # and every p-value is exactly 1, so no neighbourhood can be called
-    # significant. For a loop over neighbourhoods that is a safer failure mode
-    # than aborting the whole batch on one degenerate fit.
+    # This used to surface downstream as a singular Hessian, which depended on
+    # the random starting values - the fit failed for 18 of 20 draws and
+    # returned a component of 1e-8 for the rest. Estimating the dispersion as a
+    # variance component leaves the pseudo-variance better conditioned, so the
+    # fit converges instead and the degeneracy shows up only as degrees of
+    # freedom of order 1e-28 and p-values of exactly 1, which is easy to miss.
+    # The design is now rejected up front by a rank check.
     set.seed(42)
-    res <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
-                                       design.df=sim1.meta, glmm.solver="Fisher", force=TRUE))
-    expect_true(all(res$PValue > 0.99, na.rm=TRUE))
-    expect_true(all(res$SpatialFDR > 0.99, na.rm=TRUE))
+    expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Condition),
+                                             design.df=sim1.meta, glmm.solver="Fisher", force=TRUE)),
+                 "is collinear with the fixed effects")
+})
+
+
+test_that("An identifiable random effect passes the rank check", {
+    set.seed(42)
+    re.meta <- sim1.meta
+    re.meta$Batch <- factor(rep(c("b1", "b2", "b3"), length.out=nrow(re.meta)))
+    res <- suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (1|Batch),
+                                       design.df=re.meta, glmm.solver="Fisher", force=TRUE))
+    expect_equal(nrow(res), nrow(nhoodCounts(sim1.mylo)))
     expect_true(any(is.finite(res$logFC)))
 })
+
 
 test_that("Invalid formulae give expected errors", {
     expect_error(suppressWarnings(testNhoods(sim1.mylo, design=~Condition + (50|Condition),

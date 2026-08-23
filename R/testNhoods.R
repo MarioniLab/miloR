@@ -475,6 +475,10 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
             rand.levels <- list("Genetic"=colnames(z.model))
         }
 
+        # reject designs where a variance component cannot be identified before
+        # spending time fitting them - see .checkDesignRank
+        .checkDesignRank(x.model, z.model, geno.only=geno.only)
+
         # extract tagwise dispersion for glmm
         # re-scale these to allow for non-zero variances
         dispersion <- dge$tagwise.dispersion
