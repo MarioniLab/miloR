@@ -15,19 +15,12 @@ arma::mat invertPseudoVar(const arma::mat& A, const arma::mat& B, const arma::ma
     arma::mat mid(c, c);
     arma::mat ZB(n, c);
 
-    // test some openmp parallelisation - saves ~2s on n=1000 with ~50 threads
-    #pragma omp parallel sections
-    {
-        #pragma omp section
-        {
-            ZB = Z * B;
-        }
-
-        #pragma omp section
-        {
-            mid = arma::eye<arma::mat>(c, c) + ZtA * ZB;
-        }
-    }
+    // These two were in an omp parallel sections block, but the second reads ZB
+    // while the first writes it - the work is strictly sequential, so the block
+    // was a data race rather than a speed-up. Results were not reproducible
+    // between identical calls.
+    ZB = Z * B;
+    mid = arma::eye<arma::mat>(c, c) + ZtA * ZB;
 
     double _rcond = arma::rcond(mid);
     if (_rcond < 1e-12) {
