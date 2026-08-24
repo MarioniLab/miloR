@@ -479,6 +479,12 @@ testNhoods <- function(x, design, design.df, kinship=NULL,
         # spending time fitting them - see .checkDesignRank
         .checkDesignRank(x.model, z.model, geno.only=geno.only, kinship=kinship)
 
+        # a relatedness matrix with no relatedness in it adds an inestimable
+        # parameter - see .checkKinshipSeparability
+        if(!is.null(kinship)){
+            .checkKinshipSeparability(kinship, force=force)
+        }
+
         # extract tagwise dispersion for glmm
         # re-scale these to allow for non-zero variances
         dispersion <- dge$tagwise.dispersion

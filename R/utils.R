@@ -210,3 +210,72 @@
 
     invisible(NULL)
 }
+
+
+#' Check that a relatedness matrix can separate the genetic variance from the
+#' overdispersion
+#'
+#' The genetic component enters the pseudo-variance as \eqn{\sigma_g K} and the
+#' negative binomial overdispersion as \eqn{\sigma_0 I}. Writing
+#' \eqn{K = I + E}, where \emph{E} holds the off-diagonal relatedness, the two
+#' terms differ only through \emph{E}: when \emph{E} is negligible the partial
+#' derivatives of the pseudo-variance with respect to the two parameters are the
+#' same matrix, the REML information has two identical columns, and neither
+#' component is separately estimable.
+#'
+#' The statistic is \eqn{\|E\|_F / \|K\|_F}, the share of the matrix norm
+#' carried off the diagonal. It scales with cohort size for fixed per-pair
+#' relatedness - \eqn{\|E\|_F^2 = n(n-1)\overline{K_{ij}^2}} against a diagonal
+#' contributing only \emph{n} - so a single threshold serves any \emph{n}. The
+#' relatedness in the OneK1K subset gives 0.05 at n = 98; the same per-pair
+#' magnitude at n = 10,000 gives 0.45.
+#'
+#' Thresholds are calibrated against simulation. At a ratio of 0.09, 43\% of
+#' neighbourhoods returned a genetic variance pinned at the constraint floor and
+#' the median estimate was a quarter of the truth; at 0.25, 29\% were pinned and
+#' the median was 30\% low; at 0.52 and above, fewer than 10\% were pinned and
+#' the median was within 11\% of the truth.
+#'
+#' @param kinship the relatedness matrix
+#' @param force logical, downgrade the error to a warning
+#' @param tol.error ratio at or below which the genetic component is treated as
+#' inestimable
+#' @param tol.warn ratio below which the estimate is flagged as unreliable
+#'
+#' @return invisibly, the computed ratio
+.checkKinshipSeparability <- function(kinship, force=FALSE, tol.error=0.1, tol.warn=0.35){
+    K <- as.matrix(kinship)
+    E <- K
+    diag(E) <- 0
+
+    nk <- norm(K, type="F")
+    if(nk <= 0){
+        stop("Kinship matrix is all zero")
+    }
+    ratio <- norm(E, type="F") / nk
+
+    msg <- paste0("Relatedness matrix carries ", signif(ratio, 3),
+                  " of its norm off the diagonal (max |off-diagonal| ",
+                  signif(max(abs(E)), 3), "). The genetic variance is confounded with the ",
+                  "negative binomial overdispersion: they enter the pseudo-variance as ",
+                  "sigma_g K and sigma_0 I, which differ only through the off-diagonal ",
+                  "structure. ")
+
+    if(ratio <= tol.error){
+        act <- paste0("Below ", tol.error, " the component is not estimable - in simulation this ",
+                      "left 43% of neighbourhoods pinned at the variance floor and a median ",
+                      "estimate a quarter of the truth. Drop the kinship matrix and use genetic ",
+                      "principal components as fixed effects, or supply a cohort with real ",
+                      "relatedness. Set force=TRUE to fit anyway.")
+        if(isTRUE(force)){
+            warning(msg, act)
+        } else{
+            stop(msg, act)
+        }
+    } else if(ratio < tol.warn){
+        warning(msg, "Below ", tol.warn, " the estimate is unreliable - in simulation the median ",
+                "was 30% low with 29% of neighbourhoods at the variance floor.")
+    }
+
+    invisible(ratio)
+}

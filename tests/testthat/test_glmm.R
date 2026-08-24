@@ -370,3 +370,71 @@ test_that("repeated identical fits are reproducible", {
     expect_equal(length(unique(fits[2, ])), 1L)
     expect_equal(length(unique(fits[3, ])), 1L)
 })
+
+
+### -------------------------------------------------------------------------
+### A relatedness matrix separates the genetic variance from the negative
+### binomial overdispersion only through its off-diagonal structure. Writing
+### K = I + E, the two components enter the pseudo-variance as sigma_g (I + E)
+### and sigma_0 I, so when E is negligible their partial derivatives are the
+### same matrix and neither is estimable.
+### -------------------------------------------------------------------------
+test_that("a kinship matrix with no relatedness in it is rejected", {
+    sep <- miloR:::.checkKinshipSeparability
+    n <- 98
+
+    # pure identity: no relatedness at all
+    expect_error(sep(diag(n)), "not estimable")
+
+    # weak block structure, comparable to a GRM of nominally unrelated donors
+    weak <- 0.98 * diag(n) + 0.02 * .mkBlockKin(n, fam=4)
+    diag(weak) <- 1
+    expect_error(sep(weak), "confounded with the negative binomial overdispersion")
+
+    # force downgrades the error to a warning and still returns the ratio
+    expect_warning(r <- sep(diag(n), force=TRUE), "not estimable")
+    expect_equal(r, 0)
+})
+
+
+test_that("a kinship matrix with real relatedness passes", {
+    sep <- miloR:::.checkKinshipSeparability
+
+    # the package's own family-structured IBD matrix
+    data(sim_family, package="miloR")
+    expect_silent(r <- sep(sim_family$IBD))
+    expect_gt(r, 0.35)
+
+    # strong simulated family blocks
+    strong <- 0.4 * diag(98) + 0.6 * .mkBlockKin(98, fam=4)
+    diag(strong) <- 1
+    expect_silent(sep(strong))
+
+    # the intermediate band warns rather than erroring
+    mid <- 0.85 * diag(98) + 0.15 * .mkBlockKin(98, fam=4)
+    diag(mid) <- 1
+    expect_warning(sep(mid), "unreliable")
+})
+
+
+test_that("the separability ratio scales with cohort size", {
+    # the same per-pair relatedness carries more information in a larger cohort,
+    # and the statistic reflects that: ||E||_F^2 grows as n(n-1) against a
+    # diagonal contributing only n
+    sep <- miloR:::.checkKinshipSeparability
+    ratio <- function(n){
+        set.seed(42)
+        K <- diag(n)
+        off <- rnorm(n * (n - 1) / 2, 0, 0.005)
+        K[lower.tri(K)] <- off
+        K <- K + t(K) - diag(diag(K))
+        diag(K) <- 1
+        E <- K; diag(E) <- 0
+        norm(E, "F") / norm(K, "F")
+    }
+    small <- ratio(100)
+    large <- ratio(1500)
+    expect_gt(large, small)
+    expect_lt(small, 0.1)     # inestimable at this cohort size
+    expect_gt(large, 0.1)     # estimable at a larger one
+})
