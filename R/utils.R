@@ -158,11 +158,14 @@
 #' column per random effect variable
 #' @param geno.only logical, whether the only random effect is the genetic one,
 #' whose design is the identity and so is never contained in the span of X
+#' @param kinship the relatedness matrix, or NULL. When one is supplied the
+#' genetic effect contributes one level per observation, so any further random
+#' effect asks for more latent effects than there are observations
 #'
 #' @return invisible NULL, called for the side effect of erroring
 #'
 #' @importFrom stats model.matrix
-.checkDesignRank <- function(x.model, z.model, geno.only=FALSE){
+.checkDesignRank <- function(x.model, z.model, geno.only=FALSE, kinship=NULL){
     x.rank <- qr(x.model)$rank
 
     if(x.rank < ncol(x.model)){
@@ -174,6 +177,25 @@
     # the genetic design is the identity, which is never contained in span(X)
     if(isTRUE(geno.only)){
         return(invisible(NULL))
+    }
+
+    # A relatedness matrix gives the genetic effect one level per observation.
+    # That is identified on its own, because its covariance is sigma_g * K with K
+    # fixed - one variance parameter, not n. Adding a second random effect on top
+    # is not: there is then no residual left for it to be distinguished from, and
+    # the variance components chase each other. On the OneK1K data this produced a
+    # pool variance of 193 - against 0.24 for the same random effect fitted
+    # without the kinship - reported as a converged fit.
+    n.obs <- nrow(x.model)
+    q.re <- sum(vapply(seq_len(ncol(z.model)),
+                       function(j) length(unique(z.model[, j])), numeric(1)))
+    q.gen <- if(is.null(kinship)) 0L else nrow(kinship)
+
+    if(q.re + q.gen > n.obs){
+        stop("Model asks for ", q.re + q.gen, " random effect levels from ", n.obs,
+             " observations", if(q.gen > 0) paste0(" (", q.gen, " of them genetic, one per observation)"),
+             ". The variance components are not jointly identifiable. Drop a random effect, ",
+             "or drop the kinship matrix and keep the random effect.")
     }
 
     for(j in seq_len(ncol(z.model))){

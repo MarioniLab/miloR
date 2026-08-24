@@ -177,13 +177,6 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
     arma::mat rhs(m+c, 1);
 
     arma::vec theta_up(m+c, arma::fill::zeros);
-    arma::mat I = arma::eye(arma::size(coeffmat));
-    arma::mat lm_eye = arma::eye(arma::size(coeffmat));
-    arma::mat _coeff = coeffmat;
-    double lambda = 1e-1;
-    double lambda_step = 10;
-    double _illcond_eps = 1e-6;
-    double _lcond_target = 1e-5;
 
     rhs_beta.col(0) = XtWinv * ystar;
     rhs_u.col(0) = ZtWinv * ystar;
@@ -195,13 +188,26 @@ arma::vec solveEquations (const int& c, const int& m, const arma::mat& ZtWinv, c
 
     try{
         if(_rcond < 1e-9){
-            Rcpp::warning("Coefficients Hessian is computationally singular - trying pseudoinverse");
-            // poorly conditioned system - switch to regularisation to find a solution?
-            // add a small diagonal element to coeffmat
-            theta_up = arma::solve(_coeff, rhs, arma::solve_opts::no_approx);
+            // A variance component held at the constraint floor puts 1e8 on the
+            // corresponding diagonal of G^-1, which on its own is enough to make
+            // the coefficient matrix numerically singular.
+            //
+            // This branch used to warn that it was "trying pseudoinverse" and
+            // then call solve() with solve_opts::no_approx, which *disables*
+            // Armadillo's solution for rank-deficient systems - strictly less
+            // tolerant than the solve_opts::fast used on the well-conditioned
+            // path. It threw "solve(): solution not found" and aborted the whole
+            // fit, so the branch that exists to survive a singular system was the
+            // one guaranteed to fail on it. It now takes the pseudoinverse it
+            // always claimed to take.
+            Rcpp::warning("Coefficients Hessian is computationally singular - using pseudoinverse");
+            arma::mat coeffinv;
+            bool _pok = arma::pinv(coeffinv, coeffmat);
+            if(!_pok){
+                Rcpp::stop("Coefficient matrix has no pseudoinverse - consider an alternative model");
+            }
+            theta_up = coeffinv * rhs;
         } else{
-            // can we just use solve here instead?
-            // if the coefficient matrix is singular then do we resort to pinv?
             theta_up = arma::solve(coeffmat, rhs, arma::solve_opts::fast);
         }
     } catch(std::exception const& ex){

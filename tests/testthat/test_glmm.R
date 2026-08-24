@@ -170,22 +170,59 @@ test_that("Infinite and NA values fail as expected", {
 
 
 test_that("the genetic random effect uses the whitened parameterisation", {
+    # fitGLMM() now routes the kinship path through fitGeneticNullGlmm, which
+    # never builds G at all - that is the point of it. The parameterisation this
+    # guards belongs to fitGeneticPLGlmm, which is still exported, so the test
+    # calls it directly rather than through the wrapper.
     d <- .simGeneticFit(7)
-    fit <- .fitKin(d)
-    sg <- as.numeric(fit$Sigma[1])
+    n <- d$n
+    fullZ <- d$L
+    colnames(fullZ) <- paste0("Genetic", seq_len(n))
+    rl <- list(Genetic=colnames(fullZ))
+    b0 <- as.numeric(solve(crossprod(d$X), crossprod(d$X, log(d$y + 1))))
+    u0 <- rep(0, n)
+    sg0 <- 0.5
+    mu0 <- as.numeric(exp(d$offsets + d$X %*% b0 + fullZ %*% u0))
+
+    fit <- suppressWarnings(miloR:::fitGeneticPLGlmm(
+        Z=fullZ, X=d$X, K=d$K, offsets=d$offsets, muvec=mu0, curr_beta=b0,
+        curr_theta=c(b0, u0), curr_u=u0, curr_sigma=sg0,
+        curr_G=diag(sg0, n), y=d$y, u_indices=list(seq_len(n)),
+        theta_conv=1e-6, rlevels=rl, curr_disp=4, REML=TRUE, maxit=20,
+        solver="Fisher", vardist="NB", disp_as_vc=TRUE))
+
+    sg <- as.numeric(fit$Sigma)[1]
     Ginv <- fit$Ginv
 
     expect_true(is.finite(sg) && sg > 0)
-    expect_equal(dim(Ginv), c(d$n, d$n))
+    expect_equal(dim(Ginv), c(n, n))
 
     # G_g = sigma_g I, so its inverse is diagonal. Under the old parameterisation
     # this block was Kinv / sigma_g, which is dense.
     expect_equal(max(abs(Ginv[upper.tri(Ginv)])), 0)
-    expect_equal(sg * Ginv, diag(d$n), tolerance=1e-10)
+    expect_equal(sg * Ginv, diag(n), tolerance=1e-10)
 
     # and therefore the genetic block of the pseudo-variance is exactly sigma_g K
     G <- solve(Ginv)
     expect_equal(d$L %*% G %*% t(d$L), sg * d$K, tolerance=1e-8)
+})
+
+
+test_that("the kinship path routes through the cheaper genetic fitter", {
+    # fitGLMM(Kin=) and fitGeneticNullGlmm must now agree exactly, because the
+    # first calls the second - but the wrapper adds the Satterthwaite degrees of
+    # freedom, which it rebuilds from V*(sigma) rather than from a coefficient
+    # matrix it no longer builds.
+    d <- .simGeneticFit(5)
+    fit <- .fitKin(d, vc=TRUE)
+
+    expect_true(is.finite(as.numeric(fit$Sigma)[1]))
+    expect_true(all(is.finite(as.numeric(fit$SE))))
+    expect_true(all(is.finite(as.numeric(fit$DF))))
+    expect_true(all(is.finite(as.numeric(fit$PVALS))))
+    expect_true(all(fit$PVALS >= 0 & fit$PVALS <= 1))
+    # degrees of freedom must be positive to give a usable t reference
+    expect_true(all(as.numeric(fit$DF) > 0))
 })
 
 
