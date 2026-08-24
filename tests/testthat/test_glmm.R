@@ -525,3 +525,56 @@ test_that("the reparameterisation leaves the fitted model unchanged", {
     Vfrom_taugamma <- diag(dinv) + f$Tau * diag(d$n) + f$Gamma * (d$K - diag(d$n))
     expect_equal(Vfrom_sigma, Vfrom_taugamma, tolerance=1e-10)
 })
+
+
+### -------------------------------------------------------------------------
+### The PQL iteration can settle into a period-2 limit cycle rather than a fixed
+### point. On data(sim_family) the genetic component alternated between the
+### constraint floor and 0.5403 with |x_t - x_(t-2)| = 3.7e-15, so no tolerance
+### could help - two states were swapping rather than one converging. A relaxed
+### update collapses the cycle, and cannot move a fixed point, because at one
+### the update equals the current value for any relaxation factor.
+### -------------------------------------------------------------------------
+test_that("relaxation breaks the sim_family limit cycle", {
+    data(sim_family, package="miloR")
+    DF <- sim_family$DF
+    K <- sim_family$IBD
+    n <- nrow(DF)
+    X <- as.matrix(data.frame(Intercept=rep(1, n), FE2=as.numeric(DF$FE2)))
+    rl <- list(Genetic=paste0("Genetic", seq_len(n)))
+
+    for(sv in c("HE", "HE-NNLS")){
+        f <- suppressWarnings(fitGLMM(
+            X=X, Z=matrix(1, n, 1, dimnames=list(NULL, "Genetic")), y=DF$Mean.Count,
+            offsets=rep(0, n), Kin=K, geno.only=TRUE, random.levels=rl, REML=TRUE,
+            dispersion=0.5, solver=sv, disp.as.vc=TRUE,
+            glmm.control=list(theta.tol=1e-6, max.iter=100, solver=sv,
+                              init.u=rep(0, n), init.sigma=NULL, init.beta=NULL)))
+        expect_true(isTRUE(f$converged))
+        expect_lt(f$Iters, 100)
+        expect_true(is.finite(as.numeric(f$Sigma)[1]))
+    }
+})
+
+
+test_that("relaxation leaves a well-behaved fit untouched", {
+    # The detector only fires on an exact 2-cycle, where the iterate returns to
+    # where it was two steps ago to within a millionth of the current step. A
+    # convergent sequence that approaches its fixed point by damped oscillation
+    # must not trip it. These two fits take 12 and 23 iterations undamped; at a
+    # detector threshold of 0.1 rather than 1e-6 the second took 61, so the
+    # bounds below are a regression guard on that.
+    d <- .simGeneticFit(5)
+    b0 <- as.numeric(solve(crossprod(d$X), crossprod(d$X, log(d$y + 1) - d$offsets)))
+    ref <- function(vc) suppressWarnings(miloR:::fitGeneticNullGlmm(
+        Z=matrix(0, d$n, 0), X=d$X, K=d$K, muvec=rep(mean(d$y), d$n), offsets=d$offsets,
+        curr_beta=b0, curr_u=rep(0, d$n), curr_sigma=0.5, y=d$y, u_indices=list(),
+        theta_conv=1e-6, curr_disp=4, REML=TRUE, maxit=200, disp_as_vc=vc))
+
+    a <- ref(TRUE)
+    b <- ref(FALSE)
+    expect_true(isTRUE(a$converged))
+    expect_true(isTRUE(b$converged))
+    expect_lt(a$Iters, 20)      # 12 undamped
+    expect_lt(b$Iters, 35)      # 23 undamped, 61 with a loose detector
+})

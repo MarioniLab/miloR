@@ -348,6 +348,30 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
     arma::vec sigma_diff(c, arma::fill::zeros);
     arma::vec beta_diff(m, arma::fill::zeros);
 
+    // Relaxation against period-2 limit cycles.
+    //
+    // The PQL iteration alternates variance components -> fixed effects and
+    // BLUPs -> fitted means -> variance components. On strongly overdispersed
+    // data that composite map can have a stable 2-cycle rather than a fixed
+    // point: on data(sim_family) the genetic component alternated between the
+    // constraint floor and 0.5403 with |x_t - x_(t-2)| = 3.7e-15, so nothing
+    // converged and no tolerance helped, because two states were swapping
+    // rather than one settling.
+    //
+    // A relaxed update sig <- sig + alpha (update - sig) collapses a 2-cycle for
+    // alpha < 1 and cannot move the answer: at a fixed point the update equals
+    // the current value, so every alpha leaves it exactly where it is. The
+    // feasible set {gamma > 0, tau > gamma} is convex, so a convex combination
+    // of two feasible points stays feasible and the constraint survives too.
+    //
+    // alpha starts at 1 and is only reduced once a cycle is actually detected,
+    // so well-behaved fits pay nothing.
+    double relax = 1.0;
+    const double relax_floor = 0.0625;
+    arma::vec sig_prev1(ctot, arma::fill::zeros);
+    arma::vec sig_prev2(ctot, arma::fill::zeros);
+    int seen_iters = 0;
+
     double update_disp = curr_disp;
     double disp_diff = std::numeric_limits<double>::infinity();
     const double disp_tol = 1e-2;
@@ -478,7 +502,36 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
             }
         }
 
-            sigma_diff = arma::abs(sigma_update.head(c) - curr_sigma);
+            // Convergence is judged on the undamped step. Relaxation scales the
+            // step by alpha, so testing the relaxed increment would make the
+            // criterion alpha times easier to satisfy and let the fit stop that
+            // much further from the fixed point - which is a weaker answer, not
+            // a converged one.
+            arma::vec raw_step = sigma_update - sig_a;
+
+            // relax toward the update rather than jumping to it
+            sigma_update = sig_a + relax * raw_step;
+
+            // A 2-cycle shows up as the iterate returning to exactly where it
+            // was two steps ago while still moving appreciably each step. The
+            // test has to be strict: an ordinary convergent sequence often
+            // approaches its fixed point by damped oscillation, and a loose
+            // threshold fires on that too - at d2 < 0.1 d1 it slowed a healthy
+            // fit from 23 iterations to 61. A genuine limit cycle sits at
+            // d2/d1 of order 1e-15, so a threshold of 1e-6 keeps nine orders of
+            // margin over the cycle while never firing on convergence.
+            if(seen_iters >= 2){
+                double d1 = arma::norm(sigma_update - sig_prev1, 2);
+                double d2 = arma::norm(sigma_update - sig_prev2, 2);
+                if(d1 > theta_conv && d2 < 1e-6 * d1 && relax > relax_floor){
+                    relax *= 0.5;
+                }
+            }
+            sig_prev2 = sig_prev1;
+            sig_prev1 = sigma_update;
+            seen_iters++;
+
+            sigma_diff = arma::abs(raw_step.head(c));
             sig_a = sigma_update;
             curr_sigma = sigma_update.head(c);
             if(disp_as_vc){
