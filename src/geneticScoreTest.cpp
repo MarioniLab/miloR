@@ -17,6 +17,45 @@ using namespace Rcpp;
 // Z_g = I, G_g = sigma_c * K parameterisation. That is algebraically identical
 // to Z_g = chol(K), G_g = sigma_c * I but avoids an n x n dense Z block, and it
 // applies K exactly once.
+// Build V* from the same partial derivative list the score and information are
+// taken from: V* = diag(wdiag) + sum_j sigma_j dV_j. Assembling it any other way
+// invites the two to disagree, which is exactly how the genetic block came to
+// hold sigma_g L K L' while its derivative stayed K.
+// Feasible set for the variance components. Plain positivity, plus - under the
+// reparameterisation - tau > gamma, which is what keeps the recovered
+// sigma_0 = tau - gamma non-negative. tau and gamma sit at the last two
+// positions of the augmented vector.
+bool feasibleSigma(const arma::vec& sig, const bool& reparam, const int& c){
+    if(arma::any(sig <= 0.0)){
+        return false;
+    }
+    if(reparam){
+        const double gamma = sig(c - 1);
+        const double tau   = sig(c);
+        if(tau - gamma <= 0.0){
+            return false;
+        }
+    }
+    return true;
+}
+
+
+arma::mat buildVstarFromPartials(const arma::vec& wdiag, const Rcpp::List& dV,
+                                 const arma::vec& sigmas){
+    const unsigned int n = wdiag.n_elem;
+    const int ctot = dV.size();
+
+    arma::mat Vstar(n, n, arma::fill::zeros);
+    Vstar.diag() = wdiag;
+    for(int j = 0; j < ctot; j++){
+        const arma::mat& dVj = dV[j];
+        Vstar += sigmas(j) * dVj;
+    }
+    Vstar = 0.5 * (Vstar + Vstar.t()); // guard inv_sympd against round-off
+    return Vstar;
+}
+
+
 arma::mat buildVstar(const arma::vec& wdiag, const arma::mat& Z, const arma::mat& K,
                      const arma::vec& sigmas, const Rcpp::List& u_indices){
     const unsigned int n = wdiag.n_elem;
@@ -262,11 +301,41 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
         dVa[c] = arma::mat(n, n, arma::fill::eye);
     }
 
-    // augmented parameter vector: [sigma_1 .. sigma_c, sigma_0]
+    // Reparameterise the genetic component on K = I + E.
+    //
+    // With both sigma_0 * I and sigma_g * K in the pseudo-variance, the two
+    // partial derivatives are I and K. For a relatedness matrix of nominally
+    // unrelated individuals K is numerically the identity, the two derivatives
+    // are the same matrix, and the REML information has two identical columns -
+    // exactly rank 1 when K = I. Writing E = K - I and collecting terms,
+    //
+    //   V* = W + sigma_0 I + sigma_g (I + E) = W + tau I + gamma E
+    //
+    // with tau = sigma_0 + sigma_g and gamma = sigma_g. The model is unchanged -
+    // this is a linear change of basis with Jacobian [[1,1],[0,1]], so the
+    // information transforms as J' I J and its rank is preserved. It creates no
+    // information: when E = 0, dV*/dgamma = 0 and gamma simply has none, which
+    // is the honest statement of the problem rather than a ridge for the
+    // optimiser to wander along.
+    //
+    // What it buys is conditioning and separation of scales. On the OneK1K
+    // relatedness the correlation between the two bases falls from +0.999 to
+    // -0.017, the information is 4x better conditioned, and V* is 19.5x less
+    // sensitive to the ill-determined parameter - so the fixed effect standard
+    // errors stop being hostage to an arbitrary split.
+    const bool reparam = disp_as_vc;
+    if(reparam){
+        arma::mat Egen = K;
+        Egen.diag() -= 1.0;              // E = K - I, exactly
+        dVa[c - 1] = Egen;
+    }
+
+    // augmented parameter vector: [sigma_1 .. sigma_(c-1), gamma, tau] under the
+    // reparameterisation, [sigma_1 .. sigma_c, sigma_0] otherwise
     arma::vec sig_a(ctot);
     sig_a.head(c) = curr_sigma;
     if(disp_as_vc){
-        sig_a(c) = 1.0 / std::max(curr_disp, 1e-8);
+        sig_a(c) = 1.0 / std::max(curr_disp, 1e-8) + curr_sigma(c - 1);
     }
 
     arma::vec wdiag(n);
@@ -308,10 +377,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
         arma::vec ystar_c = ystar - offsets;
 
         // ---- pseudo-variance and its inverse -------------------------------
-        Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
-        if(disp_as_vc){
-            Vstar.diag() += sig_a(c);
-        }
+        Vstar = buildVstarFromPartials(wdiag, dVa, sig_a);
         bool _vok = arma::inv_sympd(Vsinv, Vstar);
         if(!_vok){
             Rcpp::warning("Pseudovariance is not positive definite - using pseudoinverse");
@@ -350,6 +416,12 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
                         sigma_update(j) = constval;
                     }
                 }
+                // Haseman-Elston does not know about tau > gamma; if the
+                // regression returns an infeasible pair, lift tau just clear of
+                // gamma rather than reporting a negative sigma_0
+                if(reparam && sigma_update(c) <= sigma_update(c - 1)){
+                    sigma_update(c) = sigma_update(c - 1) + constval;
+                }
             } else {
             arma::vec score_sigma(ctot, arma::fill::zeros);
             arma::mat info_sigma(ctot, ctot, arma::fill::zeros);
@@ -386,9 +458,13 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
             // ascent direction by step-halving until every component is
             // strictly positive. This keeps the search direction and lets a
             // component recover if the data support it.
+            //
+            // Under the reparameterisation the feasible set is not simple
+            // positivity: sigma_0 = tau - gamma must also stay positive, which
+            // is a linear constraint on the pair rather than on either alone.
             arma::vec step = sigma_update - sig_a;
             int halvings = 0;
-            while(arma::any((sig_a + step) <= 0.0) && halvings < 30){
+            while(!feasibleSigma(sig_a + step, reparam, c) && halvings < 30){
                 step *= 0.5;
                 halvings++;
             }
@@ -406,17 +482,17 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
             sig_a = sigma_update;
             curr_sigma = sigma_update.head(c);
             if(disp_as_vc){
-                // report the overdispersion on the size scale
-                curr_disp = 1.0 / std::max(sig_a(c), 1e-12);
+                // sigma_g is gamma, which sits where it always did; the
+                // overdispersion is recovered by the contrast sigma_0 = tau -
+                // gamma and reported on the size scale
+                const double sigma0 = reparam ? (sig_a(c) - sig_a(c - 1)) : sig_a(c);
+                curr_disp = 1.0 / std::max(sigma0, 1e-12);
             }
         }
 
         // ---- fixed effects and BLUPs ---------------------------------------
         // recompute V* with the updated variance components before solving
-        Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
-        if(disp_as_vc){
-            Vstar.diag() += sig_a(c);
-        }
+        Vstar = buildVstarFromPartials(wdiag, dVa, sig_a);
         _vok = arma::inv_sympd(Vsinv, Vstar);
         if(!_vok){
             Vsinv = arma::pinv(Vstar);
@@ -520,10 +596,7 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
     wdiag = disp_as_vc ? dinv : ((1.0 / curr_disp) + dinv);
     arma::vec ystar_c = ystar - offsets;
 
-    Vstar = buildVstar(wdiag, Z, K, curr_sigma, u_indices);
-    if(disp_as_vc){
-        Vstar.diag() += sig_a(c);
-    }
+    Vstar = buildVstarFromPartials(wdiag, dVa, sig_a);
     bool _vok2 = arma::inv_sympd(Vsinv, Vstar);
     if(!_vok2){
         Vsinv = arma::pinv(Vstar);
@@ -577,11 +650,31 @@ List fitGeneticNullGlmm(const arma::mat& Z, const arma::mat& X, const arma::mat&
         Py_out = P * ystar_c;
     }
 
+    // tau >= gamma diagnostic. sigma_0 = tau - gamma is the overdispersion the
+    // model has left over once the genetic component has taken its share, so a
+    // margin at the boundary says the fit wants every bit of extra-Poisson
+    // variance to be genetic - which on a relatedness matrix without much
+    // relatedness in it means the two are not being told apart.
+    double tau_out = NA_REAL, gamma_out = NA_REAL, margin_out = NA_REAL;
+    bool margin_binding = false;
+    if(reparam){
+        gamma_out  = sig_a(c - 1);
+        tau_out    = sig_a(c);
+        margin_out = tau_out - gamma_out;
+        // relative, because sigma_0 has no fixed scale: the flag means the
+        // genetic component has taken essentially all of the extra-Poisson
+        // variance, leaving nothing for the overdispersion
+        margin_binding = margin_out <= 1e-3 * std::max(tau_out, 1e-12);
+    }
+
     return List::create(_["FE"]=curr_beta, _["RE"]=curr_u, _["Sigma"]=curr_sigma,
                         _["Dispersion"]=curr_disp, _["converged"]=converged, _["Iters"]=iters,
                         _["SE"]=se, _["t"]=tscore, _["P"]=P_out, _["Pystar"]=Py_out,
                         _["ystar"]=ystar, _["Wdiag"]=wdiag, _["VCOV"]=Minv,
-                        _["LOGLIHOOD"]=loglihood, _["Vsinv"]=Vsinv);
+                        _["LOGLIHOOD"]=loglihood, _["Vsinv"]=Vsinv,
+                        _["Tau"]=tau_out, _["Gamma"]=gamma_out,
+                        _["TauGammaMargin"]=margin_out,
+                        _["TauGammaBinding"]=margin_binding);
 }
 
 

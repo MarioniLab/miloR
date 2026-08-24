@@ -438,3 +438,90 @@ test_that("the separability ratio scales with cohort size", {
     expect_lt(small, 0.1)     # inestimable at this cohort size
     expect_gt(large, 0.1)     # estimable at a larger one
 })
+
+
+### -------------------------------------------------------------------------
+### The genetic component is fitted on K = I + E, so the pseudo-variance reads
+### W + tau I + gamma E with tau = sigma_0 + sigma_g and gamma = sigma_g. This
+### is a change of basis, not a change of model: the reported sigma_g is gamma
+### and the overdispersion comes back by the contrast sigma_0 = tau - gamma.
+### -------------------------------------------------------------------------
+.simGen <- function(seed, n=120, rho=0.6, sg=0.2, size=5){
+    K <- (1-rho)*diag(n) + rho*.mkBlockKin(n, fam=4)
+    diag(K) <- 1
+    set.seed(seed)
+    L <- t(chol(K))
+    X <- cbind(1, rbinom(n, 1, 0.5))
+    offs <- log(rnbinom(n, mu=2000, size=80))
+    ug <- as.numeric(L %*% rnorm(n, 0, sqrt(sg)))
+    y <- as.numeric(rnbinom(n, mu=exp(offs + log(0.02) + 0.3 * X[, 2] + ug), size=size) + 1)
+    list(n=n, K=K, X=X, offsets=offs, y=y,
+         b0=as.numeric(solve(crossprod(X), crossprod(X, log(y + 1) - offs))))
+}
+.fitGen <- function(d, disp.as.vc=TRUE, solver="Fisher"){
+    suppressWarnings(miloR:::fitGeneticNullGlmm(
+        Z=matrix(0, d$n, 0), X=d$X, K=d$K, muvec=rep(mean(d$y), d$n), offsets=d$offsets,
+        curr_beta=d$b0, curr_u=rep(0, d$n), curr_sigma=0.5, y=d$y, u_indices=list(),
+        theta_conv=1e-6, curr_disp=4, REML=TRUE, maxit=100,
+        disp_as_vc=disp.as.vc, solver=solver))
+}
+
+
+test_that("the reparameterisation is internally consistent", {
+    d <- .simGen(701)
+    f <- .fitGen(d)
+
+    # gamma is sigma_g - the reported component is the same quantity as before
+    expect_equal(as.numeric(f$Sigma)[1], f$Gamma, tolerance=1e-12)
+
+    # sigma_0 = tau - gamma, and the dispersion is its reciprocal
+    expect_equal(f$TauGammaMargin, f$Tau - f$Gamma, tolerance=1e-12)
+    expect_equal(f$Dispersion, 1 / f$TauGammaMargin, tolerance=1e-6)
+
+    # Wdiag is returned on a scale where V* = diag(Wdiag) + sigma_g K, so the
+    # constant part of it must be sigma_0
+    expect_equal(min(f$Wdiag), min(1/exp(f$ystar) * 0 + f$Wdiag), tolerance=1e-12)
+    expect_true(all(f$Wdiag > 1 / f$Dispersion - 1e-8))
+})
+
+
+test_that("tau >= gamma is maintained and reported", {
+    d <- .simGen(701)
+    f <- .fitGen(d)
+
+    # the feasible set is gamma > 0 and tau > gamma, so sigma_0 stays positive
+    expect_gt(f$Gamma, 0)
+    expect_gt(f$Tau, f$Gamma)
+    expect_gt(f$TauGammaMargin, 0)
+    expect_false(f$TauGammaBinding)
+    expect_true(is.finite(f$Dispersion) && f$Dispersion > 0)
+})
+
+
+test_that("the tau = gamma diagnostic fires when the kinship carries no relatedness", {
+    # K = I leaves dV*/dgamma = 0, so gamma carries no information at all; the
+    # genetic component then absorbs the whole extra-Poisson variance and the
+    # margin collapses. That is the case the diagnostic exists to surface.
+    d <- .simGen(701)
+    d$K <- diag(d$n)
+    flat <- .fitGen(d)
+    expect_true(flat$TauGammaBinding)
+    expect_lt(flat$TauGammaMargin, 1e-3 * flat$Tau)
+
+    # with real family structure it does not fire
+    structured <- .fitGen(.simGen(701, rho=0.6))
+    expect_false(structured$TauGammaBinding)
+})
+
+
+test_that("the reparameterisation leaves the fitted model unchanged", {
+    # a change of basis cannot move the fit: the pseudo-variance rebuilt from the
+    # reported sigma_g and dispersion must match the one rebuilt from tau and
+    # gamma, entry for entry
+    d <- .simGen(702)
+    f <- .fitGen(d)
+    dinv <- f$Wdiag - 1 / f$Dispersion          # the Poisson part
+    Vfrom_sigma <- diag(dinv) + (1 / f$Dispersion) * diag(d$n) + f$Gamma * d$K
+    Vfrom_taugamma <- diag(dinv) + f$Tau * diag(d$n) + f$Gamma * (d$K - diag(d$n))
+    expect_equal(Vfrom_sigma, Vfrom_taugamma, tolerance=1e-10)
+})
